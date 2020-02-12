@@ -1,2 +1,3 @@
 # emit-sds-l1b
-Produce emit level 1b products (60m at-sensor radiance).
+
+To understand how this repository is linked to the rest of the emit-sds repositories, please see [the repository guide](https://github.jpl.nasa.gov/emit-sds/emit-main/wiki/Repository-Guide).
