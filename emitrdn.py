@@ -89,8 +89,8 @@ class Config:
         # form output metadata strings
         self.band_names_string = ','.join(['channel_'+str(i) \
                 for i in range(len(wl))])
-        self.fwhm_string =  ','.join([str(w) for w in config.fwhm])
-        self.wavelength_string ','.join([str(w) for w in config.wl])
+        self.fwhm_string =  ','.join([str(w) for w in self.fwhm])
+        self.wavelength_string = ','.join([str(w) for w in self.wl])
 
         # find the input files
         if len(input_file)>0:
@@ -114,12 +114,12 @@ class Config:
         meta = envi.read_envi_header()
         if 'emit acquisition start time' in meta:
             self.emit_acquisition_start_time = \
-                meta[emit_acquisition start time]
+                meta[emit_acquisition_start_time]
         else:
             self.emit_acquisition_time = 'YYYYMMDDTHHMMSS'
         if 'emit acquisition stop time' in meta:
             self.emit_acquisition_stop_time = \
-                meta[emit_acquisition stop time]
+                meta[emit_acquisition_stop_time]
         else:
             self.emit_acquisition_time = 'YYYYMMDDTHHMMSS'
 
@@ -151,25 +151,25 @@ def fix_bad(frame, config):
     return fixed
 
 
-def subtract_dark(ang_t *frame, ang_t *dark):
+def subtract_dark(frame, dark):
     return frame - dark
 
 
-def correct_spatial_resp(frame, crf_correction)
+def correct_spatial_resp(frame, crf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[0]):
         scratch[i,:] = frame[i:i+1,:] @ srf_correction 
     return scratch
 
 
-def correct_spectral_resp(frame, srf_correction)
+def correct_spectral_resp(frame, srf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[1]):
         scratch[:,l] = frame[:,i:i+1] @ srf_correction 
     return scratch
 
 
-def read_frame(fileobj)
+def read_frame(fileobj):
     raw = sp.fromfile(fileobj, dtype=dtype)
     frame = raw[raw_offset_bytes:].reshape(frame_size)
 
@@ -178,7 +178,7 @@ def detector_corrections(frame, config):
     return frame
 
 
-def correct_panel_ghost(frame, config)
+def correct_panel_ghost(frame, config):
 
     pg_template = sp.array(config.pg_template)
     ntemplate = len(config.pg_template)
@@ -189,9 +189,9 @@ def correct_panel_ghost(frame, config)
     avg4 = frame[:,panel4].mean(axis=1)
 
     panel1 = sp.arange(config.panel_width)
-    panel2 = sp.arange(config.panel_width:(2*config.panel_width))
-    panel3 = sp.arange((2*config.panel_width):(3*config.panel_width))
-    panel4 = sp.arange((3*config.panel_width):(4*config.panel_width))
+    panel2 = sp.arange(config.panel_width,(2*config.panel_width))
+    panel3 = sp.arange((2*config.panel_width),(3*config.panel_width))
+    panel4 = sp.arange((3*config.panel_width),(4*config.panel_width))
  
     c1 = frame[:,panel1];
     c2 = frame[:,panel2];
@@ -223,11 +223,12 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('config_file')
-    parser.add_argument('input_file', defualt='')
-    parser.add_argument('output_file', default='')
-    parser.add_argument('--level', default='DEBUG')
+    parser.add_argument('input_file', nargs='?', default='')
+    parser.add_argument('output_file', nargs='?', default='')
+    parser.add_argument('--level', default='DEBUG',
+            help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('-v', '--version', action='version',
-        version='%(prog)s {version}'.format(version=__version__))
+        version='%(prog)s {version}'.format(version=software_version))
     args = parser.parse_args()
 
     config = Config(args.config_file, args.input_file, args.output_file)
@@ -256,7 +257,7 @@ def main():
             frame = correct_spectral_resp(frame, config.srf_correction); 
             frame = correct_spatial_resp(frame, config.crf_correction); 
             sp.asarray(frame, dtype=s.float32).tofile(fout)
-            lines++
+            lines = lines + 1
 
     params = {'lines': lines}
     params.update(globals())
