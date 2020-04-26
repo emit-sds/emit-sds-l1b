@@ -12,6 +12,7 @@ from spectral.io import envi
 import json
 import logging
 import argparse
+import multiprocessing
 
 software_version = "0.0.1"
 product_version = "0.0.1"
@@ -54,6 +55,7 @@ emit data product version = {product_version}
 emit orbit correction performed = false """
 
 
+      
 class Config:
 
     def __init__(self, filename, input_file='', output_file=''):
@@ -250,7 +252,7 @@ def main():
             while raw is not None:
 
                 # Read a frame of data
-                if lines%1000==0:
+                if lines%10==0:
                     logging.info('Calibrating line '+str(lines))
                 raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
                 
@@ -265,6 +267,10 @@ def main():
                 frame = (frame.T * config.radiometric_calibration).T
                 frame = correct_spectral_resp(frame, config.srf_correction)
                 frame = correct_spatial_resp(frame, config.crf_correction)
+   
+                # Reverse channels and write
+                if config.reverse_channels:
+                    frame = sp.flip(frame, axis=0)
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
                 lines = lines + 1
 

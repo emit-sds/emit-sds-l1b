@@ -14,6 +14,7 @@
   "OBC_DARK2":4, 
   "OBC_GRAY":5,
   "OBC_LAMP":6,
+  "reverse_channels": true,
   "radiometric_coefficient_file": "20180727_ang20180628_avg_rows300-340_UVCorr2.rcc",
   "flat_field_file": "20180727_ang20180628_BLUSS_avg_rows300-340_ff",
   "spectral_calibration_file": "20190111_ang20180325t061759_wavelength_fit_full.txt",
