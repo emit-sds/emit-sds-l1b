@@ -63,8 +63,7 @@ class Config:
 
     def __init__(self, filename, input_file='', output_file=''):
 
-        # load calibration file data
-        ok = 'OK!'
+        # Load calibration file data
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
         try:
@@ -106,13 +105,13 @@ class Config:
            self.flat_field[self.flat_field < lo] = lo
            self.flat_field[self.flat_field > hi] = hi 
 
-        # size of regular frame and raw frame (with header)
+        # Size of regular frame and raw frame (with header)
         self.frame_shape = (self.channels, self.columns)
         self.nframe = sp.prod(self.frame_shape)
         self.raw_shape = (self.channels + self.header_channels, self.columns)
         self.nraw = sp.prod(self.raw_shape)
 
-        # form output metadata strings
+        # Form output metadata strings
         self.band_names_string = ','.join(['channel_'+str(i) \
                 for i in range(len(self.wl))])
         self.fwhm_string =  ','.join([str(w) for w in self.fwhm])
@@ -122,25 +121,25 @@ class Config:
         self.clean = sp.where(np.logical_not(self.bad).all(axis=1))[0]
         logging.warning(str(len(self.clean))+' clean channels')
 
-        # find the input files
+        # Find the input files
         if len(input_file)>0:
             self.input_file = input_file
         if len(output_file)>0:
             self.output_file = output_file
 
-        # identify input file header
+        # Identify input file header
         if self.input_file.endswith('.img'):
             self.input_header = self.input_file.replace('.img','.hdr') 
         else:
             self.input_header = self.input_file + '.hdr'
 
-        # identify output file header
+        # Identify output file header
         if self.output_file.endswith('.img'):
             self.output_header = self.output_file.replace('.img','.hdr') 
         else:
             self.output_header = self.output_file + '.hdr'
 
-        # read acquisition start and stop from the L1a
+        # Read acquisition start and stop from the L1a
         meta = envi.read_envi_header(self.input_header)
         if 'emit acquisition start time' in meta:
             self.emit_acquisition_start_time = \
@@ -275,23 +274,17 @@ def main():
                 frame  = raw[config.header_channels:,:]
                 
                 # Detector corrections
-
-                #frame = subtract_dark(frame, config)
-                #frame = correct_pedestal_shift(frame, config)
-                #frame = correct_panel_ghost(frame, config) 
-                #frame = frame * config.flat_field
-                #frame = fix_bad(frame, config)
-                #frame = correct_spectral_resp(frame, config.srf_correction)
-                #frame = correct_spatial_resp(frame, config.crf_correction)
-                #frame = (frame.T * config.radiometric_calibration).T
-   
                 frame = subtract_dark(frame, config)
                 frame = correct_pedestal_shift(frame, config)
                 frame = correct_panel_ghost(frame, config) 
                 frame = frame * config.flat_field
                 frame = fix_bad(frame, config)
+
+                # Optical corrections
                 frame = correct_spectral_resp(frame, config.srf_correction)
                 frame = correct_spatial_resp(frame, config.crf_correction)
+
+                # Absolute radiometry
                 frame = (frame.T * config.radiometric_calibration).T
    
                 # Reverse channels, catch NaNs, and write
@@ -301,7 +294,7 @@ def main():
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
                 lines = lines + 1
             
-                # read next chunk
+                # Read next chunk
                 raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
 
     params = {'lines': lines,
