@@ -118,6 +118,10 @@ class Config:
         self.fwhm_string =  ','.join([str(w) for w in self.fwhm])
         self.wavelength_string = ','.join([str(w) for w in self.wl])
 
+        # Clean channels have no bad elements
+        self.clean = sp.where(np.logical_not(self.bad).all(axis=1))[0]
+        logging.warning(str(len(self.clean))+' clean channels')
+
         # find the input files
         if len(input_file)>0:
             self.input_file = input_file
@@ -157,14 +161,13 @@ def correct_pedestal_shift(frame, config):
 
 def infer_bad(frame, col, config):
     '''Infer the value of a bad pixel'''
-    clean = sp.where(np.logical_not(config.bad).all(axis=1))[0]
-    bad = config.bad[:,col]
-    sa = frame[clean,:].T @ frame[clean, col]
-    norms = linalg.norm(frame[clean,:], axis=0).T
+    bad = sp.where(config.bad[:,col])[0]
+    sa = frame[config.clean,:].T @ frame[config.clean, col]
+    norms = linalg.norm(frame[config.clean,:], axis=0).T
     sa = sa / (norms * norms[col])
-    sa[col] = 9e99
-    best = sp.argmin(sa)
-    p = polyfit(frame[clean, best], frame[clean, col],1)
+    sa[col] = -9e99
+    best = sp.argmax(sa)
+    p = polyfit(frame[config.clean, best], frame[config.clean, col],1)
     new = frame[:,col]
     new[bad] = polyval(p, frame[bad, best])
     return new 
@@ -261,7 +264,6 @@ def main():
     lines = 0
     raw = 'Start'
 
-    print(config.input_file)
     with open(config.input_file,'rb') as fin:
         with open(config.output_file,'wb') as fout:
 
