@@ -180,26 +180,22 @@ def fix_bad(frame, config):
     return fixed
 
 
-def subtract_dark(frame, dark):
-    return frame - dark
+def subtract_dark(frame, config):
+    return frame - config.dark
 
 
 def correct_spatial_resp(frame, crf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[0]):
-        scratch[i,:] = frame[i,:] @ crf_correction 
+        scratch[i,:] = crf_correction @ frame[i,:] 
     return scratch
 
 
 def correct_spectral_resp(frame, srf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[1]):
-        scratch[:,i] = frame[:,i].T @  srf_correction
+        scratch[:,i] = srf_correction @ frame[:,i]  
     return scratch
-
-
-def detector_corrections(frame, config):
-    return frame
 
 
 def correct_panel_ghost(frame, config):
@@ -222,10 +218,10 @@ def correct_panel_ghost(frame, config):
     c3 = frame[:,panel3];
     c4 = frame[:,panel4];       
  
-    coef1 = config.panel_ghost_correction*(c2+c3+c4);
-    coef2 = config.panel_ghost_correction*(c1+c3+c4);
-    coef3 = config.panel_ghost_correction*(c1+c2+c4);
-    coef4 = config.panel_ghost_correction*(c1+c2+c3);       
+    coef1 = config.panel_ghost_correction * (c2+c3+c4);
+    coef2 = config.panel_ghost_correction * (c1+c3+c4);
+    coef3 = config.panel_ghost_correction * (c1+c2+c4);
+    coef4 = config.panel_ghost_correction * (c1+c2+c3);       
 
     coef1[:,:ntemplate] = 1.6 * (avg2+avg3+avg4) @ pg_template
     coef2[:,:ntemplate] = 1.6 * (avg1+avg3+avg4) @ pg_template
@@ -279,14 +275,24 @@ def main():
                 frame  = raw[config.header_channels:,:]
                 
                 # Detector corrections
-                frame = subtract_dark(frame, config.dark)
+
+                #frame = subtract_dark(frame, config)
+                #frame = correct_pedestal_shift(frame, config)
+                #frame = correct_panel_ghost(frame, config) 
+                #frame = frame * config.flat_field
+                #frame = fix_bad(frame, config)
+                #frame = correct_spectral_resp(frame, config.srf_correction)
+                #frame = correct_spatial_resp(frame, config.crf_correction)
+                #frame = (frame.T * config.radiometric_calibration).T
+   
+                frame = subtract_dark(frame, config)
                 frame = correct_pedestal_shift(frame, config)
                 frame = correct_panel_ghost(frame, config) 
-                frame = (frame.T * config.radiometric_calibration).T
                 frame = frame * config.flat_field
                 frame = fix_bad(frame, config)
                 frame = correct_spectral_resp(frame, config.srf_correction)
                 frame = correct_spatial_resp(frame, config.crf_correction)
+                frame = (frame.T * config.radiometric_calibration).T
    
                 # Reverse channels, catch NaNs, and write
                 frame[sp.logical_not(sp.isfinite(frame))]=0
