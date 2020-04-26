@@ -9,6 +9,7 @@ import scipy.linalg
 import os, sys
 import scipy as sp
 from spectral.io import envi
+from datetime import datetime, timezone
 import json
 import logging
 import argparse
@@ -20,10 +21,10 @@ documentation_version = "EMIT L1B ATBD v1.0"
 
 
 header_template = """ENVI
-description = {{{description}}}
+description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
 samples = {columns}
 lines = {lines}
-bands = {bands}
+bands = {channels}
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -37,9 +38,9 @@ emit_acquisition start time = YYYYMMDDTHHMMSS
 emit_acquisition stop time = YYYYMMDDTHHMMSS
 emit_pge_name = emit-sds-l1b/l1a_rdn
 emit_pge_version = {software_version}
-emit_pge_input files = {
+emit_pge_input files = {{
   dn_file = {input_file} 
-  radiometic_coefficient_file = {radiometic_coefficient_file} 
+  radiometric_coefficient_file = {radiometric_coefficient_file} 
   spectral_calibration_file = {spectral_calibration_file} 
   srf_correction_file = {srf_correction_file} 
   crf_correction_file = {crf_correction_file} 
@@ -47,7 +48,7 @@ emit_pge_input files = {
   flat_field_file = {flat_field_file} 
   radiometric_coefficient_file = {radiometric_coefficient_file} 
   linearity_file = {linearity_file}
-  }
+  }}
 emit software build version = {software_version}
 emit documentation version = {documentation_version}
 emit data product creation time = {creation_time} 
@@ -66,17 +67,17 @@ class Config:
          self.__dict__ = json.load(fin)
         try:
            self.dark, _ = sp.fromfile(self.dark_frame_file,
-                dtype = sp.float32).reshape((2,self.rows, self.columns))
+                dtype = sp.float32).reshape((2,self.channels, self.columns))
            _, self.wl, self.fwhm = \
                 sp.loadtxt(self.spectral_calibration_file).T
            self.srf_correction = sp.fromfile(self.srf_correction_file,
-                dtype = sp.float32).reshape((self.rows, self.rows))
+                dtype = sp.float32).reshape((self.channels, self.channels))
            self.crf_correction = sp.fromfile(self.crf_correction_file,
                 dtype = sp.float32).reshape((self.columns, self.columns))
            self.bad = sp.fromfile(self.bad_element_file,
-                dtype = sp.uint16).reshape((self.rows, self.columns))
+                dtype = sp.uint16).reshape((self.channels, self.columns))
            self.flat_field, _ = sp.fromfile(self.flat_field_file,
-                dtype = sp.float32).reshape((2,self.rows, self.columns))
+                dtype = sp.float32).reshape((2,self.channels, self.columns))
            self.radiometric_calibration, _, _ = \
                 sp.loadtxt(self.radiometric_coefficient_file).T
            self.linearity = sp.fromfile(self.linearity_file, 
@@ -87,9 +88,9 @@ class Config:
             logging.error('One or more missing calibration files')
 
         # size of regular frame and raw frame (with header)
-        self.frame_shape = (self.rows, self.columns)
+        self.frame_shape = (self.channels, self.columns)
         self.nframe = sp.prod(self.frame_shape)
-        self.raw_shape = (self.rows + self.header_rows, self.columns)
+        self.raw_shape = (self.channels + self.header_channels, self.columns)
         self.nraw = sp.prod(self.raw_shape)
 
         # form output metadata strings
@@ -246,19 +247,20 @@ def main():
     lines = 0
     raw = 'Start'
 
+    print(config.input_file)
     with open(config.input_file,'rb') as fin:
         with open(config.output_file,'wb') as fout:
 
-            while raw is not None:
+            raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
+            while len(raw)>0:
 
                 # Read a frame of data
                 if lines%10==0:
                     logging.info('Calibrating line '+str(lines))
-                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
                 
                 raw = raw.reshape(config.raw_shape)
-                header = raw[:config.header_rows, :]
-                frame  = raw[config.header_rows,:]
+                header = raw[:config.header_channels, :]
+                frame  = raw[config.header_channels,:]
                 
                 # Detector corrections
                 frame = subtract_dark(frame, config.dark)
@@ -273,12 +275,16 @@ def main():
                     frame = sp.flip(frame, axis=0)
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
                 lines = lines + 1
+            
+                # read next chunk
+                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
 
-    params = {'lines': lines}
+    params = {'lines': lines,
+     'creation_time': datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}
     params.update(globals())
     params.update(config.__dict__)
     with open(config.output_header,'w') as fout:
-        fout.write(header_template.format(params))
+        fout.write(header_template.format(**params))
 
     logging.info('Done')
 
