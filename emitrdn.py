@@ -8,8 +8,10 @@
 import scipy.linalg
 import os, sys
 import scipy as sp
+import numpy as np
 from spectral.io import envi
 from datetime import datetime, timezone
+from scipy import linalg, polyfit, polyval
 import json
 import logging
 import argparse
@@ -69,7 +71,7 @@ class Config:
            self.dark, _ = sp.fromfile(self.dark_frame_file,
                 dtype = sp.float32).reshape((2,self.channels, self.columns))
            _, self.wl, self.fwhm = \
-                sp.loadtxt(self.spectral_calibration_file).T
+                sp.loadtxt(self.spectral_calibration_file).T * 1000
            self.srf_correction = sp.fromfile(self.srf_correction_file,
                 dtype = sp.float32).reshape((self.channels, self.channels))
            self.crf_correction = sp.fromfile(self.crf_correction_file,
@@ -87,11 +89,18 @@ class Config:
         except AttributeError:
             logging.error('One or more missing calibration files')
 
+        # Check for NaNs in calibration data
         for M in [self.dark, self.wl, self.srf_correction, 
                 self.crf_correction, self.bad, self.flat_field,
                 self.radiometric_calibration, self.linearity]:
-            if (sp.logical_not(sp.isfinite(M))).sum() > 0:
+            if (np.logical_not(sp.isfinite(M))).sum() > 0:
                 logging.error('Non-finite values in calibration data')
+
+        # Truncate flat field values, if needed
+        if self.flat_field_limits is not None:
+           lo, hi = self.flat_field_limits
+           self.flat_field[self.flat_field < lo] = lo
+           self.flat_field[self.flat_field > hi] = hi 
 
         # size of regular frame and raw frame (with header)
         self.frame_shape = (self.channels, self.columns)
@@ -144,14 +153,14 @@ def correct_pedestal_shift(frame, config):
 
 def infer_bad(frame, col, config):
     '''Infer the value of a bad pixel'''
-    clean = sp.logial_not(config.bad).all(axis=0)
+    clean = sp.where(np.logical_not(config.bad).all(axis=1))[0]
     bad = config.bad[:,col]
     sa = frame[clean,:].T @ frame[clean, col]
     norms = linalg.norm(frame[clean,:], axis=0).T
     sa = sa / (norms * norms[col])
     sa[col] = 9e99
     best = sp.argmin(sa)
-    p = polyfit(frame[clean, best], frame[clean, col])
+    p = polyfit(frame[clean, best], frame[clean, col],1)
     new = frame[:,col]
     new[bad] = polyval(p, frame[bad, best])
     return new 
@@ -159,7 +168,7 @@ def infer_bad(frame, col, config):
     
 def fix_bad(frame, config):
     fixed = frame.copy()
-    for col in sp.nonzero(config.bad.any(axis=0)):
+    for col in sp.nonzero(config.bad.any(axis=0))[0]:
         fixed[:,col] = infer_bad(frame, col, config)
     return fixed
 
@@ -262,29 +271,19 @@ def main():
                 raw = raw.reshape(config.raw_shape)
                 header = raw[:config.header_channels, :]
                 frame  = raw[config.header_channels:,:]
-                print('-----')
-                print(config.dark[360][160])
-                print(frame[360][160])
                 
                 # Detector corrections
                 frame = subtract_dark(frame, config.dark)
-                print(frame[360][160])
                 frame = correct_pedestal_shift(frame, config)
-                print(frame[360][160])
                 frame = correct_panel_ghost(frame, config) 
-                print(frame[360][160])
                 frame = (frame.T * config.radiometric_calibration).T
-                print(frame[360][160])
-                print('******')
-                print(((sp.isfinite(frame)).sum()))
+                frame = frame * config.flat_field
+                frame = fix_bad(frame, config)
                 frame = correct_spectral_resp(frame, config.srf_correction)
-                print(frame[360][160])
                 frame = correct_spatial_resp(frame, config.crf_correction)
-                print(frame[360][160])
    
                 # Reverse channels, catch NaNs, and write
                 frame[sp.logical_not(sp.isfinite(frame))]=0
-                print(frame[360][160])
                 if config.reverse_channels:
                     frame = sp.flip(frame, axis=0)
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
