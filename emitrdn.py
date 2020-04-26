@@ -90,11 +90,15 @@ class Config:
             logging.error('One or more missing calibration files')
 
         # Check for NaNs in calibration data
-        for M in [self.dark, self.wl, self.srf_correction, 
-                self.crf_correction, self.bad, self.flat_field,
-                self.radiometric_calibration, self.linearity]:
-            if (np.logical_not(sp.isfinite(M))).sum() > 0:
-                logging.error('Non-finite values in calibration data')
+        for name in ['dark', 'wl', 'srf_correction', 
+                'crf_correction', 'bad', 'flat_field',
+                'radiometric_calibration','linearity']:
+            obj = getattr(self, name)
+            invalid  = np.logical_not(sp.isfinite(obj))
+            if invalid.sum() > 0:
+                msg='Replacing %i non-finite values in %s' 
+                logging.warning(msg % (invalid.sum(),name))
+            obj[invalid]=0
 
         # Truncate flat field values, if needed
         if self.flat_field_limits is not None:
