@@ -87,6 +87,12 @@ class Config:
         except AttributeError:
             logging.error('One or more missing calibration files')
 
+        for M in [self.dark, self.wl, self.srf_correction, 
+                self.crf_correction, self.bad, self.flat_field,
+                self.radiometric_calibration, self.linearity]:
+            if (sp.logical_not(sp.isfinite(M))).sum() > 0:
+                logging.error('Non-finite values in calibration data')
+
         # size of regular frame and raw frame (with header)
         self.frame_shape = (self.channels, self.columns)
         self.nframe = sp.prod(self.frame_shape)
@@ -165,20 +171,15 @@ def subtract_dark(frame, dark):
 def correct_spatial_resp(frame, crf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[0]):
-        scratch[i,:] = crf_correction @ frame[i,:].T 
+        scratch[i,:] = frame[i,:] @ crf_correction 
     return scratch
 
 
 def correct_spectral_resp(frame, srf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[1]):
-        scratch[:,i] = srf_correction @ frame[:,i] 
+        scratch[:,i] = frame[:,i].T @  srf_correction
     return scratch
-
-
-def read_frame(fileobj):
-    raw = sp.fromfile(fileobj, dtype=dtype)
-    frame = raw[raw_offset_bytes:].reshape(frame_size)
 
 
 def detector_corrections(frame, config):
@@ -260,18 +261,30 @@ def main():
                 
                 raw = raw.reshape(config.raw_shape)
                 header = raw[:config.header_channels, :]
-                frame  = raw[config.header_channels,:]
+                frame  = raw[config.header_channels:,:]
+                print('-----')
+                print(config.dark[360][160])
+                print(frame[360][160])
                 
                 # Detector corrections
                 frame = subtract_dark(frame, config.dark)
+                print(frame[360][160])
                 frame = correct_pedestal_shift(frame, config)
+                print(frame[360][160])
                 frame = correct_panel_ghost(frame, config) 
+                print(frame[360][160])
                 frame = (frame.T * config.radiometric_calibration).T
+                print(frame[360][160])
+                print('******')
+                print(((sp.isfinite(frame)).sum()))
                 frame = correct_spectral_resp(frame, config.srf_correction)
+                print(frame[360][160])
                 frame = correct_spatial_resp(frame, config.crf_correction)
+                print(frame[360][160])
    
                 # Reverse channels, catch NaNs, and write
                 frame[sp.logical_not(sp.isfinite(frame))]=0
+                print(frame[360][160])
                 if config.reverse_channels:
                     frame = sp.flip(frame, axis=0)
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
