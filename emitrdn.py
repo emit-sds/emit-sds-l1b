@@ -59,10 +59,12 @@ class Config:
     def __init__(self, filename, input_file='', output_file=''):
 
         # load calibration file data
-        self.__dict__ = json.loads(filename)
+        ok = 'OK!'
+        with open(filename,'r') as fin:
+         self.__dict__ = json.load(fin)
         try:
-           self.dark = sp.fromfile(self.radiometic_coefficient_file,
-                dtype = sp.float32).reshape((self.rows, self.columns))
+           self.dark, _ = sp.fromfile(self.dark_frame_file,
+                dtype = sp.float32).reshape((2,self.rows, self.columns))
            _, self.wl, self.fwhm = \
                 sp.loadtxt(self.spectral_calibration_file).T
            self.srf_correction = sp.fromfile(self.srf_correction_file,
@@ -71,10 +73,10 @@ class Config:
                 dtype = sp.float32).reshape((self.columns, self.columns))
            self.bad = sp.fromfile(self.bad_element_file,
                 dtype = sp.uint16).reshape((self.rows, self.columns))
-           self.flat_field = sp.fromfile(self.flat_field_file,
-                dtype = sp.uint16).reshape((self.rows, self.columns))
-           self.radiometric_calibration = \
-                sp.loadtxt(self.radiometric_coefficient_file)
+           self.flat_field, _ = sp.fromfile(self.flat_field_file,
+                dtype = sp.float32).reshape((2,self.rows, self.columns))
+           self.radiometric_calibration, _, _ = \
+                sp.loadtxt(self.radiometric_coefficient_file).T
            self.linearity = sp.fromfile(self.linearity_file, 
                 dtype=sp.uint16).reshape((65536,))
         except ValueError:
@@ -83,12 +85,14 @@ class Config:
             logging.error('One or more missing calibration files')
 
         # size of regular frame and raw frame (with header)
-        nframe = self.rows * self.columns
-        nraw = self.rows * self.columns + self.header_rows * self.rows
+        self.frame_shape = (self.rows, self.columns)
+        self.nframe = sp.prod(self.frame_shape)
+        self.raw_shape = (self.rows + self.header_rows, self.columns)
+        self.nraw = sp.prod(self.raw_shape)
 
         # form output metadata strings
         self.band_names_string = ','.join(['channel_'+str(i) \
-                for i in range(len(wl))])
+                for i in range(len(self.wl))])
         self.fwhm_string =  ','.join([str(w) for w in self.fwhm])
         self.wavelength_string = ','.join([str(w) for w in self.wl])
 
@@ -111,7 +115,7 @@ class Config:
             self.output_header = self.output_file + '.hdr'
 
         # read acquisition start and stop from the L1a
-        meta = envi.read_envi_header()
+        meta = envi.read_envi_header(self.input_header)
         if 'emit acquisition start time' in meta:
             self.emit_acquisition_start_time = \
                 meta[emit_acquisition_start_time]
@@ -158,14 +162,14 @@ def subtract_dark(frame, dark):
 def correct_spatial_resp(frame, crf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[0]):
-        scratch[i,:] = frame[i:i+1,:] @ srf_correction 
+        scratch[i,:] = crf_correction @ frame[i,:].T 
     return scratch
 
 
 def correct_spectral_resp(frame, srf_correction):
     scratch = sp.zeros(frame.shape)
     for i in range(frame.shape[1]):
-        scratch[:,l] = frame[:,i:i+1] @ srf_correction 
+        scratch[:,i] = srf_correction @ frame[:,i] 
     return scratch
 
 
@@ -180,19 +184,19 @@ def detector_corrections(frame, config):
 
 def correct_panel_ghost(frame, config):
 
-    pg_template = sp.array(config.pg_template)
+    pg_template = sp.array([config.pg_template])
     ntemplate = len(config.pg_template)
-
-    avg1 = frame[:,panel1].mean(axis=1)
-    avg2 = frame[:,panel2].mean(axis=1)
-    avg3 = frame[:,panel3].mean(axis=1)
-    avg4 = frame[:,panel4].mean(axis=1)
 
     panel1 = sp.arange(config.panel_width)
     panel2 = sp.arange(config.panel_width,(2*config.panel_width))
     panel3 = sp.arange((2*config.panel_width),(3*config.panel_width))
     panel4 = sp.arange((3*config.panel_width),(4*config.panel_width))
  
+    avg1 = frame[:,panel1].mean(axis=1)[:,sp.newaxis]
+    avg2 = frame[:,panel2].mean(axis=1)[:,sp.newaxis]
+    avg3 = frame[:,panel3].mean(axis=1)[:,sp.newaxis]
+    avg4 = frame[:,panel4].mean(axis=1)[:,sp.newaxis]
+  
     c1 = frame[:,panel1];
     c2 = frame[:,panel2];
     c3 = frame[:,panel3];
@@ -203,10 +207,10 @@ def correct_panel_ghost(frame, config):
     coef3 = config.panel_ghost_correction*(c1+c2+c4);
     coef4 = config.panel_ghost_correction*(c1+c2+c3);       
 
-    coef1[:,:ntemplate] = 1.6 * pg_template * (avg2+avg3+avg4);
-    coef2[:,:ntemplate] = 1.6 * pg_template * (avg1+avg3+avg4);
-    coef3[:,:ntemplate] = pg_template * (avg1+avg2+avg4);
-    coef4[:,:ntemplate] = pg_template * (avg1+avg2+avg3);
+    coef1[:,:ntemplate] = 1.6 * (avg2+avg3+avg4) @ pg_template
+    coef2[:,:ntemplate] = 1.6 * (avg1+avg3+avg4) @ pg_template
+    coef3[:,:ntemplate] = (avg1+avg2+avg4)@ pg_template
+    coef4[:,:ntemplate] = (avg1+avg2+avg3)@ pg_template
             
     new = sp.zeros(frame.shape)
     new[:,panel1] = frame[:,panel1] + coef1;
@@ -238,32 +242,37 @@ def main():
     
     logging.info('Starting calibration')
     lines = 0
-    with open(args.input_file,'rb') as fin:
-        with open(args.output_file,'wb') as fout:
+    raw = 'Start'
 
-            # Read a frame of data
-            if lines%1000==0:
-                logging.info('Calibrating line '+str(lines))
-            raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
-            raw = raw.reshape((self.rows + self.header_rows, self.columns))
-            header = raw[:self.header_rows, :]
-            frame  = raw[self.header_rows,:]
-            
-            # Detector corrections
-            frame = subtract_dark(frame, config.dark)
-            frame = correct_pedestal_shift(frame)
-            frame = correct_panel_ghost(frame); 
-            frame = frame * config.radiometric_calibration
-            frame = correct_spectral_resp(frame, config.srf_correction); 
-            frame = correct_spatial_resp(frame, config.crf_correction); 
-            sp.asarray(frame, dtype=s.float32).tofile(fout)
-            lines = lines + 1
+    with open(config.input_file,'rb') as fin:
+        with open(config.output_file,'wb') as fout:
+
+            while raw is not None:
+
+                # Read a frame of data
+                if lines%1000==0:
+                    logging.info('Calibrating line '+str(lines))
+                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
+                
+                raw = raw.reshape(config.raw_shape)
+                header = raw[:config.header_rows, :]
+                frame  = raw[config.header_rows,:]
+                
+                # Detector corrections
+                frame = subtract_dark(frame, config.dark)
+                frame = correct_pedestal_shift(frame, config)
+                frame = correct_panel_ghost(frame, config) 
+                frame = (frame.T * config.radiometric_calibration).T
+                frame = correct_spectral_resp(frame, config.srf_correction)
+                frame = correct_spatial_resp(frame, config.crf_correction)
+                sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                lines = lines + 1
 
     params = {'lines': lines}
     params.update(globals())
     params.update(config.__dict__)
     with open(config.output_header,'w') as fout:
-        fout.write(header_template.format(paramms))
+        fout.write(header_template.format(params))
 
     logging.info('Done')
 

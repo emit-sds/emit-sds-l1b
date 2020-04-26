@@ -14,7 +14,7 @@ import logging
 import argparse
 
 
-header_template = """ENVI
+header_string = """ENVI
 description = {AVIRIS-NG Dark Frame}
 samples = 640
 lines = 480
@@ -31,38 +31,55 @@ def main():
     description = "Strip a dark frame from an AVIRIS-NG file"
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('input_file', nargs=1, default='')
-    parser.add_argument('output_file', nargs=1, default='')
+    parser.add_argument('input_file')
+    parser.add_argument('output_file')
     args = parser.parse_args()
 
-    OBC_DARK = 2
+    obc_dark = 2
     rows = 480
     columns = 640
+    obc_byte = 641
+    dark_margin = 100
+    dark_lines = 800
+    dark_max = dark_margin + dark_lines
     nframe = rows * columns
-    nraw = nframe + colummns
+    nraw = nframe + columns
     state = 'waiting'
     lines,ndark = 0,0
+    darkframes = []
+
     with open(args.input_file,'rb') as fin:
 
-        # Read a frame of data
-        if lines%1000==0:
-            logging.info('Calibrating line '+str(lines))
-        header = sp.fromfile(fin, count=columns*2, dtype=sp.ubyte)
-        frame = sp.fromfile(fin, count=nframe, dtype=sp.uint16)
-        
-        # Finite state machine
-        obc = header[obc_byte]
-        if ndark < dark_margin:
-            if obc == OBC_DARK:
+        while True:
+
+            # Read a frame of data
+            if lines%1000==0:
+                logging.info('Calibrating line '+str(lines))
+            header = sp.fromfile(fin, count=columns*2, dtype=sp.ubyte)
+            frame = sp.fromfile(fin, count=nframe, dtype=sp.uint16)
+            
+            # Finite state machine
+            obc = header[obc_byte]
+            if obc == obc_dark:
                 ndark = ndark+1
-            if ndark > 100 and ndark <= 800:
-                darkframes.append(frame)
-            elif ndark>900:
-                dark_avg = s.array(darkframes).mean(axis=0)
-                dark_std = s.array(darkframes).std(axis=0)/s.sqrt(ndark)
-                with open(args.input_file,'rb') as fin:
-                    sp.asarray(dark_avg, dtype=s.float32).tofile(fout)
-                    sp.asarray(dark_std, dtype=s.float32).tofile(fout)
+
+                # If we are in the estimation interval, add this frame
+                if ndark > dark_margin and ndark < dark_max:
+                    darkframes.append(frame)
+
+                # When we exit the estimation interval, write the average
+                # and standard error
+                elif ndark >= dark_max:
+
+                    dark_avg = sp.array(darkframes).mean(axis=0)
+                    dark_std = sp.array(darkframes).std(axis=0)/sp.sqrt(ndark)
+
+                    with open(args.output_file,'w') as fout:
+                        sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
+                        sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
+                    with open(args.output_file+'.hdr','w') as fout:
+                        fout.write(header_string)
+                    break
 
     print('done') 
 
