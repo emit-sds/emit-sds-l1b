@@ -20,9 +20,9 @@ documentation_version = "EMIT L1B ATBD v1.0"
 
 header_template = """ENVI
 description = {{{description}}}
-samples = {{{columns}}}
-lines = {{{lines}}}
-bands = {{{bands}}}
+samples = {columns}
+lines = {lines}
+bands = {bands}
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -35,22 +35,22 @@ band names = {{{band_names_string}}}
 emit_acquisition start time = YYYYMMDDTHHMMSS
 emit_acquisition stop time = YYYYMMDDTHHMMSS
 emit_pge_name = emit-sds-l1b/l1a_rdn
-emit_pge_version = {{{software_version}}}
+emit_pge_version = {software_version}
 emit_pge_input files = {
-  dn_file = {{{input_file}}} 
-  radiometic_coefficient_file = {{{radiometic_coefficient_file}}} 
-  spectral_calibration_file = {{{spectral_calibration_file}}} 
-  srf_correction_file = {{{srf_correction_file}}} 
-  crf_correction_file = {{{crf_correction_file}}} 
-  bad_element_file = {{{bad_element_file}}} 
-  flat_field_file = {{{flat_field_file}}} 
-  radiometric_coefficient_file = {{{radiometric_coefficient_file}}} 
-  linearity_file = {{{linearity_file}}}
+  dn_file = {input_file} 
+  radiometic_coefficient_file = {radiometic_coefficient_file} 
+  spectral_calibration_file = {spectral_calibration_file} 
+  srf_correction_file = {srf_correction_file} 
+  crf_correction_file = {crf_correction_file} 
+  bad_element_file = {bad_element_file} 
+  flat_field_file = {flat_field_file} 
+  radiometric_coefficient_file = {radiometric_coefficient_file} 
+  linearity_file = {linearity_file}
   }
-emit software build version = {{{software_version}}}
-emit documentation version = {{{documentation_version}}}
-emit data product creation time = {{{creation_time}}} 
-emit data product version = {{{product_version}}}
+emit software build version = {software_version}
+emit documentation version = {documentation_version}
+emit data product creation time = {creation_time} 
+emit data product version = {product_version}
 emit orbit correction performed = false """
 
 
@@ -239,7 +239,7 @@ def main():
     logging.info('Starting calibration')
     lines = 0
     with open(args.input_file,'rb') as fin:
-        with open(args.output_file,'wb') as fin:
+        with open(args.output_file,'wb') as fout:
 
             # Read a frame of data
             if lines%1000==0:
