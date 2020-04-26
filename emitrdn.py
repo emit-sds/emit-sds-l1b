@@ -270,7 +270,8 @@ def main():
                 frame = correct_spectral_resp(frame, config.srf_correction)
                 frame = correct_spatial_resp(frame, config.crf_correction)
    
-                # Reverse channels and write
+                # Reverse channels, catch NaNs, and write
+                frame[sp.logical_not(sp.isfinite(frame))]=0
                 if config.reverse_channels:
                     frame = sp.flip(frame, axis=0)
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
