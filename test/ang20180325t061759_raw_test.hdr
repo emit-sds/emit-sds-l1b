@@ -1,0 +1,14 @@
+ENVI
+description = {
+  Create New File Result [Sun Apr 26 13:41:43 2020] [Sun Apr 26 13:43:33 2020]}
+samples = 640
+lines   = 2
+bands   = 481
+header offset = 0
+file type = ENVI Standard
+data type = 12
+interleave = bil
+sensor type = Unknown
+byte order = 0
+y start = 2950
+wavelength units = Unknown

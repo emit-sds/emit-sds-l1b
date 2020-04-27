@@ -28,11 +28,11 @@ byte order = 0"""
 
 def main():
 
-    description = "Strip a dark frame from an AVIRIS-NG file"
+    description = "Strip a dark frame from an AVIRIS-NG raw file"
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('input_file')
-    parser.add_argument('output_file')
+    parser.add_argument('input_raw')
+    parser.add_argument('output_dark')
     args = parser.parse_args()
 
     obc_dark = 2
@@ -48,7 +48,7 @@ def main():
     lines,ndark = 0,0
     darkframes = []
 
-    with open(args.input_file,'rb') as fin:
+    with open(args.input_raw,'rb') as fin:
 
         while True:
 
@@ -57,6 +57,7 @@ def main():
                 logging.info('Calibrating line '+str(lines))
             header = sp.fromfile(fin, count=columns*2, dtype=sp.ubyte)
             frame = sp.fromfile(fin, count=nframe, dtype=sp.uint16)
+            frame = frame.reshape((rows, columns))
             
             # Finite state machine
             obc = header[obc_byte]
@@ -74,10 +75,10 @@ def main():
                     dark_avg = sp.array(darkframes).mean(axis=0)
                     dark_std = sp.array(darkframes).std(axis=0)/sp.sqrt(ndark)
 
-                    with open(args.output_file,'w') as fout:
+                    with open(args.output_dark,'w') as fout:
                         sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
                         sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
-                    with open(args.output_file+'.hdr','w') as fout:
+                    with open(args.output_dark+'.hdr','w') as fout:
                         fout.write(header_string)
                     break
 

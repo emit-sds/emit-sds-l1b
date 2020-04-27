@@ -1,0 +1,10 @@
+ENVI
+lines = 480
+samples = 480
+bands = 1
+data type = 4
+interleave = bsq
+byte order = 0
+header offset = 0
+file type = ENVI Standard
+sensor type = Unknown

@@ -28,7 +28,7 @@ byte order = 0"""
 
 def main():
 
-    description = "Make a no-op linearity correction file"
+    description = "Synthesize a no-op linearity correction file"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('output_file')
