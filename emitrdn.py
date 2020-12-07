@@ -208,8 +208,6 @@ def main():
     parser.add_argument('output_file', nargs='?', default='')
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
-    parser.add_argument('-v', '--version', action='version',
-        version='%(prog)s {version}'.format(version=software_version))
     args = parser.parse_args()
 
     config = Config(args.config_file, args.input_file, args.output_file)
