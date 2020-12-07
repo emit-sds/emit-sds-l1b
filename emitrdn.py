@@ -17,10 +17,6 @@ import logging
 import argparse
 import multiprocessing
 
-software_version = "0.0.1"
-product_version = "0.0.1"
-documentation_version = "EMIT L1B ATBD v1.0"
-
 
 header_template = """ENVI
 description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
@@ -35,28 +31,7 @@ byte order = 0
 wavelength units = Nanometers
 wavelength = {{{wavelength_string}}}
 fwhm = {{{fwhm_string}}}
-band names = {{{band_names_string}}}
-emit_acquisition start time = YYYYMMDDTHHMMSS
-emit_acquisition stop time = YYYYMMDDTHHMMSS
-emit_pge_name = emit-sds-l1b/l1a_rdn
-emit_pge_version = {software_version}
-emit_pge_input files = {{
-  dn_file = {input_file} 
-  radiometric_coefficient_file = {radiometric_coefficient_file} 
-  spectral_calibration_file = {spectral_calibration_file} 
-  srf_correction_file = {srf_correction_file} 
-  crf_correction_file = {crf_correction_file} 
-  bad_element_file = {bad_element_file} 
-  flat_field_file = {flat_field_file} 
-  radiometric_coefficient_file = {radiometric_coefficient_file} 
-  linearity_file = {linearity_file}
-  }}
-emit software build version = {software_version}
-emit documentation version = {documentation_version}
-emit data product creation time = {creation_time} 
-emit data product version = {product_version}
-emit orbit correction performed = false """
-
+band names = {{{band_names_string}}}"""
 
       
 class Config:
@@ -138,19 +113,6 @@ class Config:
             self.output_header = self.output_file.replace('.img','.hdr') 
         else:
             self.output_header = self.output_file + '.hdr'
-
-        # Read acquisition start and stop from the L1a
-        meta = envi.read_envi_header(self.input_header)
-        if 'emit acquisition start time' in meta:
-            self.emit_acquisition_start_time = \
-                meta[emit_acquisition_start_time]
-        else:
-            self.emit_acquisition_time = 'YYYYMMDDTHHMMSS'
-        if 'emit acquisition stop time' in meta:
-            self.emit_acquisition_stop_time = \
-                meta[emit_acquisition_stop_time]
-        else:
-            self.emit_acquisition_time = 'YYYYMMDDTHHMMSS'
 
 
 def correct_pedestal_shift(frame, config):
@@ -297,8 +259,7 @@ def main():
                 # Read next chunk
                 raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
 
-    params = {'lines': lines,
-     'creation_time': datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}
+    params = {'lines': lines}
     params.update(globals())
     params.update(config.__dict__)
     with open(config.output_header,'w') as fout:
