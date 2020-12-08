@@ -208,13 +208,19 @@ def main():
     parser.add_argument('output_file', nargs='?', default='')
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
+    parser.add_argument('--log_file', type=str, default=None)
     args = parser.parse_args()
 
     config = Config(args.config_file, args.input_file, args.output_file)
-        
-    logging.basicConfig(format='%(message)s', level=args.level)
-    
-    
+
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    if args.log_file is None:
+        logging.basicConfig(format='%(message)s', level=args.level)
+    else:
+        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=args.level, filename=args.log_file)
+
+
     logging.info('Starting calibration')
     lines = 0
     raw = 'Start'
