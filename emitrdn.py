@@ -213,13 +213,13 @@ def main():
 
     config = Config(args.config_file, args.input_file, args.output_file)
 
+    # Set up logging
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     if args.log_file is None:
         logging.basicConfig(format='%(message)s', level=args.level)
     else:
         logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=args.level, filename=args.log_file)
-
 
     logging.info('Starting calibration')
     lines = 0
@@ -270,6 +270,7 @@ def main():
         fout.write(header_template.format(**params))
 
     logging.info('Done')
+
 
 if __name__ == '__main__':
 
