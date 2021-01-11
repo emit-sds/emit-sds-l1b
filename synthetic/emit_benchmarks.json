@@ -11,12 +11,16 @@
   "reverse_channels": true,
   "radiometric_coefficient_file": "../data/EMIT_Radiometric_Calibration_20210111.txt",
   "flat_field_file": "../data/EMIT_Flat_Field_20210111",
-  "spectral_calibration_file": "EMIT_Spectral_Calibration_20210111.txt",
-  "crf_correction_file": "EMIT_CRF_Correction_20210111",
-  "srf_correction_file": "EMIT_SRF_Correction_20210111",
-  "bad_element_file":"EMIT_Bad_Elements_20210111",
-  "linearity_file":"EMIT_Linearity_20210111",
+  "spectral_calibration_file": "../data/EMIT_Spectral_Calibration_20210111.txt",
+  "crf_correction_file": "../data/EMIT_CRF_Correction_20210111",
+  "srf_correction_file": "../data/EMIT_SRF_Correction_20210111",
+  "bad_element_file":"../data/EMIT_Bad_Elements_20210111",
+  "linearity_file":"../data/EMIT_Linearity_20210111",
   "dark_frame_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_dark_bBBB_vVV.img",
-  "input_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_clip",
-  "output_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_raw_bBBB_vVV.img"
+  "input_rdn_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_clip",
+  "input_loc_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_loc",
+  "input_obs_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_obs",
+  "output_raw_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_raw_bBBB_vVV.img",
+  "output_loc_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_loc_bBBB_vVV.img",
+  "output_obs_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_obs_bBBB_vVV.img"
 }

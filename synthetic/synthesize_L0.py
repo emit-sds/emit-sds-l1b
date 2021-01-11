@@ -15,6 +15,7 @@ import argparse
 import random
 from numpy.random import normal
 from numpy.random import randint
+from scipy.interpolate import interp1d
 
 linearity_header_string = """ENVI
 description = {{Linearity Correction File}}
@@ -161,19 +162,21 @@ def main():
     with open(config['linearity_file'],'w') as fout:
         fout.write(linearity_header_string) 
 
-    obs_file = envi.open(args.obs_source_file+'.hdr')
-    obs_metadata = obs_file.meta()
-    in_obs = obs_metadata['bands']
+    obs_file = envi.open(config['input_obs_file']+'.hdr')
+    obs_metadata = obs_file.metadata
+    in_obs = int(obs_metadata['bands'])
+    in_loc = 3
   
-    rdn_file = envi.open(args.rdn_source_file+'.hdr')
-    rdn_metadata = rdn_file.meta()
+    rdn_file = envi.open(config['input_rdn_file']+'.hdr')
+    rdn_metadata = rdn_file.metadata.copy()
     raw_metadata = rdn_metadata.copy()
-    in_lines = rdn_metadata['lines']
-    in_samples = rdn_metadata['samples']
-    in_bands = rdn_metadata['bands']
+    in_wl = np.array([float(w) for w in rdn_metadata['wavelength']])
+    in_lines = int(rdn_metadata['lines'])
+    in_samples = int(rdn_metadata['samples'])
+    in_bands = int(rdn_metadata['bands'])
     raw_metadata['data type'] = 2 
     raw_metadata['samples'] = cols
-    envi.write_header(config['input_file']+'.hdr',raw_metadata,ext='',force=False)
+    envi.write_envi_header(config['output_raw_file']+'.hdr',raw_metadata)
     
     with open(config['output_raw_file'],'wb') as raw_out:
       with open(config['output_obs_file'],'wb') as obs_out:
@@ -186,29 +189,28 @@ def main():
                 rdn = rdn.reshape((in_bands, in_samples)) 
                 rdn_resamp = np.zeros((rows, in_samples))
                 for i in range(len(rdn_resamp)):
-                   rdn_resamp[:,i] = interp1d(in_wl, rdn, bounds_error=False,
-                       fill_value='extrapolate')
-                valid = np.where(np.all(rdn>-9990,axis1))[0]
+                   rdn_resamp[:,i] = interp1d(in_wl, rdn[:,i], bounds_error=False,
+                       fill_value='extrapolate')(wl)
+                valid = np.where(np.all(rdn>-9990,axis=1))[0]
 
                 # Thanks to panda-34 of stackoverflow.com
-                rdn_valid = rdn_resamp[:,valid:]
+                rdn_valid = rdn_resamp[:,valid]
                 desired_shape = np.array((rows, cols))
                 pads = tuple((0, i) for i in (desired_shape-rdn_valid.shape))
                 raw = np.pad(rdn_valid, pads, mode="wrap")
-                raw = np.array(raw/rccs + dark, dtype=np.int16)
+                raw = np.array(raw.T/rccs + dark.T, dtype=np.int16).T
                 raw.tofile(raw_out)
-
 
                 obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)
                 obs = obs.reshape((in_samples, in_obs))
-                obs_valid = obs[valid:,:]
+                obs_valid = obs[valid,:]
                 desired_obs_shape = np.array((cols,in_obs))
                 pads = tuple((0, i) for i in (desired_obs_shape-obs_valid.shape))
                 obs_out = np.pad(obs_valid, pads, mode="wrap")
 
-                loc = np.fromfile(loc_in, count=in_samples*3).reshape((in_samps,out_samps))
+                loc = np.fromfile(loc_in, count=in_samples*3).reshape((in_samples, 3))
                 loc = loc.reshape((in_samples, in_loc))
-                loc_valid = loc[valid:,:]
+                loc_valid = loc[valid,:]
                 desired_loc_shape = np.array((cols, 3))
                 pads = tuple((0, i) for i in (desired_loc_shape-loc_valid.shape))
                 loc_out = np.pad(loc_valid, pads, mode="wrap")
