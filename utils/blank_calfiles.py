@@ -88,17 +88,10 @@ byte order = 0"""
 
 def main():
 
-    description = "Synthesize a no-op linearity correction file"
+    description = "Synthesize calibration files and DNs"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('config_file')
-    parser.add_argument('output_linearity')
-    parser.add_argument('output_bad')
-    parser.add_argument('output_rcc')
-    parser.add_argument('output_ff')
-    parser.add_argument('output_srf')
-    parser.add_argument('output_crf')
-    parser.add_argument('output_dark')
     args = parser.parse_args()
 
     with open(config_file,'r') as fin:
@@ -171,6 +164,59 @@ def main():
     with open(config['linearity_file'],'w') as fout:
         fout.write(header_string) 
 
+    obs_file = envi.open(args.obs_source_file+'.hdr')
+    obs_metadata = obs_file.meta()
+    in_obs = obs_metadata['bands']
+  
+    rdn_file = envi.open(args.rdn_source_file+'.hdr')
+    rdn_metadata = rdn_file.meta()
+    raw_metadata = rdn_metadata.copy()
+    in_lines = rdn_metadata['lines']
+    in_samples = rdn_metadata['samples']
+    in_bands = rdn_metadata['bands']
+    raw_metadata['data type'] = 2 
+    raw_metadata['samples'] = cols
+    envi.write_header(config['input_file']+'.hdr',raw_metadata,ext='',force=False)
+    
+    with open(config['simulated_raw_file'],'wb') as rdn_out:
+      with open(config['simulated_obs_file'],'wb') as obs_out:
+        with open(config['simulated_loc_file'],'wb') as loc_out:
+          with open(config['input_rdn_file'],'rb') as rdn_in:
+            with open(config['input_obs_file'],'rb') as obs_in:
+              with open(config['input_loc_file'],'rb') as loc_in:
+
+                rdn = np.fromfile(rdn_in, count=in_samples*in_bands, dtype=np.float32)
+                rdn = rdn.reshape((in_bands, in_samples)) 
+                rdn_resamp = np.zeros((rows, in_samples))
+                for i in range(len(rdn_resamp)):
+                   rdn_resamp[:,i] = interp1d(in_wl, rdn, bounds_error=False,
+                       fill_value='extrapolate')
+                valid = np.where(np.all(rdn>-9990,axis1))[0]
+                # Thanks to panda-34 of stackoverflow.com
+                rdn_valid = rdn_resamp[:,valid:]
+                desired_shape = np.array((rows, cols))
+                pads = tuple((0, i) for i in (desired_shape-rdn_valid.shape))
+                rdn_out = np.pad(rdn_valid, pads, mode="wrap")
+
+                obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)
+                obs = obs.reshape((in_samples, in_obs))
+                obs_valid = obs[valid:,:]
+                desired_obs_shape = np.array((cols,in_obs))
+                pads = tuple((0, i) for i in (desired_obs_shape-obs_valid.shape))
+                obs_out = np.pad(obs_valid, pads, mode="wrap")
+
+                loc = np.fromfile(loc_in, count=in_samples*3).reshape((in_samps,out_samps))
+                loc = loc.reshape((in_samples, in_loc))
+                loc_valid = loc[valid:,:]
+                desired_loc_shape = np.array((cols, 3))
+                pads = tuple((0, i) for i in (desired_loc_shape-loc_valid.shape))
+                loc_out = np.pad(loc_valid, pads, mode="wrap")
+                loc_out[:,0] = np.linspace(loc_out[0,0], loc_out[-1,0], cols)
+                loc_out[:,1] = np.linspace(loc_out[0,1], loc_out[-1,1], cols)
+
+
+                obs_out = np.pad(arr, pads
+    
     print('done') 
 
 if __name__ == '__main__':
