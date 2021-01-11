@@ -120,7 +120,6 @@ def main():
     chn = np.arange(rows)
 
     np.savetxt(config['radiometric_coefficient_file'],np.c_[rccs, uncerts, chn])
-
     np.savetxt(config['spectral_calibration_file'],np.c_[chn, wl,fwhm])
 
     bad = np.zeros((rows,cols), dtype=np.float32)
@@ -164,19 +163,29 @@ def main():
 
     obs_file = envi.open(config['input_obs_file']+'.hdr')
     obs_metadata = obs_file.metadata
+    obs_metadata['samples'] = cols
+
+    loc_file = envi.open(config['input_loc_file']+'.hdr')
+    loc_metadata = loc_file.metadata
+    loc_metadata['samples'] = cols
+
     in_obs = int(obs_metadata['bands'])
     in_loc = 3
   
     rdn_file = envi.open(config['input_rdn_file']+'.hdr')
     rdn_metadata = rdn_file.metadata.copy()
-    raw_metadata = rdn_metadata.copy()
     in_wl = np.array([float(w) for w in rdn_metadata['wavelength']])
     in_lines = int(rdn_metadata['lines'])
     in_samples = int(rdn_metadata['samples'])
     in_bands = int(rdn_metadata['bands'])
+
+    raw_metadata = rdn_metadata.copy()
     raw_metadata['data type'] = 2 
     raw_metadata['samples'] = cols
+
     envi.write_envi_header(config['output_raw_file']+'.hdr',raw_metadata)
+    envi.write_envi_header(config['output_obs_file']+'.hdr',obs_metadata)
+    envi.write_envi_header(config['output_loc_file']+'.hdr',loc_metadata)
     
     with open(config['output_raw_file'],'wb') as raw_out:
       with open(config['output_obs_file'],'wb') as obs_out:
