@@ -192,6 +192,7 @@ def main():
                    rdn_resamp[:,i] = interp1d(in_wl, rdn, bounds_error=False,
                        fill_value='extrapolate')
                 valid = np.where(np.all(rdn>-9990,axis1))[0]
+
                 # Thanks to panda-34 of stackoverflow.com
                 rdn_valid = rdn_resamp[:,valid:]
                 desired_shape = np.array((rows, cols))
@@ -214,9 +215,6 @@ def main():
                 loc_out[:,0] = np.linspace(loc_out[0,0], loc_out[-1,0], cols)
                 loc_out[:,1] = np.linspace(loc_out[0,1], loc_out[-1,1], cols)
 
-
-                obs_out = np.pad(arr, pads
-    
     print('done') 
 
 if __name__ == '__main__':
