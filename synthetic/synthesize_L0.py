@@ -202,34 +202,30 @@ def main():
                     rdn = np.fromfile(rdn_in, count=in_samples*in_bands, dtype=np.float32)
                     rdn = rdn.reshape((in_bands, in_samples)) 
                     rdn_resamp = np.zeros((rows, in_samples))
-                    for i in range(len(rdn_resamp)):
+                    for i in range(in_samples):
                        rdn_resamp[:,i] = interp1d(in_wl, rdn[:,i], bounds_error=False,
                            fill_value='extrapolate')(wl)
-                    valid = np.where(np.all(rdn>-9990,axis=0))[0]
                     
                     # Thanks to panda-34 of stackoverflow.com
-                    rdn_valid = rdn_resamp[:,valid]
                     desired_shape = np.array((rows, cols))
-                    pads = tuple((0, i) for i in (desired_shape-rdn_valid.shape))
-                    raw = np.pad(rdn_valid, pads, mode="wrap")
-                    raw = np.array(raw.T/rccs + dark.T, dtype=np.int16).T
+                    extant_shape = np.array((rdn_resamp.shape[0], rdn_resamp.shape[1]))
+                    reps = int(desired_shape[1]/extant_shape[1])+1
+                    print(reps,desired_shape)
+                    rdn_resamp = np.tile(rdn_resamp,[1, reps])[:,:desired_shape[1]]
+                    raw = np.array(rdn_resamp.T/rccs + dark.T, dtype=np.int16).T
                     raw.tofile(raw_out)
                     
                     obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)
                     obs = obs.reshape((in_samples, in_obs))
-                    obs_valid = obs[valid,:]
-                    desired_obs_shape = np.array((cols,in_obs))
-                    pads = tuple((0, i) for i in (desired_obs_shape-obs_valid.shape))
-                    obs_out = np.pad(obs_valid, pads, mode="wrap")
+                    obs = np.tile(obs,[reps,1])[:desired_shape[1],:]
+                    obs.tofile(obs_out)
                     
                     loc = np.fromfile(loc_in, count=in_samples*3).reshape((in_samples, 3))
                     loc = loc.reshape((in_samples, in_loc))
-                    loc_valid = loc[valid,:]
-                    desired_loc_shape = np.array((cols, 3))
-                    pads = tuple((0, i) for i in (desired_loc_shape-loc_valid.shape))
-                    loc_out = np.pad(loc_valid, pads, mode="wrap")
-                    loc_out[:,0] = np.linspace(loc_out[0,0], loc_out[-1,0], cols)
-                    loc_out[:,1] = np.linspace(loc_out[0,1], loc_out[-1,1], cols)
+                    loc = np.tile(loc,[reps,1])[:desired_shape[1],:]
+                    loc[:,0] = np.linspace(loc[0,0], loc[-1,0], cols)
+                    loc[:,1] = np.linspace(loc[0,1], loc[-1,1], cols)
+                    loc.tofile(loc_out)
 
     print('done') 
 
