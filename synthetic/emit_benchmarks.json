@@ -17,9 +17,9 @@
   "bad_element_file":"../data/EMIT_Bad_Elements_20210111",
   "linearity_file":"../data/EMIT_Linearity_20210111",
   "dark_frame_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_dark_bBBB_vVV.img",
-  "input_rdn_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_clip",
-  "input_loc_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_loc",
-  "input_obs_file":"/beegfs/store/emit/drt/pge_validation_data/ang20160218t083205/ang20160218t083205_rdn_v2m3_obs",
+  "input_rdn_file":"/beegfs/store/emit/drt/pge_validation_data/ang20170328t202059/ang20170328t202059_rdn_v2p5_clip",
+  "input_loc_file":"/beegfs/store/emit/drt/pge_validation_data/ang20170328t202059/ang20170328t202059_rdn_loc",
+  "input_obs_file":"/beegfs/store/emit/drt/pge_validation_data/ang20170328t202059/ang20170328t202059_rdn_obs",
   "output_raw_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_raw_bBBB_vVV.img",
   "output_loc_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_loc_bBBB_vVV.img",
   "output_obs_file":"/beegfs/store/emit/drt/pge_validation_data/synthetic/emit20210110T000000_oOOOOO_sSSS_L0_obs_bBBB_vVV.img"
