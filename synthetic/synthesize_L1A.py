@@ -126,13 +126,14 @@ def main():
     nbad = 6
     for n in range(nbad):
         bad[randint(rows),randint(cols)] = -1
-    bad.tofile(config['bad_element_file'])
+    np.array(bad,dtype=np.uint16).tofile(config['bad_element_file'])
     with open(config['bad_element_file']+'.hdr','w') as fout:
         lcl = locals()
         fout.write(bad_header_string.format(**lcl))
 
     dark_noise = 10
     dark = np.array(normal(0, dark_noise, (rows,cols)), dtype=np.float32)
+    dark = np.tile(dark.reshape((1,rows,cols)),(2,1,1))
     dark.tofile(config['dark_frame_file'])
     with open(config['dark_frame_file']+'.hdr','w') as fout:
         lcl = locals()
@@ -144,7 +145,7 @@ def main():
         lcl = locals()
         fout.write(srf_header_string.format(**lcl))
         
-    crf = np.array(np.eye(rows), dtype=np.float32)
+    crf = np.array(np.eye(cols), dtype=np.float32)
     crf.tofile(config['crf_correction_file'])
     with open(config['crf_correction_file']+'.hdr','w') as fout:
         lcl = locals()
@@ -152,13 +153,15 @@ def main():
  
     flat_noise = 0.01
     flat = np.array(normal(1, flat_noise, (rows,cols)), dtype=np.float32)
+    flat = np.tile(flat.reshape((1,rows,cols)),(2,1,1))
+    flat[1,:,:] = 0.001 # rough uncertainty
     flat.tofile(config['flat_field_file'])
     with open(config['flat_field_file']+'.hdr','w') as fout:
         lcl = locals()
         fout.write(flat_header_string.format(**lcl))
             
     count = np.arange(2**16, dtype=np.uint16).tofile(config['linearity_file'])
-    with open(config['linearity_file'],'w') as fout:
+    with open(config['linearity_file']+'.hdr','w') as fout:
         fout.write(linearity_header_string) 
 
     obs_file = envi.open(config['input_obs_file']+'.hdr')
@@ -212,7 +215,7 @@ def main():
                     reps = int(desired_shape[1]/extant_shape[1])+1
                     print(reps,desired_shape)
                     rdn_resamp = np.tile(rdn_resamp,[1, reps])[:,:desired_shape[1]]
-                    raw = np.array(rdn_resamp.T/rccs + dark.T, dtype=np.int16).T
+                    raw = np.array(rdn_resamp.T/rccs + dark[0,:,:].T, dtype=np.int16).T
                     raw.tofile(raw_out)
                     
                     obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)

@@ -41,27 +41,33 @@ class Config:
         # Load calibration file data
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
-        try:
+        #try:
+        if True:
            self.dark, _ = sp.fromfile(self.dark_frame_file,
-                dtype = sp.float32).reshape((2,self.channels, self.columns))
+                dtype = sp.float32).reshape((2, self.channels_raw, 
+                    self.columns_raw))
            _, self.wl, self.fwhm = \
                 sp.loadtxt(self.spectral_calibration_file).T * 1000
            self.srf_correction = sp.fromfile(self.srf_correction_file,
-                dtype = sp.float32).reshape((self.channels, self.channels))
+                dtype = sp.float32).reshape((self.channels_raw, 
+                    self.channels_raw))
            self.crf_correction = sp.fromfile(self.crf_correction_file,
-                dtype = sp.float32).reshape((self.columns, self.columns))
+                dtype = sp.float32).reshape((self.columns_raw, 
+                    self.columns_raw))
            self.bad = sp.fromfile(self.bad_element_file,
-                dtype = sp.uint16).reshape((self.channels, self.columns))
-           self.flat_field, _ = sp.fromfile(self.flat_field_file,
-                dtype = sp.float32).reshape((2,self.channels, self.columns))
+                dtype = sp.uint16).reshape((self.channels_raw, 
+                    self.columns_raw))
+           self.flat_field = sp.fromfile(self.flat_field_file,
+                dtype = sp.float32).reshape((2, self.channels_raw, 
+                    self.columns_raw))[0,:,:]
            self.radiometric_calibration, _, _ = \
                 sp.loadtxt(self.radiometric_coefficient_file).T
            self.linearity = sp.fromfile(self.linearity_file, 
                 dtype=sp.uint16).reshape((65536,))
-        except ValueError:
-            logging.error('Incorrect file size for calibration data')
-        except AttributeError:
-            logging.error('One or more missing calibration files')
+       #except ValueError:
+       #    logging.error('Incorrect file size for calibration data')
+       #except AttributeError:
+       #    logging.error('One or more missing calibration files')
 
         # Check for NaNs in calibration data
         for name in ['dark', 'wl', 'srf_correction', 
@@ -83,7 +89,7 @@ class Config:
         # Size of regular frame and raw frame (with header)
         self.frame_shape = (self.channels, self.columns)
         self.nframe = sp.prod(self.frame_shape)
-        self.raw_shape = (self.channels + self.header_channels, self.columns)
+        self.raw_shape = (self.channels_raw + self.header_channels, self.columns_raw)
         self.nraw = sp.prod(self.raw_shape)
 
         # Form output metadata strings
