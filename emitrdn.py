@@ -41,8 +41,7 @@ class Config:
         # Load calibration file data
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
-        #try:
-        if True:
+        try:
            self.dark, _ = sp.fromfile(self.dark_frame_file,
                 dtype = sp.float32).reshape((2, self.channels_raw, 
                     self.columns_raw))
@@ -64,10 +63,10 @@ class Config:
                 sp.loadtxt(self.radiometric_coefficient_file).T
            self.linearity = sp.fromfile(self.linearity_file, 
                 dtype=sp.uint16).reshape((65536,))
-       #except ValueError:
-       #    logging.error('Incorrect file size for calibration data')
-       #except AttributeError:
-       #    logging.error('One or more missing calibration files')
+        except ValueError:
+            logging.error('Incorrect file size for calibration data')
+        except AttributeError:
+            logging.error('One or more missing calibration files')
 
         # Check for NaNs in calibration data
         for name in ['dark', 'wl', 'srf_correction', 

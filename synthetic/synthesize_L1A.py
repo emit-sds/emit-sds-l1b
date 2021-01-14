@@ -108,7 +108,7 @@ def main():
               config['output_raw_file']]:
         if os.path.exists(q):
              print(q+' exists')
-             sys.exit(1)
+             #sys.exit(1)
 
     # Make Radiometric Coefficients
     rows, cols = 328, 1280
@@ -207,15 +207,16 @@ def main():
                     rdn_resamp = np.zeros((rows, in_samples))
                     for i in range(in_samples):
                        rdn_resamp[:,i] = interp1d(in_wl, rdn[:,i], bounds_error=False,
-                           fill_value='extrapolate')(wl)
-                    
+                           fill_value=0)(wl)
+
                     # Thanks to panda-34 of stackoverflow.com
                     desired_shape = np.array((rows, cols))
                     extant_shape = np.array((rdn_resamp.shape[0], rdn_resamp.shape[1]))
                     reps = int(desired_shape[1]/extant_shape[1])+1
-                    print(reps,desired_shape)
                     rdn_resamp = np.tile(rdn_resamp,[1, reps])[:,:desired_shape[1]]
                     raw = np.array(rdn_resamp.T/rccs + dark[0,:,:].T, dtype=np.int16).T
+                    if config['reverse_channels']:
+                       raw = flipud(raw)
                     raw.tofile(raw_out)
                     
                     obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)
