@@ -8,6 +8,7 @@
   "columns_raw":1280,
   "columns_masked":[20,20],
   "max_DN": 16384,
+  "dark_channels": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,313,314,315,316,317,318,319,320,321,322,323,324,325,326,327],
   "reverse_channels": true,
   "radiometric_coefficient_file": "../data/EMIT_Radiometric_Calibration_20210111.txt",
   "flat_field_file": "../data/EMIT_Flat_Field_20210111",
