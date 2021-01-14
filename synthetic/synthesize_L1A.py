@@ -111,11 +111,13 @@ def main():
              #sys.exit(1)
 
     # Make Radiometric Coefficients
+    masked = np.array([int(c) for c in config['dark_channels']])
     rows, cols = 328, 1280
     dispersion = 7.4296517
     wl = 265+np.arange(328)*dispersion
     fwhm = np.ones(rows) * (wl[1] - wl[0]) * 1.1
-    rccs = np.ones(rows) * 0.001
+    rccs = np.ones(rows) * 0.01
+    rccs[masked]=0.0
     uncerts = np.ones(rows) * 0.000001
     chn = np.arange(rows)
 
@@ -187,9 +189,16 @@ def main():
     raw_metadata['samples'] = cols
     raw_metadata['bands'] = rows
 
-    envi.write_envi_header(config['output_raw_file']+'.hdr',raw_metadata)
-    envi.write_envi_header(config['output_obs_file']+'.hdr',obs_metadata)
-    envi.write_envi_header(config['output_loc_file']+'.hdr',loc_metadata)
+    if any([not q.endswith('.img') for q in [config['output_raw_file'],
+        config['output_obs_file'],config['output_loc_file']]]):
+          raise ValueError('Filenames must end in .img')
+
+    envi.write_envi_header(config['output_raw_file'].replace('.img','.hdr'),
+        raw_metadata)
+    envi.write_envi_header(config['output_obs_file'].replace('.img','.hdr'),
+        obs_metadata)
+    envi.write_envi_header(config['output_loc_file'].replace('.img','.hdr'),
+        loc_metadata)
     
     with open(config['output_raw_file'],'wb') as raw_out:
       with open(config['output_obs_file'],'wb') as obs_out:
@@ -214,9 +223,10 @@ def main():
                     extant_shape = np.array((rdn_resamp.shape[0], rdn_resamp.shape[1]))
                     reps = int(desired_shape[1]/extant_shape[1])+1
                     rdn_resamp = np.tile(rdn_resamp,[1, reps])[:,:desired_shape[1]]
-                    raw = np.array(rdn_resamp.T/rccs + dark[0,:,:].T, dtype=np.int16).T
+                    raw = np.array(rdn_resamp/(flat[0,:,:].T*rccs).T + dark[0,:,:], 
+                        dtype=np.int16)
                     if config['reverse_channels']:
-                       raw = flipud(raw)
+                       raw = np.flipud(raw)
                     raw.tofile(raw_out)
                     
                     obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)
