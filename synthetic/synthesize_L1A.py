@@ -122,7 +122,7 @@ def main():
     chn = np.arange(rows)
 
     np.savetxt(config['radiometric_coefficient_file'],np.c_[rccs, uncerts, chn])
-    np.savetxt(config['spectral_calibration_file'],np.c_[chn, wl,fwhm])
+    np.savetxt(config['spectral_calibration_file'],np.c_[chn, wl/1000.0, fwhm/1000.0])
 
     bad = np.zeros((rows,cols), dtype=np.float32)
     nbad = 6
