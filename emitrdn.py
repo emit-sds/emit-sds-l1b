@@ -20,9 +20,9 @@ import multiprocessing
 
 header_template = """ENVI
 description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
-samples = {columns}
+samples = {columns_raw}
 lines = {lines}
-bands = {channels}
+bands = {channels_raw}
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -233,16 +233,17 @@ def main():
     with open(config.input_file,'rb') as fin:
         with open(config.output_file,'wb') as fout:
 
-            raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
+            raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
             while len(raw)>0:
 
                 # Read a frame of data
                 if lines%10==0:
                     logging.info('Calibrating line '+str(lines))
                 
+                raw = np.array(raw, dtype=sp.float32)
                 raw = raw.reshape(config.raw_shape)
                 header = raw[:config.header_channels, :]
-                frame  = raw[config.header_channels:,:]
+                frame  = raw[config.header_channels:, :]
                 
                 # Detector corrections
                 frame = subtract_dark(frame, config)
@@ -266,7 +267,7 @@ def main():
                 lines = lines + 1
             
                 # Read next chunk
-                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.uint16)
+                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
 
     params = {'lines': lines}
     params.update(globals())
