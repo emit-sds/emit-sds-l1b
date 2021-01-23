@@ -229,7 +229,7 @@ def main():
                        raw = np.flipud(raw)
                     raw.tofile(raw_out)
                     
-                    obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float32)
+                    obs = np.fromfile(obs_in, count=in_samples*in_obs, dtype=np.float64)
                     obs = obs.reshape((in_samples, in_obs))
                     obs = np.tile(obs,[reps,1])[:desired_shape[1],:]
                     obs.tofile(obs_out)
