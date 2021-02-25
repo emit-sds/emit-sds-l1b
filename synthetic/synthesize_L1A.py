@@ -43,7 +43,7 @@ dark_header_string = """ENVI
 description = {{Dark Frame}}
 samples = {rows}
 lines = {cols}
-bands = 1
+bands = 2
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -54,7 +54,7 @@ flat_header_string = """ENVI
 description = {{Flat Field}}
 samples = {rows}
 lines = {cols}
-bands = 1
+bands = 2
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -83,7 +83,7 @@ data type = 4
 interleave = bsq
 byte order = 0"""
 
-
+SNR = 200
 
 
 def main():
@@ -104,7 +104,7 @@ def main():
               config['srf_correction_file'],
               config['bad_element_file'],
               config['linearity_file'],
-              config['dark_frame_file'],
+              config['output_dark_file'],
               config['output_raw_file']]:
         if os.path.exists(q):
              print(q+' exists')
@@ -116,7 +116,7 @@ def main():
     dispersion = 7.4296517
     wl = 265+np.arange(328)*dispersion
     fwhm = np.ones(rows) * (wl[1] - wl[0]) * 1.1
-    rccs = np.ones(rows) * 0.01
+    rccs = np.ones(rows) * 0.001
     rccs[masked]=0.0
     uncerts = np.ones(rows) * 0.000001
     chn = np.arange(rows)
@@ -133,11 +133,12 @@ def main():
         lcl = locals()
         fout.write(bad_header_string.format(**lcl))
 
+    dark_offs = 1000
     dark_noise = 10
-    dark = np.array(normal(0, dark_noise, (rows,cols)), dtype=np.float32)
+    dark = np.array(normal(dark_offs, dark_noise, (rows,cols)), dtype=np.float32)
     dark = np.tile(dark.reshape((1,rows,cols)),(2,1,1))
-    dark.tofile(config['dark_frame_file'])
-    with open(config['dark_frame_file']+'.hdr','w') as fout:
+    dark.tofile(config['output_dark_file'])
+    with open(config['output_dark_file']+'.hdr','w') as fout:
         lcl = locals()
         fout.write(dark_header_string.format(**lcl))
         
@@ -189,8 +190,15 @@ def main():
     raw_metadata['samples'] = cols
     raw_metadata['bands'] = rows
 
+    dark_metadata = rdn_metadata.copy()
+    dark_metadata['samples'] = cols
+    dark_metadata['bands'] = 2
+    dark_metadata['lines'] = rows
+    dark_metadata['interleave'] = 'bsq'
+
     if any([not q.endswith('.img') for q in [config['output_raw_file'],
-        config['output_obs_file'],config['output_loc_file']]]):
+        config['output_obs_file'],config['output_loc_file'],
+        config['output_dark_file']]]):
           raise ValueError('Filenames must end in .img')
 
     envi.write_envi_header(config['output_raw_file'].replace('.img','.hdr'),
@@ -199,6 +207,8 @@ def main():
         obs_metadata)
     envi.write_envi_header(config['output_loc_file'].replace('.img','.hdr'),
         loc_metadata)
+    envi.write_envi_header(config['output_dark_file'].replace('.img','.hdr'),
+        dark_metadata)
     
     with open(config['output_raw_file'],'wb') as raw_out:
       with open(config['output_obs_file'],'wb') as obs_out:
@@ -223,8 +233,11 @@ def main():
                     extant_shape = np.array((rdn_resamp.shape[0], rdn_resamp.shape[1]))
                     reps = int(desired_shape[1]/extant_shape[1])+1
                     rdn_resamp = np.tile(rdn_resamp,[1, reps])[:,:desired_shape[1]]
-                    raw = np.array(rdn_resamp/(flat[0,:,:].T*rccs).T + dark[0,:,:], 
-                        dtype=np.int16)
+                    rdn_meas = rdn_resamp + (rdn_resamp / SNR) * normal(size=(rows,cols))
+                    raw = np.array(rdn_meas/(flat[0,:,:].T*rccs).T, dtype=np.float32)
+                    raw[np.isnan(raw)] = 0
+                    raw = raw + dark[0,:,:]
+                    raw = np.array(raw, dtype=np.int16)
                     if config['reverse_channels']:
                        raw = np.flipud(raw)
                     raw.tofile(raw_out)
