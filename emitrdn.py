@@ -20,9 +20,9 @@ import multiprocessing
 
 header_template = """ENVI
 description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
-samples = {columns_raw}
+samples = {columns}
 lines = {lines}
-bands = {channels_raw}
+bands = {channels}
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -45,7 +45,7 @@ class Config:
            self.dark, _ = sp.fromfile(self.dark_frame_file,
                 dtype = sp.float32).reshape((2, self.channels_raw, 
                     self.columns_raw))
-           _, self.wl, self.fwhm = \
+           _, self.wl_full, self.fwhm_full = \
                 sp.loadtxt(self.spectral_calibration_file).T * 1000
            self.srf_correction = sp.fromfile(self.srf_correction_file,
                 dtype = sp.float32).reshape((self.channels_raw, 
@@ -68,8 +68,21 @@ class Config:
         except AttributeError:
             logging.error('One or more missing calibration files')
 
+        if self.channels != (self.channels_raw - \
+            (self.channels_masked[0] + self.channels_masked[1])):
+            raise ValueError('channel mask inconsistent with total channels')
+
+        if self.columns != (self.columns_raw - \
+            (self.columns_masked[0] + self.columns_masked[1])):
+            raise ValueError('column mask inconsistent with total channels')
+
+        self.wl = np.array([w for w in \
+            self.wl_full[self.channels_masked[0]:-self.channels_masked[1]]])
+        self.fwhm = np.array([w for w in \
+            self.fwhm_full[self.channels_masked[0]:-self.channels_masked[1]]])
+
         # Check for NaNs in calibration data
-        for name in ['dark', 'wl', 'srf_correction', 
+        for name in ['dark', 'wl_full', 'srf_correction', 
                 'crf_correction', 'bad', 'flat_field',
                 'radiometric_calibration','linearity']:
             obj = getattr(self, name)
@@ -121,7 +134,8 @@ class Config:
 
 
 def correct_pedestal_shift(frame, config):
-    mean_dark = frame[config.dark_channels,:].mean(axis=0)
+    mean_dark = (frame[:config.channels_masked[0],:].mean(axis=0) + \
+                 frame[-config.channels_masked[1]:,:].mean(axis=0))/2.0
     return frame - mean_dark
 
 
@@ -263,7 +277,11 @@ def main():
                 frame[sp.logical_not(sp.isfinite(frame))]=0
                 if config.reverse_channels:
                     frame = sp.flip(frame, axis=0)
-                sp.asarray(frame, dtype=sp.float32).tofile(fout)
+
+                # Clip the channels to the appropriate size
+                clip = frame[config.channels_masked[0]:-config.channels_masked[1],:]
+                clip = clip[:,config.columns_masked[0]:-config.columns_masked[1]]
+                sp.asarray(clip, dtype=sp.float32).tofile(fout)
                 lines = lines + 1
             
                 # Read next chunk
