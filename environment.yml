@@ -1,9 +1,0 @@
-name: emit-sds-l1b
-channels:
-  - defaults
-dependencies:
-  - python=3.7.7
-  - scipy=1.6.2
-  - pip=21.0.1
-  - pip:
-    - spectral==0.22.2
