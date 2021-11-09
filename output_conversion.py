@@ -24,12 +24,12 @@ def main():
     parser.add_argument('loc_file', type=str, help="EMIT L1B location data ENVI file")
     parser.add_argument('glt_file', type=str, help="EMIT L1B glt ENVI file")
     parser.add_argument('--ummg_file', type=str, help="Output UMMG filename")
-    parser.add_argument('--log_file', type=str, dfault=None, help="Logging file to write to")
+    parser.add_argument('--log_file', type=str, default=None, help="Logging file to write to")
     parser.add_argument('--log_level', type=str, default="INFO", help="Logging level")
     args = parser.parse_args()
 
     if args.log_file is None:
-        logging.basicConfig(format='%(message)s', level=args.level)
+        logging.basicConfig(format='%(message)s', level=args.log_level)
     else:
         logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=args.log_level, filename=args.log_file)
 
@@ -62,7 +62,7 @@ def main():
 
     logging.debug('Creating and writing radiance metadata')
     add_variable(nc_ds, "sensor_band_parameters/radiance_wl", "f4", "Wavelength Centers", "nm",
-                 [float(d) for d in rdn_ds.metadata['wavelengths']], {"dimensions": ("number_of_bands",)})
+                 [float(d) for d in rdn_ds.metadata['wavelength']], {"dimensions": ("number_of_bands",)})
 
     add_variable(nc_ds, "sensor_band_parameters/radiance_fwhm", "f4", "Full Width at Half Max", "nm",
                  [float(d) for d in rdn_ds.metadata['fwhm']], {"dimensions": ("number_of_bands",)})
@@ -95,3 +95,5 @@ def main():
     return
 
 
+if __name__ == '__main__':
+    main()
