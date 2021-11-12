@@ -13,17 +13,7 @@ import json
 import logging
 import argparse
 
-
-header_string = """ENVI
-description = {EMIT Dark Frame}
-samples = %i
-lines = %i
-bands = 2
-header offset = 0
-file type = ENVI Standard
-data type = 4
-interleave = bsq
-byte order = 0"""
+left, right, top, bottom = 25, 1265, 21, 314
 
 
 def find_header(infile):
@@ -41,13 +31,10 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('dark')
     parser.add_argument('output')
     args = parser.parse_args()
 
     infile = envi.open(find_header(args.input))
-    darkfile = envi.open(find_header(args.dark))
-    dark = np.squeeze(darkfile.load()[:,:,0])
 
     if int(infile.metadata['data type']) == 2:
         dtype = np.uint16
@@ -63,7 +50,10 @@ def main():
     columns = int(infile.metadata['samples'])
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
-
+    masked_rows = np.concatenate((np.arange(top,dtype=int),
+                np.arange(bottom,rows,dtype=int)),axis=0)
+    masked_cols = np.concatenate((np.arange(left,dtype=int),
+                np.arange(right,columns,dtype=int)),axis=0)
     envi.write_envi_header(args.output+'.hdr',infile.metadata)
 
     with open(args.input,'rb') as fin:
@@ -76,7 +66,10 @@ def main():
                 logging.info('Line '+str(line))
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            frame = frame-dark
+            pedestal = np.mean(frame[masked_rows,:], axis=0)
+            frame = frame-pedestal
+            pedestal = np.mean(frame[:,masked_cols], axis=1)
+            frame = (frame.T-pedestal).T
             np.array(frame, dtype=np.float32).tofile(fout)
 
     print('done') 
