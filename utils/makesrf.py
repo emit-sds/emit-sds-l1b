@@ -26,7 +26,7 @@ def find_peak(x):
     model = modeling.models.Gaussian1D(amplitude=np.max(x),
                                        mean=np.argmax(x),
                                        stddev=1.0/2.35)   # depending on the data you need to give some initial values
-    fitted_model = fitter(model, group_indices, magnitudes)
+    fitted_model = fitter(model, np.arange(len(x)), x)
     return fitted_model.mean[0], fitted_model.amplitude[0], fitted_model.stddev[0]
 
 
@@ -36,12 +36,9 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('output')
     args = parser.parse_args()
 
     infile = envi.open(find_header(args.input))
-    with open(args.ghost_config,'r') as fin:
-        ghost_config = json.load(fin)
  
     if int(infile.metadata['data type']) == 2:
         dtype = np.uint16
@@ -58,6 +55,7 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
+    allctrs,alllines = [],[]
     with open(args.input,'rb') as fin:
 
         for line in range(lines):
@@ -65,11 +63,35 @@ def main():
             # Read a frame of data
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            maxind = np.argmax(np.sum(frame,axis=0))
+            maxind = np.argmax(np.sum(frame[:330,:],axis=0))
             ctr,amplitude,std = find_peak(frame[:,maxind])
             fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
+            allctrs.append(ctr)
+            alllines.append(line)
             print(line,ctr,fwhm)
+   
+    chans_per_frame, offset = np.polyfit(alllines,allctrs,1)
+    chans_per_frame = abs(chans_per_frame)
+    print('monochromator velocity:',chans_per_frame,'channels per frame')
 
+    chans = np.unique([int(round(c)) for c in allctrs])
+    sequences = {c:[] for c in chans}
+    with open(args.input,'rb') as fin:
+
+        for line in range(lines):
+
+            # Read a frame of data
+            frame = np.fromfile(fin, count=nframe, dtype=dtype)
+            frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
+            maxind = np.argmax(np.sum(frame[:330,:],axis=0))
+            for ctr in chans:
+                sequences[ctr].append(frame[ctr,maxind])
+        
+    for ctr, sequence in sequences.items():
+         c,amp,std = find_peak(sequence)
+         fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
+         fwhm = fwhm * chans_per_frame
+         print(ctr,std * )
     print('done') 
 
 if __name__ == '__main__':
