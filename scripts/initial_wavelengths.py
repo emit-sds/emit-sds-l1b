@@ -3,7 +3,7 @@ import pylab as plt
 import numpy as np
 from scipy.interpolate import interp1d
 
-# laser info
+# laser info from 20211112_211905_UTC_LaS_Fields-40-1319
 wavelengths = np.array([1956.1,1071.4,640.2,536.1,409.8]) 
 channels = np.array([100.36,219.29,277.15,290.62,307.66])
  
