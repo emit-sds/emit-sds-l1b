@@ -3,9 +3,12 @@ import argparse, sys, os
 import numpy as np
 import pylab as plt
 from glob import glob
+import pylab as plt
+from scipy.signal import deconvolve
 from spectral.io import envi
 from scipy.stats import norm
 from scipy.linalg import solve, inv
+from scipy.interpolate import interp1d
 from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 import json
@@ -37,8 +40,20 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--output_nm',action='store_true')
+    parser.add_argument('--wavelengths',type=str,default=None)
+    parser.add_argument('--monochromator_bandwidth_nm',type=float,default=1.0)
+    parser.add_argument('--deconvolve',action='store_true')
+    parser.add_argument('--plot',action='store_true')
     parser.add_argument('--target_index',type=int,default=-1)
     args = parser.parse_args()
+
+    if args.wavelengths is None:
+       script = os.path.realpath(__file__)
+       directory = os.path.split(script)[0]
+       q,wl,fwhm = np.loadtxt(directory+'/../data/EMIT_Wavelengths_20211104.txt').T * 1000.0
+    else:
+       q,wl,fwhm = np.loadtxt(args.wavelengths).T * 1000.0
 
     infile = envi.open(find_header(args.input))
  
@@ -82,8 +97,8 @@ def main():
     chans_per_frame_robust = robust_model.estimator_.coef_[0]
     chans_per_frame = abs(chans_per_frame)
     chans_per_frame_robust = abs(chans_per_frame_robust)
-    print('monochromator velocity:',chans_per_frame,'channels per frame')
-    print('robust monochromator velocity:',chans_per_frame_robust,'channels per frame')
+   #print('monochromator velocity:',chans_per_frame,'channels per frame')
+   #print('robust monochromator velocity:',chans_per_frame_robust,'channels per frame')
 
     chans = np.unique([int(round(c)) for c in allctrs])
     sequences = {c:[] for c in chans}
@@ -103,11 +118,43 @@ def main():
                 sequences[ctr].append(frame[ctr,maxind])
         
     for ctr, sequence in sequences.items():
-         c,amp,std = find_peak(sequence)
-         fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
-         fwhm = fwhm * chans_per_frame_robust
-         print(ctr,fwhm)
-    print('done') 
+         nm_per_channel = abs(wl[ctr] - wl[ctr+1])
+         if args.deconvolve:
+             # resample to 0.01 nm and deconvolve monochromator
+             spacing_frames = 0.01 / nm_per_channel / chans_per_frame_robust
+             new_grid = np.linspace(0,len(sequence),  len(sequence)/spacing_frames+1)
+             resampled_0p01nm = interp1d(np.arange(len(sequence)), sequence,
+                 fill_value='extrapolate',bounds_error=False)(new_grid)
+             monochromator = np.ones(int(args.monochromator_bandwidth_nm/0.01))
+             monochromator = monochromator / monochromator.sum()
+             deconvolved = deconvolve(resampled_0p01nm, monochromator)
+             c,amp,std = find_peak(deconvolved[0])
+             fwhm = std * 2.0 * np.sqrt(2.0*np.log(2)) # FWHM in grid points
+             fwhm = fwhm * 0.01  # FWHM in nm
+             if not args.output_nm:
+                 fwhm = fwhm / nm_per_channel  # FWHM in channels
+             v,y = new_grid, resampled_0p01nm
+         else:
+             c,amp,std = find_peak(sequence)
+             fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
+             fwhm = fwhm * chans_per_frame_robust # FWHM in channels
+             if args.output_nm:
+                 fwhm = fwhm * nm_per_channel # FWHM in nm
+             v,y = np.arange(len(sequence)), sequence
+
+         if (args.output_nm and fwhm>7 and fwhm < 10) or \
+             (not args.output_nm and fwhm>0.9 and fwhm<1.4):
+             if args.plot:
+                 plt.plot(v,y,'ko')
+                 pdf = norm.pdf(v,c,std)
+                 pdf = pdf / np.max(pdf)
+                 plt.plot(v,pdf*amp,'r')
+                 plt.xlabel('frame')
+                 plt.ylabel('magnitude')
+                 plt.box(False)
+                 plt.grid(True)
+                 plt.show()
+             print(ctr,fwhm)
 
 if __name__ == '__main__':
 
