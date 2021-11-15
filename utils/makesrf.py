@@ -3,6 +3,7 @@ import argparse, sys, os
 import numpy as np
 import pylab as plt
 from glob import glob
+import pylab as plt
 from scipy.signal import deconvolve
 from spectral.io import envi
 from scipy.stats import norm
@@ -39,9 +40,11 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--output_nm',action='store_true')
     parser.add_argument('--wavelengths',type=str,default=None)
     parser.add_argument('--monochromator_bandwidth_nm',type=float,default=1.0)
     parser.add_argument('--deconvolve',action='store_true')
+    parser.add_argument('--plot',action='store_true')
     parser.add_argument('--target_index',type=int,default=-1)
     args = parser.parse_args()
 
@@ -128,14 +131,30 @@ def main():
              c,amp,std = find_peak(deconvolved[0])
              fwhm = std * 2.0 * np.sqrt(2.0*np.log(2)) # FWHM in grid points
              fwhm = fwhm * 0.01  # FWHM in nm
-             fwhm = fwhm / nm_per_channel  # FWHM in channels
+             if not args.output_nm:
+                 fwhm = fwhm / nm_per_channel  # FWHM in channels
+             v,y = new_grid, resampled_0p01nm
          else:
              c,amp,std = find_peak(sequence)
              fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
              fwhm = fwhm * chans_per_frame_robust # FWHM in channels
-             fwhm = fwhm * nm_per_channel # FWHM in nm
-         print(ctr,fwhm)
-    print('done') 
+             if args.output_nm:
+                 fwhm = fwhm * nm_per_channel # FWHM in nm
+             v,y = np.arange(len(sequence)), sequence
+
+         if (args.output_nm and fwhm>7 and fwhm < 10) or \
+             (not args.output_nm and fwhm>0.9 and fwhm<1.4):
+             if args.plot:
+                 plt.plot(v,y,'ko')
+                 pdf = norm.pdf(v,c,std)
+                 pdf = pdf / np.max(pdf)
+                 plt.plot(v,pdf*amp,'r')
+                 plt.xlabel('frame')
+                 plt.ylabel('magnitude')
+                 plt.box(False)
+                 plt.grid(True)
+                 plt.show()
+             print(ctr,fwhm)
 
 if __name__ == '__main__':
 
