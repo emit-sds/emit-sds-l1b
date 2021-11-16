@@ -13,7 +13,7 @@ import json
 import logging
 import argparse
 
-left, right, top, bottom = 25, 1265, 21, 314
+left, right, top, bottom = 22, 1270, 20, 320
 
 
 def find_header(infile):
