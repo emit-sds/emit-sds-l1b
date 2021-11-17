@@ -27,12 +27,12 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
+    parser.add_argument('--cue_channel',type=int,default=150)
     args = parser.parse_args()
 
     xs,ys = [],[]
     
-    for infilepath in nargs
-
+    for infilepath in args.input:
 
         illum = float(infilepath.split('_')[-3][2:-9].replace('p','.'))
         infile = envi.open(find_header(infilepath))
@@ -52,7 +52,7 @@ def main():
         nframe = rows * columns
         
         x,y = [],[]
-        with open(infile,'rb') as fin:
+        with open(infilepath,'rb') as fin:
         
             for line in range(lines):
         
@@ -64,15 +64,26 @@ def main():
                 x.append(DN)
                 y.append(illum)
                
-            ys = np.median(y)
-            xs = np.median(x)
+            ys.append(np.median(y))
+            xs.append(np.median(x))
 
-      plt.plot(ys,xs,'ko')
-      plt.xlabel('DN')
-      plt.ylabel('candela m2')
-      plt.box(False)
-      plt.grid(True)
+    plt.plot(ys,xs,'ko')
+    
+    plt.xlabel('DN')
+    plt.ylabel('candela m2')
+    plt.box(False)
+    plt.grid(True)
+    plt.ylim([0,5000])
+    plt.xlim([0,500])
 
-  if __name__ == '__main__':
+    use = xs<40000
+    p = np.polyfit(xs[use],ys[use],1)
+    plt.figure()
+    plt.plot(xs[use],np.polyval(p,xs[use])-ys[use],'ko')
+    plt.box(False)
+    plt.grid(True)
+    plt.show()
+
+if __name__ == '__main__':
 
     main()
