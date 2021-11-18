@@ -9,8 +9,10 @@ from scipy.linalg import solve, inv
 from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 from scipy.optimize import minimize
-from scipy.interpolate import splrep,splev
+from scipy.interpolate import BSpline,interp1d
+from statsmodels.nonparametric.smoothers_lowess import lowess
 from skimage.filters import threshold_otsu
+from scipy.ndimage import gaussian_filter
 import json
 
 
@@ -29,24 +31,28 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--cue_channel',type=int,default=270)
+    parser.add_argument('output')
     args = parser.parse_args()
 
     xs,ys = [],[]
-    
-    for infilepath in args.input:
+    nfiles = len(args.input) 
+    illums =[] 
+    data = []
+
+    for fi,infilepath in enumerate(args.input):
 
         toks = infilepath.split('_')
         for tok in toks:
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
+               active_rows = np.arange(fieldpoint-37,fieldpoint+38,dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
                simple = simple.replace('candelam2','')
                simple = simple.replace('p','.')
-               illum = float(simple)
+               illums.append(float(simple))
         print(infilepath)
         infile = envi.open(find_header(infilepath))
         
@@ -67,64 +73,64 @@ def main():
         x,y = [],[]
         with open(infilepath,'rb') as fin:
         
+            image_data = np.zeros((rows,columns))
             for line in range(lines):
         
                 # Read a frame of data
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                reference = frame[args.cue_channel, :]
-                DN = reference[fieldpoint+1]
-                x.append(DN)
-                y.append(illum)
-               
-            xs.append(np.median(x))
-            ys.append(np.median(y))
+                image_data[:,active_rows] = frame[:,active_rows]
+        data.append(image_data)        
 
-    plt.plot(ys,xs,'ko')
-    
-    plt.xlabel('DN')
-    plt.ylabel('candela m2')
-    plt.box(False)
-    plt.grid(True)
+    data = np.array(data)
+    curves = []
+    #for wl,color in [(50,'r'),(51,'m'),(150,'b'),(151,'c'),(200,'y'),(201,'g'),(280,'k')]:
+    for wl in np.arange(26,313):
+        ys = data[:,wl,active_rows].mean(axis=1)
+        xs = np.array(illums) #+ np.random.normal(size=len(illums))
 
-    xs = np.array(xs,dtype=float)
-    ys = np.array(ys,dtype=float)
-    target = ys / ys.mean() * xs.mean()
-    use = np.where(np.logical_and(xs>5,xs<40000))[0]
-    tofit = np.where(np.logical_and(xs>5,xs<40000))[0]
+        xs = xs / xs.mean() * ys.mean()
+        
+        # best least-squares slope forcing zero intercept
+        use = np.where(np.logical_and(ys>5,ys<40000))[0]
+        tofit = np.where(np.logical_and(ys>1000,ys<30000))[0]
 
-    # best least-squares slope forcing zero intercept
-    slope = np.sum(ys[tofit]*xs[tofit])/np.sum(pow(xs[tofit],2))
-    slope = slope/ys[tofit].mean() * xs[tofit].mean()
-    print(slope)
-  
-    # Third order correction, see Fiedler et al., 
-    # APPLIED OPTICS  Vol. 44, No. 25  1 September 2005
+        slope = np.sum(ys[tofit]*xs[tofit])/np.sum(pow(xs[tofit],2))
+        print(slope)   
+        if not np.isfinite(slope):
+           continue
+        ideal = slope*xs
+        
+        corrected = lowess(ys,ideal,frac=0.3,return_sorted=False)
+        corrected[ys>1000]=ys[ys>1000]
+        grid = np.arange(2**16)
+        resamp = interp1d(corrected, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+        curves.append(resamp)
+    envi.save_image(args.output+'.hdr',np.array(curves,dtype=np.float32),ext='',force=True)
 
-    def model(x, DN):
-      maxdn = 40000
-      return x[0]*DN/maxdn + x[1]*pow(DN/maxdn,2) + x[2]*pow(DN/maxdn,3)
+    if False:
+            plt.figure(0)
+            plt.semilogx(ys[use],ideal[use]/ys[use],color+'o')
+            plt.semilogx(ys[use],ideal[use]/corrected[use],color+'-')
+            #plt.plot(xscaled[use],ideal[use],color+'+')
+            #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
+            #plt.semilogx(ys[use],np.zeros(len(use)),'k:')
+           #plt.xlabel('DN')
+           #plt.ylabel('Deviation from linearity (%)')
+            plt.box(False)
+            plt.grid(True)
 
-    def err(x, DN, tru):
-      return np.mean(pow((model(x,DN) - tru)/tru,2))
+            plt.figure(1)
+           #plt.semilogx(grid,resamp/grid,'k')
+            #plt.plot(xscaled[use],ideal[use],color+'+')
+            #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
+            #plt.semilogx(ys[use],np.zeros(len(use)),'k:')
+           #plt.xlabel('DN')
+           #plt.ylabel('Deviation from linearity (%)')
+            plt.box(False)
+            plt.grid(True)
 
-   #x0 = np.array([40000,0,0])
-   #best = minimize(lambda x: err(x,xs,target), x0)
-    p = splrep(xs, target, k=3, s=4)
-    print(p)
-
-    if True:
-        #corrected = model(best.x, xs)
-        corrected = splev(xs,p)
-        plt.figure()
-        plt.semilogx(xs[use],(xs[use]-target[use])/(target[use])*100,'ko')
-        plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
-        plt.semilogx(xs[use],np.zeros(len(use)),'k:')
-        plt.xlabel('DN')
-        plt.ylabel('Deviation from linearity (%)')
-        plt.box(False)
-        plt.grid(True)
-        plt.show()
+            plt.show()
 
 if __name__ == '__main__':
 
