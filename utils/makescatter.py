@@ -52,16 +52,19 @@ def find_peak(x):
     return fitted_model.mean[0], fitted_model.amplitude[0], fitted_model.stddev[0]
 
 
-def find_scatter(obs,plot=False):
+def find_scatter(obs, args):
+
     v = np.arange(len(obs))
     ctr,n,n2 = find_peak(obs)
-    use = np.logical_and(v>(ctr-10),v<(ctr+10))
+    use = np.logical_and(v>(ctr-args.hwid),v<(ctr+args.hwid+1))
     x0 = np.array([ctr, 1, 0.7, 0.006, 2.5, 0.0007, 5])
+
     mdl = sum_of_gaussians(v,x0[0],abs(x0[1]),abs(x0[2]),abs(x0[3]),abs(x0[4]),abs(x0[5]),abs(x0[6]))
     xbest = minimize(lambda q: err(q, v[use], obs[use]), x0, method='CG')
     x = xbest.x
-    if plot:
-        #plt.semilogy(v[use],mdl[use],'b')
+
+    if args.plot:
+        plt.semilogy(v[use],mdl[use],'b')
         plt.semilogy(v[use],obs[use],'ko')
         mdl = sum_of_gaussians(v,x[0],abs(x[1]),abs(x[2]),abs(x[3]),abs(x[4]),abs(x[5]),abs(x[6]))
         plt.semilogy(v[use],mdl[use],'r')
@@ -80,6 +83,8 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--spatial',action='store_true')
     parser.add_argument('--plot',action='store_true')
+    parser.add_argument('--hwid',type=int,default=10)
+    parser.add_argument('--top_margin',type=int,default=20)
     parser.add_argument('--target_column',type=int,default=40)
     parser.add_argument('input',nargs='+')
     args = parser.parse_args()
@@ -100,29 +105,25 @@ def main():
         columns = int(infile.metadata['samples'])
         lines = int(infile.metadata['lines'])
         nframe = rows * columns
-        margin=20
         
         X = infile.load()
         c = np.argmax(np.sum(np.sum(X,axis=1),axis=0)) 
         
-       ## spatial scatter
-       #col = args.target_column
-       #sequence = X[margin:,(col-10):(col+11),:]
-       #sequence = np.mean(sequence, axis=2)
-       #sequence = np.mean(sequence, axis=0)
-       #sequence = np.squeeze(sequence)
-       #sequence = sequence / max(sequence)                                         
-       #best = find_scatter(sequence,args.plot)
-       #print('%i %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f'%(c, best[0],best[1],best[2],best[3],best[4],best[5],best[6])) 
- 
-        # spectral scatter
         col = args.target_column
-        sequence = X[margin:,(col-10):(col+11),:]
-        sequence = np.mean(sequence, axis=1)
-        sequence = np.mean(sequence, axis=0)
+        sequence = X[args.top_margin:,(col-args.hwid):(col+args.hwid+1),:]
+
+        if args.spatial:
+            # spatial scatter
+            sequence = np.mean(sequence, axis=2)
+            sequence = np.mean(sequence, axis=0)
+        else:
+            # spectral scatter
+            sequence = np.mean(sequence, axis=1)
+            sequence = np.mean(sequence, axis=0)
+
         sequence = np.squeeze(sequence)
         sequence = sequence / max(sequence)                                         
-        best = find_scatter(sequence,args.plot)
+        best = find_scatter(sequence, args)
         print('%i %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f'%(c, best[0],best[1],best[2],best[3],best[4],best[5],best[6])) 
 
 

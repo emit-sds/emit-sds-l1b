@@ -70,8 +70,10 @@ def main():
             if line%10==0:
                 logging.info('Averaging line '+str(line))
             frame = sp.fromfile(fin, count=nframe, dtype=dtype)
+            if len(frame)<nframe:
+                print('exiting early')
+                break
             frame = frame.reshape((rows, columns))
-            
             darkframes.append(frame)
 
         ndark = len(darkframes)
