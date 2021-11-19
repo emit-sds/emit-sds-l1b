@@ -120,12 +120,12 @@ def main():
            resamp = resamp / grid
            resamp[np.isnan(resamp)]=0
            coef = (resamp - mu) @ evec 
-           if wl>30 and col>23:
-               plt.plot(resamp)
-               plt.plot(np.squeeze(evec*coef[0]) + mu,'k.')
-               plt.show()
-           out[wl,col,:] = coef
-           print('!',wl,col,coef)
+         # if wl>30 and col>100 and col<1200:
+         #     plt.plot(resamp)
+         #     plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
+         #     plt.show()
+         # out[wl,col,:] = coef
+         # print('!',wl,col,coef)
 
     envi.save_image(args.output+'.hdr',np.array(out,dtype=np.float32),ext='',force=True)
 

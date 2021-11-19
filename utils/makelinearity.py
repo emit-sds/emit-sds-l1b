@@ -86,10 +86,9 @@ def main():
 
     data = np.array(data)
     curves = []
-    #for wl,color in [(50,'r'),(51,'m'),(150,'b'),(151,'c'),(200,'y'),(201,'g'),(280,'k')]:
     for wl in np.arange(top,bottom):
         DN = data[:,wl,active_rows].mean(axis=1)
-        L = np.array(illums) #+ np.random.normal(size=len(illums))
+        L = np.array(illums) 
 
         L = L / L.mean() * DN.mean()
         
@@ -102,15 +101,12 @@ def main():
         if not np.isfinite(slope):
            continue
         ideal = slope*L
+
         # Don't correct above the saturation level
         ideal[DN>40000] = DN[DN>40000]
         
         smoothed = lowess(ideal,DN,frac=0.4,return_sorted=False)
         smoothed[DN>1000]=DN[DN>1000]
-
-        #plt.semilogx(DN[use],DN[use]/ideal[use],color+'o')
-        #plt.semilogx(smoothed[use],smoothed[use]/ideal[use],color+'+')
-        #plt.show()
 
         grid = np.arange(2**16)
         resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
