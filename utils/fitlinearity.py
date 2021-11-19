@@ -27,10 +27,11 @@ def find_header(infile):
 
 def main():
 
-    description = "Calculate Flat field"
+    description = "Calculate Linearity Correction"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
+    parser.add_argument('basis')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -38,6 +39,15 @@ def main():
     nfiles = len(args.input) 
     illums =[] 
     data = []
+
+    basis = envi.open(args.basis+'.hdr').load()
+    evec = np.squeeze(basis[1:,:].T)
+    evec[np.isnan(evec)] = 0
+    nev = np.squeeze(evec.shape[1])
+    mu = np.squeeze(basis[0,:])
+    mu[np.isnan(mu)] = 0
+    print('mu',mu)
+    print('evec',evec)
 
     for fi,infilepath in enumerate(args.input):
 
@@ -53,7 +63,7 @@ def main():
                simple = simple.replace('candelam2','')
                simple = simple.replace('p','.')
                illums.append(float(simple))
-        print(infilepath)
+        
         infile = envi.open(find_header(infilepath))
         
         if int(infile.metadata['data type']) == 2:
@@ -80,67 +90,42 @@ def main():
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
                 image_data[:,active_rows] = frame[:,active_rows]
+               
         data.append(image_data)        
 
     data = np.array(data)
-    curves = []
-    #for wl,color in [(50,'r'),(51,'m'),(150,'b'),(151,'c'),(200,'y'),(201,'g'),(280,'k')]:
+    out = np.zeros((rows,columns,nev))
+    
     for wl in np.arange(26,313):
-        DN = data[:,wl,active_rows].mean(axis=1)
-        L = np.array(illums) #+ np.random.normal(size=len(illums))
 
-        L = L / L.mean() * DN.mean()
+        for row in active_rows:
         
-        # best least-squares slope forcing zero intercept
-        tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
-        use = np.where(np.logical_and(DN>10,DN<35000))[0]
+            DN = data[:,wl,row]
+            L = np.array(illums) 
+            L = L / L.mean() * DN.mean()
+            
+            # best least-squares slope forcing zero intercept
+            tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
+            use = np.where(np.logical_and(DN>10,DN<35000))[0]
+            slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
+            print(row,slope)
+            if not np.isfinite(slope):
+               continue
+            ideal = slope * L
 
-        slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
-        print(slope)   
-        if not np.isfinite(slope):
-           continue
-        ideal = slope*L
-        # Don't correct above the saturation level
-        ideal[DN>40000] = DN[DN>40000]
-        
-        smoothed = lowess(ideal,DN,frac=0.4,return_sorted=False)
-        smoothed[DN>1000]=DN[DN>1000]
+            # Don't correct above the saturation level
+            ideal[DN>40000] = DN[DN>40000]
+            
+            grid = np.arange(2**16)
+            resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+            coef = (resamp - mu) @ evec 
+            #plt.plot(resamp,'ko')
+            print(coef)
+           #plt.plot(grid,(evec@coef + mu)/resamp,'k')
+           #plt.show()
+            out[wl,active_rows,:] = coef
 
-        #plt.semilogx(DN[use],DN[use]/ideal[use],color+'o')
-        #plt.semilogx(smoothed[use],smoothed[use]/ideal[use],color+'+')
-        #plt.show()
-
-        grid = np.arange(2**16)
-        resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
-        curves.append(resamp)
-
-    curves = np.array(curves,dtype=np.float32)
-    envi.save_image(args.output+'.hdr',curves,ext='',force=True)
-
-    if True:
-            plt.figure(0)
-            #plt.loglog(grid,curves[np.arange(0,curves.shape[0],50),:].T,'k-')
-            plt.plot(grid,(curves[np.arange(0,curves.shape[0],50),:]/grid).T,'k-')
-            #plt.semilogx(ys[use],ideal[use]/corrected[use],color+'-')
-            #plt.plot(xscaled[use],ideal[use],color+'+')
-            #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
-            #plt.semilogx(ys[use],np.zeros(len(use)),'k:')
-           #plt.xlabel('DN')
-           #plt.ylabel('Deviation from linearity (%)')
-            plt.box(False)
-            plt.grid(True)
-
-           #plt.figure(1)
-           #plt.semilogx(grid,resamp/grid,'k')
-            #plt.plot(xscaled[use],ideal[use],color+'+')
-            #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
-            #plt.semilogx(ys[use],np.zeros(len(use)),'k:')
-           #plt.xlabel('DN')
-           #plt.ylabel('Deviation from linearity (%)')
-           #plt.box(False)
-           #plt.grid(True)
-
-            plt.show()
+    envi.save_image(args.output+'.hdr',out,ext='',force=True)
 
 if __name__ == '__main__':
 
