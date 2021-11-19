@@ -25,6 +25,8 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
+left, right, top, bottom = 25, 1264, 26, 313
+
 def main():
 
     description = "Calculate Flat field"
@@ -46,7 +48,7 @@ def main():
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
-               active_rows = np.arange(fieldpoint-37,fieldpoint+38,dtype=int)
+               active_rows = np.arange(max(left,fieldpoint-37),min(fieldpoint+38,right),dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
@@ -85,7 +87,7 @@ def main():
     data = np.array(data)
     curves = []
     #for wl,color in [(50,'r'),(51,'m'),(150,'b'),(151,'c'),(200,'y'),(201,'g'),(280,'k')]:
-    for wl in np.arange(26,313):
+    for wl in np.arange(top,bottom):
         DN = data[:,wl,active_rows].mean(axis=1)
         L = np.array(illums) #+ np.random.normal(size=len(illums))
 
@@ -117,7 +119,7 @@ def main():
     curves = np.array(curves,dtype=np.float32)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)
 
-    if True:
+    if False:
             plt.figure(0)
             #plt.loglog(grid,curves[np.arange(0,curves.shape[0],50),:].T,'k-')
             plt.plot(grid,(curves[np.arange(0,curves.shape[0],50),:]/grid).T,'k-')

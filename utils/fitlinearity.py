@@ -42,12 +42,15 @@ def main():
 
     basis = envi.open(args.basis+'.hdr').load()
     evec = np.squeeze(basis[1:,:].T)
+    if len(evec.shape)<2:
+        evec = evec[:,np.newaxis]
     evec[np.isnan(evec)] = 0
     nev = np.squeeze(evec.shape[1])
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
     print('mu',mu)
     print('evec',evec)
+    data = np.zeros((len(args.input),480,1280))
 
     for fi,infilepath in enumerate(args.input):
 
@@ -56,7 +59,7 @@ def main():
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
-               active_rows = np.arange(fieldpoint-37,fieldpoint+38,dtype=int)
+               active_cols = np.arange(fieldpoint-37,fieldpoint+38,dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
@@ -80,52 +83,51 @@ def main():
         lines = int(infile.metadata['lines'])
         nframe = rows * columns
         
-        x,y = [],[]
+        sequence = []
         with open(infilepath,'rb') as fin:
         
-            image_data = np.zeros((rows,columns))
             for line in range(lines):
         
                 # Read a frame of data
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                image_data[:,active_rows] = frame[:,active_rows]
+                sequence.append(frame[:,active_cols])
+                
+        sequence = np.array(sequence)
+        data[fi,:,active_cols] = np.median(sequence, axis=0).T
                
-        data.append(image_data)        
-
-    data = np.array(data)
-    out = np.zeros((rows,columns,nev))
-    
+    out = np.zeros((480,1280,nev))
     for wl in np.arange(26,313):
+   
+       for col in range(columns):
+       
+           DN = data[:,wl,col]
+           L = np.array(illums) 
+           L = L / L.mean() * DN.mean()
+           
+           # best least-squares slope forcing zero intercept
+           tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
+           slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
+           if not np.isfinite(slope):
+              continue
+           ideal = slope * L
+   
+           # Don't correct above the saturation level
+           ideal[DN>40000] = DN[DN>40000]
+           
+           grid = np.arange(2**16)
+           resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+           resamp = resamp / grid
+           resamp[np.isnan(resamp)]=0
+           coef = (resamp - mu) @ evec 
+           if wl>30 and col>23:
+               plt.plot(resamp)
+               plt.plot(np.squeeze(evec*coef[0]) + mu,'k.')
+               plt.show()
+           out[wl,col,:] = coef
+           print('!',wl,col,coef)
 
-        for row in active_rows:
-        
-            DN = data[:,wl,row]
-            L = np.array(illums) 
-            L = L / L.mean() * DN.mean()
-            
-            # best least-squares slope forcing zero intercept
-            tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
-            use = np.where(np.logical_and(DN>10,DN<35000))[0]
-            slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
-            print(row,slope)
-            if not np.isfinite(slope):
-               continue
-            ideal = slope * L
-
-            # Don't correct above the saturation level
-            ideal[DN>40000] = DN[DN>40000]
-            
-            grid = np.arange(2**16)
-            resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
-            coef = (resamp - mu) @ evec 
-            #plt.plot(resamp,'ko')
-            print(coef)
-           #plt.plot(grid,(evec@coef + mu)/resamp,'k')
-           #plt.show()
-            out[wl,active_rows,:] = coef
-
-    envi.save_image(args.output+'.hdr',out,ext='',force=True)
+    envi.save_image(args.output+'.hdr',np.array(out,dtype=np.float32),ext='',force=True)
 
 if __name__ == '__main__':
 
