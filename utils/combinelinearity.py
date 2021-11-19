@@ -4,8 +4,10 @@ from spectral.io import envi
 import numpy as np
 import pylab as plt
 from scipy.interpolate import interp1d
+from scipy.signal import medfilt
+from scipy.linalg import norm
 import sys, os
-
+from r_pca import R_pca
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -24,7 +26,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--nev',default=5)
+    parser.add_argument('--nev',type=int,default=5)
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -41,21 +43,57 @@ def main():
             data = x
         else:
             data = np.concatenate((data,x),axis=0)
-    data = np.array(data) #[/ np.arange(data.shape[1])
+
+    grid = np.arange(2**16, dtype=float)
+    data = np.array(data) / grid 
+    data[0] = 0
+    data[np.logical_not(np.isfinite(data))]=0
+
+    # remove large outlier values
+    norms = norm(data,axis=1)
+    mu = np.mean(norms)
+    std = np.std(norms)
+    use = (norms-mu)<(std*3)
+    data = data[use,:]
+
+    for i in range(data.shape[0]):
+      data[i,:] = medfilt(data[i,:])
+
+
+    # Robust PCA
+    # Implementation of https://arxiv.org/pdf/0912.3599.pdf
+    # rpca = R_pca(data.T)
+    # data, S = rpca.fit(max_iter=10000, iter_print=100)
+    # data = data.T
+
+    data[np.logical_not(np.isfinite(data))]=0
     mu = data.mean(axis=0)
+    plt.plot(mu)
+    plt.show()
     zm = data - mu
-    use = np.arange(100,40000,10)
-    plt.plot(np.std(zm[:,use],axis=0))
     
     use = np.arange(0,47000,10)
     C = np.cov(zm[:,use], rowvar=False)
     C[np.logical_not(np.isfinite(C))]=0
     ev,vec = np.linalg.eig(C)
+    
+    ind = np.argsort(ev)
+    print(ev[ind[-10:]])
+    print(mu)
     resamp = []
-    for v in vec[:,:args.nev].T:
-       resamp.append(interp1d(use,v,fill_value='extrapolate',bounds_error=False)(np.arange(2**16)))
+    for i in ind[-args.nev:]:
+       v = vec[:,i]
+      #plt.plot(v)
+      #plt.show()
+       v = interp1d(use,v,fill_value='extrapolate',bounds_error=False)(np.arange(2**16))
+       v = v / norm(v)
+       resamp.append(v)
+
     resamp = np.array(resamp)
-    envi.save_image(args.output+'.hdr',np.concatenate((mu[np.newaxis,:],resamp),axis=0),ext='',force=True)
+
+    combined = np.concatenate((mu[np.newaxis,:],resamp),axis=0)
+    combined = combined.astype(np.float32)
+    envi.save_image(args.output+'.hdr',combined,ext='',force=True)
 
 if __name__ == '__main__':
 
