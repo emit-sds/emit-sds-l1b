@@ -47,7 +47,7 @@ def main():
             data = np.concatenate((data,x),axis=0)
 
     grid = np.arange(2**16, dtype=float)
-    data = np.array(data) / grid 
+    data = np.array(data) 
     data[0] = 0
     data[np.logical_not(np.isfinite(data))]=0
 
