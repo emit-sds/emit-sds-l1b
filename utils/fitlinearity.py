@@ -50,7 +50,7 @@ def main():
     mu[np.isnan(mu)] = 0
     print('mu',mu)
     print('evec',evec)
-    data = np.zeros((len(args.input),480,1280))
+    data = np.ones((len(args.input),480,1280)) * -9999
 
     for fi,infilepath in enumerate(args.input):
 
@@ -91,18 +91,19 @@ def main():
                 # Read a frame of data
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                sequence.append(frame[:,active_cols])
+                sequence.append(frame)
                 
         sequence = np.array(sequence)
-        data[fi,:,active_cols] = np.median(sequence, axis=0).T
+        data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
                
     out = np.zeros((480,1280,nev))
     for wl in np.arange(26,313):
    
        for col in range(columns):
        
-           DN = data[:,wl,col]
-           L = np.array(illums) 
+           use = data[:,wl,col] > -9990
+           DN = data[use,wl,col]
+           L = np.array(illums)[use] 
            L = L / L.mean() * DN.mean()
            
            # best least-squares slope forcing zero intercept
@@ -120,11 +121,11 @@ def main():
            resamp = resamp / grid
            resamp[np.isnan(resamp)]=0
            coef = (resamp - mu) @ evec 
-         # if wl>30 and col>100 and col<1200:
-         #     plt.plot(resamp)
-         #     plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
-         #     plt.show()
-         # out[wl,col,:] = coef
+           out[wl,col,:] = coef
+          #if wl>30 and col>100 and col<1200:
+          #    plt.plot(resamp)
+          #    plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
+          #    plt.show()
          # print('!',wl,col,coef)
 
     envi.save_image(args.output+'.hdr',np.array(out,dtype=np.float32),ext='',force=True)

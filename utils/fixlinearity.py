@@ -7,6 +7,7 @@ from spectral.io import envi
 from scipy.stats import norm
 from scipy.linalg import solve, inv
 from astropy import modeling
+from numba import jit
 
 
 def find_header(infile):
@@ -16,6 +17,19 @@ def find_header(infile):
     return '.'.join(infile.split('.')[:-1])+'.hdr'
   else:
     raise FileNotFoundError('Did not find header file')
+
+
+@jit(nopython = True)
+def fix_frame(frame, mu):
+    rows, columns = frame.shape
+    new = np.zeros(frame.shape) 
+    for row in range(rows):
+        for col in range(columns):
+            i = int(frame[row,col])
+           # tot=evec[i,:]@(coeffs[row,col,:].reshape((nev,1))) + mu[i]
+            tot=mu[i]
+            new[row,col] = frame[row,col] * tot
+    return new
 
 
 def main():
@@ -69,17 +83,8 @@ def main():
                 # Read a frame of data
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                new = np.zeros(frame.shape) 
-  
-                print(line)
-                for row in range(rows):
-                    for col in range(cols):
-                         
-                        tot=evec@coeffs[row,col,:] + mu
-                        i = int(frame[row,col])
-                        new[row,col] = frame[row,col] * tot[i] / float(i)
-
-                new.tofile(np.array(fout,dtype=np.float32))
+                new = fix_frame(frame, mu)
+                np.array(new,dtype=np.float32).tofile(fout)
 
 if __name__ == '__main__':
 

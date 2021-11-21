@@ -12,7 +12,8 @@ from spectral.io import envi
 import json
 import logging
 import argparse
-
+from numba import jit
+from math import pow
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -22,16 +23,78 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
+# Polynomial fitting from https://gist.github.com/kadereub/
+@jit(nopython=True)
+def _coeff_mat(x, deg):
+    mat_ = np.zeros(shape=(x.shape[0],deg + 1))
+    const = np.ones_like(x)
+    mat_[:,0] = const
+    mat_[:, 1] = x
+    if deg > 1:
+        for n in range(2, deg + 1):
+            mat_[:, n] = x**n
+    return mat_
+    
+@jit
+def _fit_x(a, b):
+    # linalg solves ax = b
+    det_ = np.linalg.lstsq(a, b)[0]
+    return det_
+ 
+@jit
+def fit_poly(x, y, deg):
+    a = _coeff_mat(x, deg)
+    p = _fit_x(a, y)
+    # Reverse order so p[0] is coefficient of highest order
+    return p[::-1]
+
+@jit
+def eval_polynomial(P, x):
+    '''
+    Compute polynomial P(x) where P is a vector of coefficients, highest
+    order coefficient at P[0].  Uses Horner's Method.
+    '''
+    result = 0
+    for coeff in P:
+        result = x * result + coeff
+    return result
+
+
+@jit
 def spectral_angle(a,b):
     return np.arccos(np.sum(a*b)/(np.sqrt(pow(a,2).sum()) * np.sqrt(pow(a,2).sum())))
 
 
 # Spectral angle comparison
+@jit
 def closest(a,B):
     numerator = np.sum((B.T*a).T,axis=0)
-    denominator = np.sqrt(np.sum(pow(B,2),axis=0)) * np.sqrt(pow(a,2).sum())
+    denominator = np.sqrt(np.sum((B**2),axis=0)) * np.sqrt(np.sum(a**2))
     projection = numerator/denominator
     return np.argmax(projection)
+
+
+@jit
+def fix(frame,bad):
+
+    rows, columns = frame.shape
+    fixed = frame.copy()
+    valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
+    for col in range(columns):
+        if np.sum(bad[:,col])>0:
+            bad_channels = np.where(bad[:,col]!=0)[0]
+            good_channels = np.where(bad[:,col]==0)[0]
+            best_sa = 99999
+            B = frame[good_channels, :]
+            B = B[:,valid_columns]
+            neighbor = closest(frame[good_channels,col],B)
+            best = valid_columns[neighbor]
+            best_spectrum = frame[:,best]
+            slope, offset = fit_poly(best_spectrum[good_channels],
+                                       frame[good_channels, col], 1)
+            for badc in bad_channels:
+               fixed[badc,col] = slope * best_spectrum[badc] + offset
+    return fixed
 
 
 def main():
@@ -76,28 +139,8 @@ def main():
             print(line)
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            fixed = frame.copy()
-            valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
-            for col in range(columns):
-                if any(bad[:,col]):
-                    bad_channels = np.where(bad[:,col]!=0)[0]
-                    good_channels = np.where(bad[:,col]==0)[0]
-                    best_sa = 99999
 
-                    B = frame[good_channels, :]
-                    B = B[:,valid_columns]
-                    best = valid_columns[closest(frame[good_channels,col],B)]
-                    best_spectrum = frame[:,best]
-                   #for test_col in valid_columns:
-                   #   sa = spectral_angle(frame[good_channels, test_col],
-                   #                       frame[good_channels, col])
-                   #   if sa<best_sa:
-                   #      best_spectrum = frame[:,test_col]
-                   #      best_sa = sa
-                    slope, offset = np.polyfit(best_spectrum[good_channels],
-                                               frame[good_channels, col], 1)
-                    for badc in bad_channels:
-                       fixed[badc,col] = slope * best_spectrum[badc] + offset
+            fixed = fix(frame,bad)
 
             np.array(fixed, dtype=np.float32).tofile(fout)
 

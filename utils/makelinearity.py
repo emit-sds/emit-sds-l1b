@@ -10,7 +10,8 @@ from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 from scipy.optimize import minimize
 from scipy.interpolate import BSpline,interp1d
-from statsmodels.nonparametric.smoothers_lowess import lowess
+#from statsmodels.nonparametric.smoothers_lowess import lowess
+from lowess import lowess
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
 import json
@@ -33,6 +34,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
+    parser.add_argument('--plot',action='store_true')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -101,24 +103,31 @@ def main():
         if not np.isfinite(slope):
            continue
         ideal = slope*L
+        grid = np.arange(2**16)
+
+       #use = DN>100
+       #ideal = lowess(np.array(DN[use],dtype=float), 
+       #              np.array(ideal[use],dtype=float),xvals=DN,frac=0.1,return_sorted=False)
+
+        resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+        resamp = resamp / grid
 
         # Don't correct above the saturation level
-        ideal[DN>40000] = DN[DN>40000]
-        
-        smoothed = lowess(ideal,DN,frac=0.4,return_sorted=False)
-        smoothed[DN>1000]=DN[DN>1000]
+        #resamp[grid>40000] = DN[grid>40000]
+        #smoothed[ideal>1000]=ideal[ideal>1000]
+        resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
+        resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
 
-        grid = np.arange(2**16)
-        resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+        #if np.logical_and(all(resamp>0.975),all(resamp<1.025)):
         curves.append(resamp)
 
     curves = np.array(curves,dtype=np.float32)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)
 
-    if False:
+    if args.plot:
             plt.figure(0)
             #plt.loglog(grid,curves[np.arange(0,curves.shape[0],50),:].T,'k-')
-            plt.plot(grid,(curves[np.arange(0,curves.shape[0],50),:]/grid).T,'k-')
+            plt.semilogx(grid,(curves[np.arange(0,curves.shape[0],50),:]).T,'k-')
             #plt.semilogx(ys[use],ideal[use]/corrected[use],color+'-')
             #plt.plot(xscaled[use],ideal[use],color+'+')
             #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
