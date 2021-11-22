@@ -39,7 +39,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
     parser.add_argument('basis')
-    parser.add_argument('coefficients')
+    #parser.add_argument('coefficients')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -55,7 +55,7 @@ def main():
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
 
-    coeffs = envi.open(args.coefficients+'.hdr').load()
+    #coeffs = envi.open(args.coefficients+'.hdr').load()
    
     infile = envi.open(find_header(args.input))
     

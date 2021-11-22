@@ -57,7 +57,7 @@ def find_scatter(obs, args):
     v = np.arange(len(obs))
     ctr,n,n2 = find_peak(obs)
     use = np.logical_and(v>(ctr-args.hwid),v<(ctr+args.hwid+1))
-    x0 = np.array([ctr, 1, 0.7, 0.006, 2.5, 0.0007, 5])
+    x0 = np.array([ctr, 1, 0.7, 0.010, 1.7, 0.0017, 7])
 
     mdl = sum_of_gaussians(v,x0[0],abs(x0[1]),abs(x0[2]),abs(x0[3]),abs(x0[4]),abs(x0[5]),abs(x0[6]))
     xbest = minimize(lambda q: err(q, v[use], obs[use]), x0, method='CG')

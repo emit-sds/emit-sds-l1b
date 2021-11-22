@@ -118,8 +118,9 @@ def main():
         resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
         resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
 
-        #if np.logical_and(all(resamp>0.975),all(resamp<1.025)):
-        curves.append(resamp)
+        checkband = np.argmin(abs(grid-20000))
+        if resamp[checkband]>0.998 and resamp[checkband]<1.002:
+            curves.append(resamp)
 
     curves = np.array(curves,dtype=np.float32)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)

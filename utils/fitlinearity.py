@@ -100,28 +100,38 @@ def main():
     for wl in np.arange(26,313):
    
        for col in range(columns):
-       
-           use = data[:,wl,col] > -9990
-           DN = data[use,wl,col]
-           L = np.array(illums)[use] 
-           L = L / L.mean() * DN.mean()
-           
-           # best least-squares slope forcing zero intercept
-           tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
-           slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
-           if not np.isfinite(slope):
-              continue
-           ideal = slope * L
-   
-           # Don't correct above the saturation level
-           ideal[DN>40000] = DN[DN>40000]
-           
-           grid = np.arange(2**16)
-           resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
-           resamp = resamp / grid
-           resamp[np.isnan(resamp)]=0
-           coef = (resamp - mu) @ evec 
-           out[wl,col,:] = coef
+
+         DN = data[:,wl,col]
+         L = np.array(illums) 
+         L = L / L.mean() * DN.mean()
+         
+         # best least-squares slope forcing zero intercept
+         tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
+         use = np.where(np.logical_and(DN>10,DN<35000))[0]
+        
+         slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
+         print(slope)   
+         if not np.isfinite(slope):
+            continue
+         ideal = slope*L
+         grid = np.arange(2**16)
+        
+        #use = DN>100
+        #ideal = lowess(np.array(DN[use],dtype=float), 
+        #              np.array(ideal[use],dtype=float),xvals=DN,frac=0.1,return_sorted=False)
+        
+         resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+         resamp = resamp / grid
+        
+         # Don't correct above the saturation level
+         #resamp[grid>40000] = DN[grid>40000]
+         #smoothed[ideal>1000]=ideal[ideal>1000]
+         resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
+         resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
+
+         resamp[np.isnan(resamp)]=0
+         coef = (resamp - mu) @ evec 
+         out[wl,col,:] = coef
           #if wl>30 and col>100 and col<1200:
           #    plt.plot(resamp)
           #    plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
