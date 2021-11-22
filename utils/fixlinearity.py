@@ -19,15 +19,15 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-@jit(nopython = True)
-def fix_frame(frame, mu):
+@jit
+def fix_frame(frame, mu, evec, coeffs):
     rows, columns = frame.shape
+    nev = np.squeeze(evec.shape[1])
     new = np.zeros(frame.shape) 
     for row in range(rows):
         for col in range(columns):
             i = int(frame[row,col])
-           # tot=evec[i,:]@(coeffs[row,col,:].reshape((nev,1))) + mu[i]
-            tot=mu[i]
+            tot=np.sum(evec[i,:]*coeffs[row,col,:]) + mu[i]
             new[row,col] = frame[row,col] * tot
     return new
 
@@ -39,7 +39,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
     parser.add_argument('basis')
-    #parser.add_argument('coefficients')
+    parser.add_argument('coefficients')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -51,11 +51,10 @@ def main():
     basis = envi.open(args.basis+'.hdr').load()
     evec = np.squeeze(basis[1:,:].T)
     evec[np.isnan(evec)] = 0
-    nev = np.squeeze(evec.shape[1])
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
 
-    #coeffs = envi.open(args.coefficients+'.hdr').load()
+    coeffs = envi.open(args.coefficients+'.hdr').load()
    
     infile = envi.open(find_header(args.input))
     
@@ -80,10 +79,11 @@ def main():
         
             for line in range(lines):
         
+                print(line)
                 # Read a frame of data
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                new = fix_frame(frame, mu)
+                new = fix_frame(frame, mu, evec, coeffs)
                 np.array(new,dtype=np.float32).tofile(fout)
 
 if __name__ == '__main__':

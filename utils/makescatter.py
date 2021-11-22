@@ -62,18 +62,19 @@ def find_scatter(obs, args):
     mdl = sum_of_gaussians(v,x0[0],abs(x0[1]),abs(x0[2]),abs(x0[3]),abs(x0[4]),abs(x0[5]),abs(x0[6]))
     xbest = minimize(lambda q: err(q, v[use], obs[use]), x0, method='CG')
     x = xbest.x
+    mdl2 = sum_of_gaussians(v,x[0],abs(x[1]),abs(x[2]),abs(x[3]),abs(x[4]),abs(x[5]),abs(x[6]))
 
     if args.plot:
         plt.semilogy(v[use],mdl[use],'b')
         plt.semilogy(v[use],obs[use],'ko')
-        mdl = sum_of_gaussians(v,x[0],abs(x[1]),abs(x[2]),abs(x[3]),abs(x[4]),abs(x[5]),abs(x[6]))
-        plt.semilogy(v[use],mdl[use],'r')
+        plt.semilogy(v[use],mdl2[use],'r')
         plt.box(False)
         plt.xlabel('channel')
         plt.grid(True)
         plt.ylabel('magnitude')
         plt.show()
-    return x
+    er = err(x, v[use], obs[use])
+    return x,er
 
 
 def main():
@@ -85,7 +86,7 @@ def main():
     parser.add_argument('--plot',action='store_true')
     parser.add_argument('--hwid',type=int,default=10)
     parser.add_argument('--top_margin',type=int,default=20)
-    parser.add_argument('--target_column',type=int,default=40)
+    parser.add_argument('--target_row',type=int,default=40)
     parser.add_argument('input',nargs='+')
     args = parser.parse_args()
 
@@ -109,7 +110,7 @@ def main():
         X = infile.load()
         c = np.argmax(np.sum(np.sum(X,axis=1),axis=0)) 
         
-        col = args.target_column
+        col = args.target_row
         sequence = X[args.top_margin:,(col-args.hwid):(col+args.hwid+1),:]
 
         if args.spatial:
@@ -123,8 +124,9 @@ def main():
 
         sequence = np.squeeze(sequence)
         sequence = sequence / max(sequence)                                         
-        best = find_scatter(sequence, args)
-        print('%i %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f'%(c, best[0],best[1],best[2],best[3],best[4],best[5],best[6])) 
+        best, er = find_scatter(sequence, args)
+        print('%i %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f'%(c, \
+              best[0],best[1],best[2],best[3],best[4],best[5],best[6],er)) 
 
 
 if __name__ == '__main__':

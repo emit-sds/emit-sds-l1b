@@ -27,7 +27,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--nev',type=int,default=5)
+    parser.add_argument('--nev',type=int,default=2)
     parser.add_argument('output')
     args = parser.parse_args()
 

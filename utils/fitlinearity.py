@@ -33,6 +33,8 @@ def main():
     parser.add_argument('input',nargs='+')
     parser.add_argument('basis')
     parser.add_argument('output')
+    parser.add_argument('--components',type=int,default=2)
+    parser.add_argument('--shift',type=int,default=8)
     args = parser.parse_args()
 
     xs,ys = [],[]
@@ -46,6 +48,7 @@ def main():
         evec = evec[:,np.newaxis]
     evec[np.isnan(evec)] = 0
     nev = np.squeeze(evec.shape[1])
+    ncomp = args.components
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
     print('mu',mu)
@@ -59,7 +62,7 @@ def main():
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
-               active_cols = np.arange(fieldpoint-37,fieldpoint+38,dtype=int)
+               active_cols = np.arange(fieldpoint-37-1,fieldpoint+38-1,dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
@@ -96,7 +99,7 @@ def main():
         sequence = np.array(sequence)
         data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
                
-    out = np.zeros((480,1280,nev))
+    out = np.zeros((480,1280,ncomp))
     for wl in np.arange(26,313):
    
        for col in range(columns):
@@ -130,8 +133,8 @@ def main():
          resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
 
          resamp[np.isnan(resamp)]=0
-         coef = (resamp - mu) @ evec 
-         out[wl,col,:] = coef
+         coef = (resamp - mu) @ evec
+         out[wl,col,:] = coef[:ncomp]
           #if wl>30 and col>100 and col<1200:
           #    plt.plot(resamp)
           #    plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
