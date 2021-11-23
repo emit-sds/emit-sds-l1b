@@ -58,6 +58,7 @@ def find_scatter(obs, args):
     ctr,n,n2 = find_peak(obs)
     use = np.logical_and(v>(ctr-args.hwid),v<(ctr+args.hwid+1))
     x0 = np.array([ctr, 1, 0.7, 0.010, 1.7, 0.0017, 7])
+    #x0 = np.array([ctr, 1, 0.7, 0.001, 10, 0.001, 10])
 
     mdl = sum_of_gaussians(v,x0[0],abs(x0[1]),abs(x0[2]),abs(x0[3]),abs(x0[4]),abs(x0[5]),abs(x0[6]))
     xbest = minimize(lambda q: err(q, v[use], obs[use]), x0, method='CG')
@@ -65,7 +66,7 @@ def find_scatter(obs, args):
     mdl2 = sum_of_gaussians(v,x[0],abs(x[1]),abs(x[2]),abs(x[3]),abs(x[4]),abs(x[5]),abs(x[6]))
 
     if args.plot:
-        plt.semilogy(v[use],mdl[use],'b')
+        #plt.semilogy(v[use],mdl[use],'b')
         plt.semilogy(v[use],obs[use],'ko')
         plt.semilogy(v[use],mdl2[use],'r')
         plt.box(False)

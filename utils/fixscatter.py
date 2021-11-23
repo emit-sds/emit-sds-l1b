@@ -36,9 +36,9 @@ def main():
 
     infile = envi.open(find_header(args.input))
     spatialfile = envi.open(find_header(args.spatial_corr))
-    spatial = spatialfile.load()
+    spatial = np.squeeze(spatialfile.load())
     spectralfile = envi.open(find_header(args.spectral_corr))
-    spectral = spectralfile.load()
+    spectral = np.squeeze(spectralfile.load())
 
     if int(infile.metadata['data type']) == 2:
         dtype = np.uint16

@@ -3,10 +3,11 @@ import argparse
 from spectral.io import envi
 import numpy as np
 import pylab as plt
+from scipy.stats import norm
 from sklearn.decomposition import PCA
 from scipy.interpolate import interp1d
 from scipy.signal import medfilt
-from scipy.linalg import norm,inv
+from scipy.linalg import inv
 import sys, os
 from lowess import lowess
 
@@ -36,117 +37,82 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
     parser.add_argument('--spatial',action='store_true')
+    parser.add_argument('--manual',default=1.0)
     parser.add_argument('output')
     args = parser.parse_args()
 
     ctr, mean1, amp1, sigma1, amp2, sigma2, amp3, sigma3, err = np.loadtxt(args.input).T
 
-    plt.plot(ctr,sigma1,'k.')
-    plt.plot(ctr,amp1,'r.')
+    if False:
+        plt.plot(ctr,sigma1,'k.')
+        plt.plot(ctr,amp1,'r.')
+        
+        plt.figure()
+        plt.plot(ctr,sigma2,'k.')
+        plt.plot(ctr,amp2,'r.')
+        
+        plt.figure()
+        plt.plot(ctr,sigma3,'k.')
+        plt.plot(ctr,amp3,'r.')
+        
+        plt.show()
 
-    plt.figure()
-    plt.plot(ctr,sigma2,'k.')
-    plt.plot(ctr,amp2,'r.')
-
-    plt.figure()
-    plt.plot(ctr,sigma3,'k.')
-    plt.plot(ctr,amp3,'r.')
-
-    plt.show()
+     
 
     if args.spatial:
 
-        amp2=np.median(amp2)
-        sigma2 = np.median(sigma2)
-        amp3 = np.median(amp3)
-        sigma3 = np.median(sigma3)
+        use = np.logical_and(amp2>0,amp3>0)
+        sigma1 = np.median(sigma1[use])
+        amp2=np.median(amp2[use])
+        sigma2 = np.median(sigma2[use])
+        amp3 = np.median(amp3[use])
+        sigma3 = np.median(sigma3[use])
         L = np.zeros((1280,1280))
         x = np.arange(1280)
+
+        # set amplitude relative to main peak with area of unity
+        ampn = norm.pdf(x,640,sigma1)
+        ampn = ampn / ampn.sum()
+        print('amplitude',ampn.max())
+        amp2 = amp2 * ampn.max() * args.manual
+        amp3 = amp3 * ampn.max() * args.manual
+        print('spatial - using',amp2,sigma2,amp3,sigma3)
+
         for i in range(1280):
              if i%100==0:
                  print(i,'/',1280)
-             L[i,:] = sum_of_gaussians(x,i,0,1,amp2,sigma2,amp3,sigma3)
-
+             L[i,:] = sum_of_gaussians(x,i,0,0.5,amp2,sigma2,amp3,sigma3)
+        L = L+np.eye(1280)
     else:
 
         use = np.logical_and(amp2>0,amp3>0)
+        sigma1 = np.median(sigma1[use])
         amp2=np.median(amp2[use])
         sigma2 = np.median(sigma2[use])
         amp3 = np.median(amp3[use])
         sigma3 = np.median(sigma3[use])
         L = np.zeros((480,480))
         x = np.arange(480)
+  
+        # set amplitude relative to main peak with area of unity
+        print(sigma1.shape)
+        ampn = norm.pdf(x,240,sigma1)
+        ampn = ampn / ampn.sum()
+        print('amplitude',ampn.max())
+        amp2 = amp2 * ampn.max() * args.manual
+        amp3 = amp3 * ampn.max() * args.manual
+        print('spectral - using',amp2,sigma2,amp3,sigma3)
+
         for i in range(480):
              if i%100==0:
                  print(i,'/',480)
-             L[i,:] = sum_of_gaussians(x,i,0,1,amp2,sigma2,amp3,sigma3)
+             L[i,:] = sum_of_gaussians(x,i,0,0.5,amp2,sigma2,amp3,sigma3)
+        L = L+np.eye(480)
   
     Linv = inv(L)
     Linv = Linv.astype(np.float32)
     envi.save_image(args.output+'.hdr',Linv,ext='',force=True)
 
-
-
-    
-  # for fi,infilepath in enumerate(args.input):
-  #     print(fi,'/',len(args.input))
-  #     if not any([str(u) in infilepath for u in use]):
-  #         continue
-
-  #     x = envi.open(infilepath+'.hdr').load()      
-  #     x = np.squeeze(x)
-  #     if data is None:
-  #         data = x
-  #     else:
-  #         data = np.concatenate((data,x),axis=0)
-
-  # grid = np.arange(2**16, dtype=float)
-  # data = np.array(data) 
-  # data[0] = 0
-  # data[np.logical_not(np.isfinite(data))]=0
-
-  # # remove large outlier values
-  # norms = norm(data,axis=1)
-  # mu = np.mean(norms)
-  # std = np.std(norms)
-  # use = (norms-mu)<(std*3)
-  # data = data[use,:]
-  # print(data.shape[0],'datapoints')
-
-  # for i in range(data.shape[0]):
-  #   data[i,:] = medfilt(data[i,:])
-
-  # data[np.logical_not(np.isfinite(data))]=0
-
-  # pca = PCA(args.nev)
-  # pca.fit(data)
-  # resamp = pca.components_
-  # mu = pca.mean_
-  # 
-  ##mu = data.mean(axis=0)
-  ##plt.plot(mu)
-  ##plt.show()
-  ##zm = data - mu
-  ##
-  ##use = np.arange(0,47000,10)
-  ##C = np.cov(zm[:,use], rowvar=False)
-  ##C[np.logical_not(np.isfinite(C))]=0
-
-  ##print('Calculating eigenvectors')
-  ##ev,vec = np.linalg.eigh(C)
-  ##
-  ##print(ev[-args.nev:])
-  ##print(mu)
-  ##resamp = []
-  ##for i in range(args.nev):
-  ##   v = vec[:,-(i+1)]
-  ##   #plt.plot(v)
-  ##   v = interp1d(use,v,fill_value='extrapolate',bounds_error=False)(np.arange(2**16))
-  ##   v = v / norm(v)
-  ##   resamp.append(v)
-  ###plt.show()
-
-  ##resamp = np.array(resamp)
 
 
 if __name__ == '__main__':
