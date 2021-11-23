@@ -12,6 +12,7 @@ from emit_utils.file_checks import netcdf_ext, envi_header
 from spectral.io import envi
 import os
 import logging
+import numpy as np
 
 
 def main():
@@ -80,14 +81,14 @@ def main():
 
     logging.debug('Creating and writing obs data')
     nc_ds.createDimension('observation_bands', int(obs_ds.metadata['bands']))
-    add_variable(nc_ds, "obs", "d", "Observation Data", None,
-                 obs_ds.open_memmap(interleave='bip')[...].copy(), {"dimensions": ("ortho_y", "ortho_x", "observation_bands")})
+    add_variable(nc_ds, "obs", "f4", "Observation Data", None,
+                 obs_ds.open_memmap(interleave='bip')[...].copy(), {"dimensions": ("number_of_scans", "pixels_per_scan", "observation_bands")})
 
     add_variable(nc_ds, "sensor_band_parameters/observation_bands", str, "Observation Band Names", None,
                  obs_ds.metadata['band names'], {"dimensions": ("observation_bands",)})
 
-    add_variable(nc_ds, 'radiance', "f4", obs_ds.open_memmap(interleave='bip')[...].copy(), "Radiance Data",
-                 "uW/cm/SR/nm", {"dimensions":("number_of_bands", "number_of_scans", "pixels_per_scan")})
+    add_variable(nc_ds, 'radiance', "f4", "Radiance Data", "uW/cm/SR/nm", rdn_ds.open_memmap(interleave='bip')[...].copy(),
+                 {"dimensions":("number_of_scans", "pixels_per_scan", "number_of_bands")})
     nc_ds.sync()
     nc_ds.close()
     logging.debug(f'Successfully created {args.output_filename}')
