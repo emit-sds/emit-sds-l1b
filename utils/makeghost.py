@@ -7,6 +7,8 @@ from spectral.io import envi
 from scipy.interpolate import interp1d
 import json
 from scipy.ndimage import gaussian_filter
+import pylab as plt
+from skimage.measure import LineModelND, ransac
 np.set_printoptions(precision=5)
 
 
@@ -16,12 +18,14 @@ lines, samps, bands = X.shape
 half = int(samps/2)
 center = 649
 
-def find_peaks(xo, thresh = 20.0, min_DN = 5):
+def find_peaks(x, xo, thresh = 20.0):
     
-    x = gaussian_filter(xo[np.newaxis,:],[1,1])[0,:]
-
     # Find channels exceeding four standard deviation of the mean
     n = len(x)
+
+    x[:25] = 0
+    x[315:] = 0
+
     indices = np.where(x>thresh)[0]
     if len(indices)<1:
         return []
@@ -52,9 +56,6 @@ def find_peaks(xo, thresh = 20.0, min_DN = 5):
         
         if fitted_model.mean[0] > 1279 or fitted_model.mean[0] < 0:
             continue
-        
-        if fitted_model.amplitude[0] < min_DN:
-            continue
            
         peaks.append((fitted_model.mean[0], fitted_model.amplitude[0], fitted_model.stddev[0]))
 
@@ -62,122 +63,101 @@ def find_peaks(xo, thresh = 20.0, min_DN = 5):
 
 pairs = []
 
+# enforce negative slope
+def model_valid(model, data):
+  origin, direction = model.params
+  slope = direction[1]/direction[0]
+  if slope>0:
+      return False
+  return True
+
+
+
 for peak in [0,1]:
   
   for i in range(lines):
     
     x = np.squeeze(X[i,:,:]).T
-    ghosts = find_peaks(x[:,359])
-    sources = find_peaks(x[:,939])
+    xf = gaussian_filter(x,[2,2])
+    ghosts = find_peaks(x[:,359],xf[:,359])
+    sources = find_peaks(x[:,939],xf[:,939])
  
     if len(ghosts)>peak:
 
         ghost = ghosts[peak]
         source = np.array(sources[0])
-        print(source[0],ghost[0])
         source_loc = source[0]
         ghost_loc = ghost[0]
         source_energy = source[1]
         ghost_energy = ghost[1]
         ghost_stdev = ghost[2]
+
+        # filter out a bad data segment
+        if source_loc > 258 and source_loc < 264:
+            continue
         
         pairs.append((source_loc,
                       ghost_loc,
                       ghost_energy/source_energy,
                       ghost_stdev))
 
-#sys.exit(0)
+#pairs.sort()
+#blurs = interp1d([x[0] for x in pairs], [x[3] for x in pairs],
+#                        fill_value=np.mean([x[3] for x in pairs]),
+#                        bounds_error=False)(range(480))
 
-if False:
-    
-    rt_max_colwise  = np.max(R, axis=0)
-    lft_max_colwise = np.max(L,axis=0)
-    rt_max_rowwise  = np.max(R, axis=1)
-    lft_max_rowwise = np.max(L,axis=1)
-    rt_sum = np.sum(R[R > 0.0001])
-    lft_sum = np.sum(L[L> 0.0001])
-   
-    best_right_spectral = find_peaks(rt_max_rowwise)
-    best_left_spatial   = find_peaks(lft_max_colwise)
-    best_right_spatial  = find_peaks(rt_max_colwise)
-    
-    if L.max()>R.max():
-        source_loc_spatial, source_amplitude_spatial, source_stdev_spatial = best_left_spatial
-        target_loc_spatial, target_amplitude_spatial, target_stdev_spatial = best_right_spatial
-        source_loc_spectral, source_amplitude_spectral, source_stdev_spectral = best_left_spectral
-        target_loc_spectral, target_amplitude_spectral, target_stdev_spectral = best_right_spectral
-        source_energy, target_energy = lft_sum, rt_sum
-    else:
-        source_loc_spatial, source_amplitude_spatial, source_stdev_spatial = best_right_spatial
-        target_loc_spatial, target_amplitude_spatial, target_stdev_spatial = best_left_spatial
-        source_loc_spectral, source_amplitude_spectral, source_stdev_spectral = best_right_spectral
-        target_loc_spectral, target_amplitude_spectral, target_stdev_spectral = best_left_spectral
-        source_energy, target_energy = rt_sum, lft_sum
-    if target_stdev_spectral > 10 or target_stdev_spatial > 10 or \
-        target_stdev_spectral < 1 or target_stdev_spatial < 1:
-        print('skipping target ',target_loc_spatial)
-        continue
-    
-    pairs.append((source_loc_spectral,
-                  target_loc_spectral,
-                  target_energy/source_energy,
-                  target_stdev_spatial,
-                  target_stdev_spectral))
 
-pairs.sort()
-blurs = interp1d([x[0] for x in pairs], [x[3] for x in pairs],
-                         fill_value=np.mean([x[3] for x in pairs]),
-                         bounds_error=False)(range(480))
 
-lines, extents, blurs, intensities = [],[],[],[]
-dataset = []
-for i in range(len(pairs)):
-    print(pairs[i])
-
-    source_loc, ghost_loc, intens, stdev = pairs[i]
-
-    # recognize a gap in the data sequence, create a new line
-    if len(dataset)>0 and ghost_loc>dataset[-1][1] or i==(len(pairs)-1):
-        
-        # ignore really small segments
-        if len(dataset)<2:
-            dataset = [pairs[i]]
-            continue
-            
-        # fit a line
-        slope, offset = np.polyfit([x[0] for x in dataset],
-                                   [y[1] for y in dataset],1)
-        lines.append((slope, offset)) 
-        extents.append((int(round(dataset[0][0])),
-                        int(round(pairs[i][0]))))
-        intensities.append(np.mean([d[2] for d in dataset]))
-        blurs.append(np.mean([d[3] for d in dataset]))
-        dataset = [pairs[i]]
-
-    else:
-        dataset.append(pairs[i])
-        
-if False:
-    blur = np.zeros(480)
-    intens = np.zeros(480)
-    ghost = np.zeros((480,480))
-    for i in range(480):
-        for j,extent in enumerate(extents):
-            if i>=extent[0] and i<extent[1]:
-                target = int(round(lines[j][0] * i + lines[j][1]))
-                ghost[i,target] = 1
-                blur[i] = blurs[j]
-                intens[i] = intensities[j]
-            
 ghost_config = {'center':center, 'orders':[]}
-for j,extent in enumerate(extents):
-    ghost_config['orders'].append({'blurs':float(blurs[j]),
-                                  'slope':float(lines[j][0]),
-                                  'offset':float(lines[j][1]),
-                                  'extent':(int(extents[j][0]),int(extents[j][1])),
-                                  'intensity':float(intensities[j])})
+data = np.array([[s[0],s[1]] for s in pairs])
+intensities = np.array([s[2] for s in pairs])
+blurs =  np.array([s[3] for s in pairs])
+
+for i in range(10):
+  # fit line using all data
+  model = LineModelND()
+  model.estimate(data)
+
+  # robustly fit line only using inlier data with RANSAC algorithm
+  try:
+      model_robust, inliers = ransac(data, LineModelND, 
+                                     is_model_valid = model_valid,
+                                     min_samples=4,
+                                     residual_threshold=2, max_trials=10000)
+  except ValueError:
+      break
+  if model_robust is None:
+      break
+
+  # Extract the parameters
+  origin, direction = model_robust.params
+  slope = direction[1]/direction[0]
+  offset = origin[1]-slope*origin[0]
+  extent = (min(data[inliers,0]),max(data[inliers,0]))
+  blur = np.mean(blurs[inliers])
+  intensity = np.mean(intensities[inliers])
+
+  # Remove the datapoints from the line we have fit
+  new_indices = np.ones(len(data))>0
+  new_indices[inliers] = False
+  data = data[new_indices,:]
+  intensities = intensities[new_indices]
+  blurs = blurs[new_indices]
+  
+  x = np.arange(extent[0],extent[1]+1)
+  plt.plot(x,x*slope+offset,'r-')
+
+  ghost_config['orders'].append({'blur':float(blur),
+                                  'slope':float(slope),
+                                  'offset':float(offset),
+                                  'extent':(int(extent[0]),int(extent[1])),
+                                  'intensity':float(intensity)})
 
 with open(sys.argv[2],'w') as fout:
     s=json.dumps(ghost_config,indent=2)
     fout.write(s)
+          
+plt.plot([x[0] for x in pairs],[x[1] for x in pairs],'k.')
+plt.show()
+
 
