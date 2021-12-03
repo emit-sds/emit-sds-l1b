@@ -184,8 +184,6 @@ def main():
                 state_machine = state_machine + 1
                 bad_map[row,column] = -state_machine
                 print(row,column,state_machine)
-                if row<328:
-                    bads = bads + 1
             else:
                 state_machine = 0
     print('total bads:',bads)
