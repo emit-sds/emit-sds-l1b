@@ -158,7 +158,7 @@ def main():
     bad[:,:25] = 0
     bad[:,1265:] = 0
 
-    for bad_rows, bad_cols in manual_bads:
+    for bad_cols, bad_rows in manual_bads:
         if type(bad_rows)==int:
             rows_range = [bad_rows]
         else:
@@ -168,7 +168,7 @@ def main():
         else:
             cols_range = range(bad_cols[0],bad_cols[1]+1)
         for col in cols_range:
-            for row in cols_range:
+            for row in rows_range:
                 bad[row,col] = 1
    #plt.hist(stdev.flatten(),500)
    #plt.figure()
