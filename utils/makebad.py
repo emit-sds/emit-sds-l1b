@@ -20,6 +20,64 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
+# bad row, column ranges (inclusive, zero indexed)
+manual_bads=[(1271,(5,6)),
+  (1256,193),
+  (1231,63),
+  ((1168,1170),(40,43)),
+  (1164,310),
+  (1164,383),
+  (1141,(315,316)),
+  (1140,312),
+  (1139,312),
+  (1138,(311,313)),
+  (1123,75),
+  (1033,113),
+  (1005,114),
+  (963,281),
+  (962,(281,283)),
+  (951,270),
+  (948,270),
+  (945,343),
+  (899,105),
+  (858,424),
+  ((828,844),(436,455)),
+  (828,268),
+  (794,363),
+  ((769,781),(409,416)),
+  (752,158),
+  (752,163),
+  (746,448),
+  (729,311),
+  (678,401),
+  (625,53),
+  (584,416),
+  (573,353),
+  (569,364),
+  (568,364),
+  (529,350),
+  (490,257),
+  (462,327),
+  (434,201),
+  (308,237),
+  (307,468),
+  (301,440),
+  (295,148),
+  (238,54),
+  (231,100),
+  (206,336),
+  (202,401),
+  (201,461),
+  (184,130),
+  (167,247),
+  (157,188),
+  (119,54),
+  (108,355),
+  (89,479),
+  (81,390),
+  (26,273),
+  (3,114)]
+
 
 def main():
 
@@ -99,6 +157,19 @@ def main():
     
     bad[:,:25] = 0
     bad[:,1265:] = 0
+
+    for bad_rows, bad_cols in manual_bads:
+        if type(bad_rows)==int:
+            rows_range = [bad_rows]
+        else:
+            rows_range = range(bad_rows[0],bad_rows[1]+1)
+        if type(bad_cols)==int:
+            cols_range = [bad_cols]
+        else:
+            cols_range = range(bad_cols[0],bad_cols[1]+1)
+        for col in cols_range:
+            for row in cols_range:
+                bad[row,col] = 1
    #plt.hist(stdev.flatten(),500)
    #plt.figure()
    #plt.imshow(bad)
