@@ -80,8 +80,9 @@ def fix(frame,bad):
     rows, columns = frame.shape
     fixed = frame.copy()
     valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
+    nfixed = 0
     for col in range(columns):
-        if np.sum(bad[:,col])>0:
+        if np.sum(bad[:,col])<0:
             bad_channels = np.where(bad[:,col]!=0)[0]
             good_channels = np.where(bad[:,col]==0)[0]
             best_sa = 99999
@@ -94,6 +95,8 @@ def fix(frame,bad):
                                        frame[good_channels, col], 1)
             for badc in bad_channels:
                fixed[badc,col] = slope * best_spectrum[badc] + offset
+            nfixed = nfixed + 1
+    print(nfixed,'fixed')
     return fixed
 
 
