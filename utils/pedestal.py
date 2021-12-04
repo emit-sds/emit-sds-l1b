@@ -27,7 +27,7 @@ def find_header(infile):
 
 def main():
 
-    description = "Subtract dark frame from a data cube"
+    description = "Fix pedestal shift for a data cube"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
