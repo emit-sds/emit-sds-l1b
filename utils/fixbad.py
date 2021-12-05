@@ -148,10 +148,9 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
-            if line==400:
-               fixed = fix(frame,bad)
-               
-               np.array(fixed, dtype=np.float32).tofile(fout)
+            fixed = fix(frame,bad)
+            
+            np.array(fixed, dtype=np.float32).tofile(fout)
 
     print('done') 
 
