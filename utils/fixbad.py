@@ -9,6 +9,7 @@ import scipy.linalg
 import os, sys
 import numpy as np
 from spectral.io import envi
+import pylab as plt
 import json
 import logging
 import argparse
@@ -96,6 +97,10 @@ def fix(frame,bad):
             for badc in bad_channels:
                fixed[badc,col] = slope * best_spectrum[badc] + offset
             nfixed = nfixed + 1
+           #print('fixing',col,bad_channels)
+           #plt.plot(frame[:,col])
+           #plt.plot(fixed[:,col])
+           #plt.show()
     print(nfixed,'fixed')
     return fixed
 
@@ -143,9 +148,10 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
-            fixed = fix(frame,bad)
-
-            np.array(fixed, dtype=np.float32).tofile(fout)
+            if line==400:
+               fixed = fix(frame,bad)
+               
+               np.array(fixed, dtype=np.float32).tofile(fout)
 
     print('done') 
 
