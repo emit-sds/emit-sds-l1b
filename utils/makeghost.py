@@ -108,7 +108,7 @@ for peak in [0,1]:
 
 
 
-ghost_config = {'center':center, 'orders':[]}
+ghost_config = {'center':center, 'blur':2, 'orders':[]}
 data = np.array([[s[0],s[1]] for s in pairs])
 intensities = np.array([s[2] for s in pairs])
 blurs =  np.array([s[3] for s in pairs])
@@ -147,8 +147,7 @@ for i in range(10):
   x = np.arange(extent[0],extent[1]+1)
   plt.plot(x,x*slope+offset,'r-')
 
-  ghost_config['orders'].append({'blur':float(blur),
-                                  'slope':float(slope),
+  ghost_config['orders'].append({'slope':float(slope),
                                   'offset':float(offset),
                                   'extent':(int(extent[0]),int(extent[1])),
                                   'intensity':float(intensity)})
