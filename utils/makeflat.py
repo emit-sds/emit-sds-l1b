@@ -76,30 +76,33 @@ def main():
                 lit = np.where(reference>thresh)[0]
                 lit.sort()
                 ctr = np.median(lit)
-                print(ctr)
                 halfwidth = lit[int(len(lit)/2)]-lit[int(len(lit)/4)]
                #if halfwidth<args.hw_lo or halfwidth>args.hw_hi:
                #    continue
-                use = lit[int(3*len(lit)/4):int(len(lit)/4)]
+                use = lit[int(len(lit)/4):int(3*len(lit)/4)]
             else:
                 left,right = 25, 1264
                 ctr = np.argmax(reference)
                 use = np.arange(max(ctr-5, left), min(ctr+6, right), dtype=int)
 
+            print(ctr,len(use))
             for row in range(rows): 
                 flat[row,use] = flat[row,use] + frame[row,use] 
                 count[row,use] = count[row,use] + 1
                 sumsq[row,use] = sumsq[row,use] + pow(frame[row,use],2)
 
+            print(len(use),np.nanmean(flat),np.nanmean(frame))
+
         mean_sumsq = sumsq / count
         flat = flat / count
         stdev = mean_sumsq - pow(flat,2)
         stdev[np.logical_not(np.isfinite(stdev))] = 0
-        plt.imshow(stdev)
-        plt.show()
+        flat[np.logical_not(np.isfinite(flat))] = -9999
         reference = np.arange(args.ref_lo,args.ref_hi)
         for row in range(rows):
-            flat[row,:] = flat[row,:] / np.mean(flat[row,reference])
+            ref = np.nanmean(flat[row,reference])
+            print('row',row,'reference average is',ref)
+            flat[row,:] = flat[row,:] / ref
         flat[np.logical_not(np.isfinite(flat))] = -9999
         envi.save_image(args.output+'.hdr',np.array(flat,dtype=np.float32),ext='',force=True)
 
