@@ -10,6 +10,7 @@ from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 from skimage.filters import threshold_otsu
 import json
+from numba import jit
 
 
 def find_header(infile):
@@ -20,6 +21,22 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
+nbright = 32
+
+@jit
+def addcounts(brightest, frame):
+  for row in range(frame.shape[0]):
+      for col in range(frame.shape[1]):
+          for pos in range(nbright):
+             if frame[row,col] > brightest[row,col,pos]:
+                 mynext = frame[row,col]
+                 # bubble sort
+                 for j in range(pos,nbright):
+                    swap = brightest[row,col,j]
+                    brightest[row,col,j] = mynext
+                    mynext = swap
+                 break
+  return brightest
 
 def main():
 
@@ -55,10 +72,7 @@ def main():
     nframe = rows * columns
     margin=2
 
-    flat  = np.zeros((rows,columns))
-    count = np.zeros((rows,columns))
-    sumsq = np.zeros((rows,columns))
-    allctrs,alllines = [],[]
+    brightest  = np.ones((rows,columns,nbright))*-9999
     with open(args.input,'rb') as fin:
 
         for line in range(lines):
@@ -66,36 +80,10 @@ def main():
             # Read a frame of data
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            reference = frame[args.cue_channel, :]
-
-            
-            # take middle n% of data
-            if args.selection == 'spatial':
-
-                thresh = threshold_otsu(reference)
-                lit = np.where(reference>thresh)[0]
-                lit.sort()
-                ctr = np.median(lit)
-                halfwidth = lit[int(len(lit)/2)]-lit[int(len(lit)/4)]
-               #if halfwidth<args.hw_lo or halfwidth>args.hw_hi:
-               #    continue
-                use = lit[int(len(lit)/4):int(3*len(lit)/4)]
-            else:
-                left,right = 25, 1264
-                ctr = np.argmax(reference)
-                use = np.arange(max(ctr-5, left), min(ctr+6, right), dtype=int)
-
-            print(ctr,len(use))
-            for row in range(rows): 
-                flat[row,use] = flat[row,use] + frame[row,use] 
-                count[row,use] = count[row,use] + 1
-                sumsq[row,use] = sumsq[row,use] + pow(frame[row,use],2)
-
-            print(len(use),np.nanmean(flat),np.nanmean(frame))
-
-        mean_sumsq = sumsq / count
-        flat = flat / count
-        stdev = mean_sumsq - pow(flat,2)
+            brightest = addcounts(brightest,frame)
+           
+        stdev = brightest.std(axis=2)
+        flat = brightest.mean(axis=2)
         stdev[np.logical_not(np.isfinite(stdev))] = 0
         flat[np.logical_not(np.isfinite(flat))] = -9999
         reference = np.arange(args.ref_lo,args.ref_hi)
