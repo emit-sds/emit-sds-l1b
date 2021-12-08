@@ -66,10 +66,10 @@ def main():
                 logging.info('Line '+str(line))
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            pedestal = np.mean(frame[masked_rows,:], axis=0)
-            frame = frame-pedestal
             pedestal = np.mean(frame[:,masked_cols], axis=1)
             frame = (frame.T-pedestal).T
+            pedestal = np.mean(frame[masked_rows,:], axis=0)
+            frame = frame-pedestal
             np.array(frame, dtype=np.float32).tofile(fout)
 
     print('done') 

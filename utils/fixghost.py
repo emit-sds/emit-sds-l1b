@@ -25,7 +25,7 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
-   
+@jit   
 def fix_ghost(frame, config):
 
   center = config['center']

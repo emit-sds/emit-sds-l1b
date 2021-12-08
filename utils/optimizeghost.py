@@ -37,50 +37,36 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def serialize_ghost_config(config, expressive=False):
+def serialize_ghost_config(config):
 
   x = [config['blur']]
   for i in range(len(config['orders'])):
-      x.append(config['orders'][i]['extent'][0])
-      x.append(config['orders'][i]['extent'][1])
+     #x.append(config['orders'][i]['extent'][0])
+     #x.append(config['orders'][i]['extent'][1])
       x.append(config['orders'][i]['intensity'])
-      if expressive:
-          if 'intensity_shift' in config['orders'][i]:
-              for r in config['orders'][i]['intensity_shift']:
-                  x.append(r)
-          else:
-              for j in range(int(round(config['orders'][i]['extent'][0])),
-                             int(round(config['orders'][i]['extent'][1])+1)):
-              
-                  x.append(1.0)
   return x    
 
 
-def deserialize_ghost_config(x, config, expressive=False):
+def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
-  if (not expressive) and (len(x)-1)/3 != len(config['orders']):
+  #if (len(x)-1)/3 != len(config['orders']):
+  if (len(x)-1) != len(config['orders']):
     raise IndexError('bad state vector size')
   ghost_config['blur'] = x[0]
   ind = 1
   for i in range(len(config['orders'])):
-    ghost_config['orders'][i]['extent'][0] = int(round(x[ind]))
-    ind = ind+1
-    ghost_config['orders'][i]['extent'][1] = int(round(x[ind]))
-    ind = ind+1
+   #ghost_config['orders'][i]['extent'][0] = int(round(x[ind]))
+   #ind = ind+1
+   #ghost_config['orders'][i]['extent'][1] = int(round(x[ind]))
+   #ind = ind+1
     ghost_config['orders'][i]['intensity'] = x[ind]
     ind = ind+1
-    if expressive:
-        ghost_config['orders'][i]['intensity_shift'] = []
-        for j in range(int(round(ghost_config['orders'][i]['extent'][0])),
-                       int(round(ghost_config['orders'][i]['extent'][1]+1))):
-           ghost_config['orders'][i]['intensity_shift'].append(x[ind])
-           ind = ind+1
            
   return ghost_config   
 
 
 #@jit   
-def fix_ghost(frame, config, expressive=False):
+def fix_ghost(frame, config):
 
   center = config['center']
   ghost = np.zeros(frame.shape)
@@ -93,9 +79,6 @@ def fix_ghost(frame, config, expressive=False):
           ghost_position = int(order['slope']*row + order['offset'])
           if ghost_position > 0 and ghost_position < 480:
               intensity = order['intensity']
-              if expressive:
-                 intensity_shift = order['intensity_shift'][int(round(row-order['extent'][0]))]
-                 intensity = intensity * intensity_shift
               for col in range(cols):
                  tcol = int(center*2 - col)
                  if tcol>0 and tcol<1280:
@@ -106,8 +89,8 @@ def fix_ghost(frame, config, expressive=False):
   return new
 
 @ray.remote
-def frame_error(frame, new_config, expressive=False):
-    fixed = fix_ghost(frame, new_config, expressive)
+def frame_error(frame, new_config):
+    fixed = fix_ghost(frame, new_config)
     half = 640
     max_left = frame[:,:half].max()
     max_right = frame[:,half:].max()
@@ -117,27 +100,27 @@ def frame_error(frame, new_config, expressive=False):
         return np.mean(pow(fixed[:,:half],2))
 
 #@ray.remote
-def cost_gradient(x,i,frames,config,expressive=False):
+def cost_gradient(x,i,frames,config):
     x_perturb = x.copy()
     x_perturb[i] = x_perturb[i]+eps
     print(len(x),len(x_purturb))
-    cost = err(x, frames, config, expressive)
-    cost_perturb = err(x_perturb, frames, config, expressive)
+    cost = err(x, frames, config)
+    cost_perturb = err(x_perturb, frames, config)
     return (cost_perturb-cost)/eps
 
 
-def jac(x, frames, config, expressive=False):
-    config = deserialize_ghost_config(x, config, expressive)
-    jobs = [cost_gradient(x,i,frames,config,expressive=False) for i in range(len(x))] 
+def jac(x, frames, config):
+    config = deserialize_ghost_config(x, config)
+    jobs = [cost_gradient(x,i,frames,config) for i in range(len(x))] 
     jac = ray.get(jobs)
     return jac
 
-def err(x, frames, config, expressive=False):
-    new_config = deserialize_ghost_config(x, config, expressive)
-    jobs = [frame_error.remote(frame, new_config, expressive) for frame in frames]
+def err(x, frames, config):
+    new_config = deserialize_ghost_config(x, config)
+    jobs = [frame_error.remote(frame, new_config) for frame in frames]
     errs = ray.get(jobs)
     if False:
-         jobs = [frame_error(frame, new_config, expressive) for frame in frames]
+         jobs = [frame_error(frame, new_config) for frame in frames]
          errs = np.array(jobs)
     print(sum(errs))
     return sum(errs)
@@ -150,7 +133,6 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('config')
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--expressive',action='store_true')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -164,13 +146,10 @@ def main():
     with open(args.config,'r') as fin:
         ghost_config = json.load(fin)
 
-    x0 = serialize_ghost_config(ghost_config,expressive=args.expressive)
+    x0 = serialize_ghost_config(ghost_config)
     opts = {'max_iters':10}
-    best = minimize(err, x0, args=(frames, ghost_config, args.expressive), options=opts)
-   #opts = {'max_workers':40}
-   #opts = {'max_workers':20}
-   #best = optimparallel.minimize_parallel(lambda v: err(v, frames, ghost_config, args.expressive), x0, parallel=opts)
-    best_config = deserialize_ghost_config(best.x, ghost_config, args.expressive)
+    best = minimize(err, x0, args=(frames, ghost_config), options=opts)
+    best_config = deserialize_ghost_config(best.x, ghost_config)
     
     with open(args.output,'w') as fout:
         fout.write(json.dumps(best_config,indent=2))
