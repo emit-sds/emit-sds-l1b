@@ -11,6 +11,7 @@ channels = np.array([100.36,219.29,277.15,290.62,307.66])
 # Change to refractive wavelength of vacuum
 index_of_refraction = np.array([1.000268,1.000269,1.000271,1.000273,1.000277])
 wavelengths = wavelengths * index_of_refraction
+print(wavelengths)
  
 chn = np.arange(480)
 p = interp1d(channels,wavelengths,fill_value='extrapolate',bounds_error=False)
