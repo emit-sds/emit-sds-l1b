@@ -28,6 +28,7 @@ def sum_of_gaussians(x, mean1=0, amplitude1=1., sigma1=1.,
             amplitude3 * np.exp(-0.5 * ((x - mean1) / sigma3)**2))
 
 
+left, right, shortw, longw = 25, 1265, 21, 314
 
 
 def main():
@@ -78,11 +79,20 @@ def main():
         amp3 = amp3 * ampn.max() * args.manual
         print('spatial - using',amp2,sigma2,amp3,sigma3)
 
-        for i in range(1280):
+        for i in range(left, right+1):
              if i%100==0:
                  print(i,'/',1280)
+             # sigma of 0.5 is arbitrary because central peak magnitude is zero
              L[i,:] = sum_of_gaussians(x,i,0,0.5,amp2,sigma2,amp3,sigma3)
+             L[i,:left] = 0
+             L[i,(right+1):] = 0
+             
         L = L+np.eye(1280)
+
+        # Normalize each row to conserve photons
+        for i in range(left, right+1):
+             L[i,:] = L[i,:] / np.sum(L[i,:])
+
     else:
 
         use = np.logical_and(amp2>0,amp3>0)
@@ -103,11 +113,19 @@ def main():
         amp3 = amp3 * ampn.max() * args.manual
         print('spectral - using',amp2,sigma2,amp3,sigma3)
 
-        for i in range(480):
+        for i in range(shortw,longw+1):
              if i%100==0:
                  print(i,'/',480)
+             # sigma of 0.5 is arbitrary because central peak magnitude is zero
              L[i,:] = sum_of_gaussians(x,i,0,0.5,amp2,sigma2,amp3,sigma3)
+             L[i,:shortw] = 0
+             L[i,(longw+1):] = 0
+
         L = L+np.eye(480)
+
+        # Normalize each row to conserve photons
+        for i in range(shortw, longw+1):
+             L[i,:] = L[i,:] / np.sum(L[i,:])
   
     Linv = inv(L)
     Linv = Linv.astype(np.float32)
