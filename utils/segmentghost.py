@@ -19,9 +19,9 @@ segment_points = [23,95,180,189,218,234,248,270,280]
 with open(sys.argv[1],'r') as fin:
     config = json.load(fin)
 
-new_config = {'blur_spatial':10,
-              'blur_spectral':config['blur'],
-               "center": config['center']}
+new_config = {'blur_spatial':3,
+              'blur_spectral':3,#config['blur'],
+               "center": 649.5}
 new_config['orders'] = []
 
 for order in config['orders']:
