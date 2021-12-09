@@ -39,7 +39,7 @@ def find_header(infile):
 
 def serialize_ghost_config(config):
 
-  x = [config['blur']]
+  x = [config['blur_spatial'],config['blur_spectral']]
   for i in range(len(config['orders'])):
      #x.append(config['orders'][i]['extent'][0])
      #x.append(config['orders'][i]['extent'][1])
@@ -50,10 +50,11 @@ def serialize_ghost_config(config):
 def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
   #if (len(x)-1)/3 != len(config['orders']):
-  if (len(x)-1) != len(config['orders']):
+  if (len(x)-2) != len(config['orders']):
     raise IndexError('bad state vector size')
-  ghost_config['blur'] = x[0]
-  ind = 1
+  ghost_config['blur_spatial'] = x[0]
+  ghost_config['blur_spectral'] = x[1]
+  ind = 2
   for i in range(len(config['orders'])):
    #ghost_config['orders'][i]['extent'][0] = int(round(x[ind]))
    #ind = ind+1
@@ -71,7 +72,8 @@ def fix_ghost(frame, config):
   center = config['center']
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
-  blur = config['blur']
+  blur_spatial = config['blur_spatial']
+  blur_spectral = config['blur_spectral']
 
   for row in range(rows):
     for order in config['orders']:
@@ -84,7 +86,7 @@ def fix_ghost(frame, config):
                  if tcol>0 and tcol<1280:
                      ghost[ghost_position, tcol] = frame[row,col] * intensity
 
-  ghost = gaussian_filter(ghost,[blur,blur])
+  ghost = gaussian_filter(ghost,[blur_spectral,blur_spatial])
   new = frame - ghost
   return new
 
@@ -147,8 +149,9 @@ def main():
         ghost_config = json.load(fin)
 
     x0 = serialize_ghost_config(ghost_config)
-    opts = {'max_iters':10}
-    best = minimize(err, x0, args=(frames, ghost_config), options=opts)
+    opts = {'max_iters':500}
+    best = minimize(err, x0, args=(frames, ghost_config), 
+        options=opts, bounds=[(0,100) for q in x0])
     best_config = deserialize_ghost_config(best.x, ghost_config)
     
     with open(args.output,'w') as fout:

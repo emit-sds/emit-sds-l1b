@@ -29,6 +29,8 @@ def find_header(infile):
 def fix_ghost(frame, config):
 
   center = config['center']
+  blur_spatial = config['blur_spatial']
+  blur_spectral = config['blur_spectral']
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
 
@@ -43,7 +45,7 @@ def fix_ghost(frame, config):
                  if tcol>0 and tcol<1280:
                      ghost[ghost_position, tcol] = frame[row,col] * intensity
 
-  ghost = gaussian_filter(ghost,[2,2])
+  ghost = gaussian_filter(ghost,[blur_spectral,blur_spatial])
   new = frame - ghost
   return new
 
