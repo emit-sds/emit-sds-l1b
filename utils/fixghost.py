@@ -33,19 +33,22 @@ def fix_ghost(frame, config):
   blur_spectral = config['blur_spectral']
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
+  if rows>cols:
+      raise IndexError('Misformed frame')
 
   for row in range(rows):
     for order in config['orders']:
        if row>=order['extent'][0] and row<=order['extent'][1]: 
-          ghost_position = int(order['slope']*row + order['offset'])
-          if ghost_position > 0 and ghost_position < 480:
+          ghost_row = int(np.round(order['slope']*row + order['offset']))
+          if ghost_row > 0 and ghost_row < 480:
               intensity = order['intensity']
               for col in range(cols):
                  tcol = int(center*2 - col)
                  if tcol>0 and tcol<1280:
-                     ghost[ghost_position, tcol] = frame[row,col] * intensity
+                     ghost[ghost_row, tcol] = \
+                        ghost[ghost_row, tcol] + frame[row,col] * intensity
 
-  ghost = gaussian_filter(ghost,[blur_spectral,blur_spatial])
+  ghost = gaussian_filter(ghost,[blur_spectral, blur_spatial])
   new = frame - ghost
   return new
 
@@ -90,7 +93,6 @@ def main():
             # Read a frame of data
             if line%10==0:
                 print('Line '+str(line))
-
 
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
