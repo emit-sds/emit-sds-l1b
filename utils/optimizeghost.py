@@ -17,8 +17,7 @@ from scipy.ndimage import gaussian_filter
 import json
 from scipy.optimize import minimize
 from numba import jit
-import optimparallel
-
+from fixghost import fix_ghost
 import ray
 import ray.services
 
@@ -41,90 +40,38 @@ def serialize_ghost_config(config):
 
   x = [config['blur_spatial'],config['blur_spectral']]
   for i in range(len(config['orders'])):
-     #x.append(config['orders'][i]['extent'][0])
-     #x.append(config['orders'][i]['extent'][1])
       x.append(config['orders'][i]['intensity'])
   return x    
 
 
 def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
-  #if (len(x)-1)/3 != len(config['orders']):
   if (len(x)-2) != len(config['orders']):
     raise IndexError('bad state vector size')
   ghost_config['blur_spatial'] = x[0]
   ghost_config['blur_spectral'] = x[1]
-  ind = 2
   for i in range(len(config['orders'])):
-   #ghost_config['orders'][i]['extent'][0] = int(round(x[ind]))
-   #ind = ind+1
-   #ghost_config['orders'][i]['extent'][1] = int(round(x[ind]))
-   #ind = ind+1
-    ghost_config['orders'][i]['intensity'] = x[ind]
-    ind = ind+1
-           
+    ghost_config['orders'][i]['intensity'] = x[2+i]
   return ghost_config   
 
-
-#@jit   
-def fix_ghost(frame, config):
-
-  center = config['center']
-  ghost = np.zeros(frame.shape)
-  rows, cols = frame.shape
-  blur_spatial = config['blur_spatial']
-  blur_spectral = config['blur_spectral']
-
-  for row in range(rows):
-    for order in config['orders']:
-       if row>=order['extent'][0] and row<=order['extent'][1]: 
-          ghost_position = int(order['slope']*row + order['offset'])
-          if ghost_position > 0 and ghost_position < 480:
-              intensity = order['intensity']
-              for col in range(cols):
-                 tcol = int(center*2 - col)
-                 if tcol>0 and tcol<1280:
-                     ghost[ghost_position, tcol] = frame[row,col] * intensity
-
-  ghost = gaussian_filter(ghost,[blur_spectral,blur_spatial])
-  new = frame - ghost
-  return new
 
 @ray.remote
 def frame_error(frame, new_config):
     fixed = fix_ghost(frame, new_config)
     half = 640
-    max_left = frame[:,:half].max()
-    max_right = frame[:,half:].max()
+    max_left = np.percentile(frame[:,:half],99)
+    max_right = np.percentile(frame[:,half:],99)
     if max_left>max_right:
         return np.mean(pow(fixed[:,half:],2))
     else:
         return np.mean(pow(fixed[:,:half],2))
 
-#@ray.remote
-def cost_gradient(x,i,frames,config):
-    x_perturb = x.copy()
-    x_perturb[i] = x_perturb[i]+eps
-    print(len(x),len(x_purturb))
-    cost = err(x, frames, config)
-    cost_perturb = err(x_perturb, frames, config)
-    return (cost_perturb-cost)/eps
-
-
-def jac(x, frames, config):
-    config = deserialize_ghost_config(x, config)
-    jobs = [cost_gradient(x,i,frames,config) for i in range(len(x))] 
-    jac = ray.get(jobs)
-    return jac
 
 def err(x, frames, config):
     new_config = deserialize_ghost_config(x, config)
     jobs = [frame_error.remote(frame, new_config) for frame in frames]
     errs = ray.get(jobs)
-    if False:
-         jobs = [frame_error(frame, new_config) for frame in frames]
-         errs = np.array(jobs)
-    print(sum(errs))
+    print(x,errs)
     return sum(errs)
   
 
@@ -142,16 +89,18 @@ def main():
     for infile in args.input:
         print(infile)
         I = envi.open(infile)
-        frames.append(np.squeeze(I.load()))
+        bip = np.squeeze(I.load())
+        bil = bip.T
+        frames.append(bil)
     frames = np.array(frames)
     print(frames.shape)
     with open(args.config,'r') as fin:
         ghost_config = json.load(fin)
 
     x0 = serialize_ghost_config(ghost_config)
-    opts = {'max_iters':500}
+    opts = {'max_iters':5}
     best = minimize(err, x0, args=(frames, ghost_config), 
-        options=opts, bounds=[(0,100) for q in x0])
+        options=opts, bounds=[(1,10),(1,10)]+[(0,0.01) for q in x0[2:]])
     best_config = deserialize_ghost_config(best.x, ghost_config)
     
     with open(args.output,'w') as fout:

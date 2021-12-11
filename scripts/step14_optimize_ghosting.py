@@ -19,18 +19,29 @@ ps -ef | grep ray | awk '{print $1}' | xargs kill
 '''
 
 templatefile = 'batch_run_delete.sh'
-test_frame = '/beegfs/scratch/drt/20211130_EMIT_Ghost/optimization/test_frame.hdr'
-test_frame2 = '/beegfs/scratch/drt/20211130_EMIT_Ghost/optimization/test_frame2.hdr'
-test_frame3 = '/beegfs/scratch/drt/20211130_EMIT_Ghost/optimization/test_frame3.hdr'
-test_frame4 = '/beegfs/scratch/drt/20211130_EMIT_Ghost/optimization/test_frame4.hdr'
-infile = '/home/drt/src/emit-sds-l1b/data/emit_ghost_segmented.json'
-outfile = '/home/drt/src/emit-sds-l1b/data/emit_ghost_optimized.json'
-cmd = 'python /home/drt/src/emit-sds-l1b/utils/optimizeghost.py %s %s %s %s'%(infile,test_frame2,test_frame4,outfile)
+if os.path.exists('/Users/'):
+    basedir = '/Users/drt/data/21EMIT/20211210_ghosts/optimization/'
+    exe = '/Users/drt/src/emit-sds-l1b/utils/optimizeghost.py'
+    cmd = 'bash '+templatefile
+    datadir = '/Users/drt/src/emit-sds-l1b/data/'
+else:
+    basedir = '/beegfs/scratch/drt/20211130_EMIT_Ghost/optimization/'
+    exe = '/home/drt/src/emit-sds-l1b/utils/optimizeghost.py'
+    srun_flags = '-N 1 -n 1 -c 40 --mem=180G' 
+    cmd = 'sbatch '+srun_flags+' '+templatefile
+    datadir = '/home/drt/src/emit-sds-l1b/data/'
+
+test_frame  = basedir+'test_frame.hdr'
+test_frame2 = basedir+'test_frame2.hdr'
+test_frame3 = basedir+'test_frame3.hdr'
+test_frame4 = basedir+'test_frame4.hdr'
+infile = datadir+'emit_ghost_segmented.json'
+outfile = datadir+'emit_ghost_optimized.json'
+cmd = 'python %s %s %s %s %s'%(exe,infile,test_frame2,test_frame3,outfile)
+
 template = batch_template % cmd
 with open(templatefile,'w') as fout:
    fout.write(template)
-srun_flags = '-N 1 -n 1 -c 40 --mem=180G'# --partition=patient' 
-cmd = 'sbatch '+srun_flags+' '+templatefile
 print(cmd)
 os.system(cmd)
 
