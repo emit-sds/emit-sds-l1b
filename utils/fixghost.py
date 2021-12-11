@@ -69,8 +69,6 @@ def main():
         dtype = np.float32
     else:
         raise ValueError('Unsupported data type')
-    if infile.metadata['interleave'] != 'bil':
-        raise ValueError('Unsupported interleave')
 
     with open(args.ghost_config,'r') as fin:
         config = json.load(fin)
@@ -93,9 +91,16 @@ def main():
 
 
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
-            frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            fixed = fix_ghost(frame, config)
-            np.array(fixed, dtype=np.float32).tofile(fout)
+            if infile.metadata['interleave'] == 'bil':
+                frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
+                fixed = fix_ghost(frame, config)
+                np.array(fixed, dtype=np.float32).tofile(fout)
+            elif infile.metadata['interleave'] == 'bip':
+                frame = np.array(frame.reshape((columns,rows)),dtype=np.float32).T
+                fixed = fix_ghost(frame, config)
+                np.array(fixed.T, dtype=np.float32).tofile(fout)
+            else:
+                raise ValueError('unsupported interleave')
 
     print('done') 
 
