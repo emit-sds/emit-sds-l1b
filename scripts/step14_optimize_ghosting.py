@@ -31,10 +31,10 @@ else:
     cmd = 'sbatch '+srun_flags+' '+templatefile
     datadir = '/home/drt/src/emit-sds-l1b/data/'
 
-test_frame  = basedir+'test_frame.hdr'
-test_frame2 = basedir+'test_frame2.hdr'
-test_frame3 = basedir+'test_frame3.hdr'
-test_frame4 = basedir+'test_frame4.hdr'
+test_frame  = basedir+'test_frame'
+test_frame2 = basedir+'test_frame2'
+test_frame3 = basedir+'test_frame3'
+test_frame4 = basedir+'test_frame4'
 infile = datadir+'emit_ghost_segmented.json'
 outfile = datadir+'emit_ghost_optimized.json'
 cmd = 'python %s %s %s %s %s'%(exe,infile,test_frame2,test_frame3,outfile)
