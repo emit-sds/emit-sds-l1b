@@ -25,6 +25,7 @@ rayargs={'num_cpus':40}
 ray.init(**rayargs)
 
 eps = 1e-4
+optimize_blur=False
 
 
 def find_header(infile):
@@ -38,7 +39,10 @@ def find_header(infile):
 
 def serialize_ghost_config(config):
 
-  x = [config['blur_spatial'],config['blur_spectral']]
+  if optimize_blur:
+      x = [config['blur_spatial'],config['blur_spectral']]
+  else:
+      x = []
   for i in range(len(config['orders'])):
       x.append(np.log(config['orders'][i]['intensity']))
   return x    
@@ -46,12 +50,18 @@ def serialize_ghost_config(config):
 
 def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
-  if (len(x)-2) != len(config['orders']):
-    raise IndexError('bad state vector size')
-  ghost_config['blur_spatial'] = x[0]
-  ghost_config['blur_spectral'] = x[1]
+  if optimize_blur:
+    if (len(x)-2) != len(config['orders']):
+      raise IndexError('bad state vector size')
+    ghost_config['blur_spatial'] = x[0]
+    ghost_config['blur_spectral'] = x[1]
+    ind = 2
+  else:
+    if (len(x)) != len(config['orders']):
+      raise IndexError('bad state vector size')
+    ind = 0
   for i in range(len(config['orders'])):
-    ghost_config['orders'][i]['intensity'] = np.exp(x[2+i])
+    ghost_config['orders'][i]['intensity'] = np.exp(x[ind+i])
   return ghost_config   
 
 
@@ -72,7 +82,10 @@ def err(x, frames, ghost_config):
     jobs = [frame_error(frame, new_config) for frame in frames]
     errs = np.array(jobs)#ray.get(jobs)
     disp = x.copy()
-    disp[2:] = np.exp(x[2:])
+    if optimize_blur:
+        disp[2:] = np.exp(x[2:])
+    else:
+        disp = np.exp(x)
     print(disp,errs)
     return sum(errs)
  
