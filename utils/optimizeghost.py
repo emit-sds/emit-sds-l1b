@@ -71,7 +71,9 @@ def err(x, frames, ghost_config):
     new_config = deserialize_ghost_config(x, ghost_config)
     jobs = [frame_error(frame, new_config) for frame in frames]
     errs = np.array(jobs)#ray.get(jobs)
-    print(x,errs)
+    disp = x.copy()
+    disp[2:] = np.exp(x[2:])
+    print(disp,errs)
     return sum(errs)
  
 @ray.remote
@@ -101,19 +103,16 @@ def main():
 
     frames = []
     for infile in args.input:
-        print(infile)
         I = envi.open(find_header(infile))
         bip = np.squeeze(I.load())
         bil = bip.T
         frames.append(bil)
     frames = np.array(frames)
-    print(frames.shape)
     with open(args.config,'r') as fin:
         ghost_config = json.load(fin)
  
     x0 = serialize_ghost_config(ghost_config)
-    print('!!!',x0)
-    opts = {'max_iters':5}
+    opts = {'max_iters':10}
     best = minimize(err, x0, args=(frames, ghost_config), jac=jac,
         options=opts)#, bounds=[(1,10),(1,10)]+[(0,0.01) for q in x0[2:]])
     best_config = deserialize_ghost_config(best.x, ghost_config)
