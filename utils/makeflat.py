@@ -49,8 +49,6 @@ def main():
     parser.add_argument('--ref_hi',default=1180,type=int)
     parser.add_argument('--hw_lo',default=8,type=int)
     parser.add_argument('--hw_hi',default=40,type=int)
-    parser.add_argument('--selection',type=str,default='spatial')
-    parser.add_argument('--badmap_out',type=str,default=None)
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -71,6 +69,8 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
     margin=2
+    meta = {'lines':480,'rows':1280,'bands':1,'interleave':'bsq',
+      'data type':4}
 
     brightest  = np.ones((rows,columns,nbright))*-9999
     with open(args.input,'rb') as fin:
@@ -87,12 +87,16 @@ def main():
         stdev[np.logical_not(np.isfinite(stdev))] = 0
         flat[np.logical_not(np.isfinite(flat))] = -9999
         reference = np.arange(args.ref_lo,args.ref_hi)
+        average_DNs = []
         for row in range(rows):
             ref = np.nanmean(flat[row,reference])
             print('row',row,'reference average is',ref)
             flat[row,:] = flat[row,:] / ref
+            average_DNs.append(ref)
         flat[np.logical_not(np.isfinite(flat))] = -9999
-        envi.save_image(args.output+'.hdr',np.array(flat,dtype=np.float32),ext='',force=True)
+        meta['average_DNs'] = np.array(average_DNs)
+        envi.save_image(args.output+'.hdr',np.array(flat,dtype=np.float32),
+            metadata=meta,ext='',force=True)
 
 if __name__ == '__main__':
 
