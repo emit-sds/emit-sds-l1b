@@ -21,7 +21,7 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
-nbright = 10#32
+nbright = 64#10#32
 
 # Reference columns of the focal plane array used for
 # radiometric calibration.  Avoid the center (due to 
