@@ -11,6 +11,7 @@ from sklearn.linear_model import RANSACRegressor
 from skimage.filters import threshold_otsu
 import json
 from numba import jit
+from lowess import lowess
 
 
 def find_header(infile):
@@ -21,7 +22,27 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
+
 nbright = 64#10#32
+
+
+def moving_average(x, w=5):
+      return np.convolve(x, np.ones(w), 'same') / w
+
+
+def polymax(y, plot=False):
+    series = moving_average(y)
+    ctr = np.argmax(series)
+    halfwid = 16
+    segment = y[max(0,ctr-halfwid):min(ctr+halfwid+1,len(y)-1)]
+    x = np.arange(len(segment))
+    p = np.polyfit(x,segment,6)
+    noisefree = np.polyval(p,x)
+    if plot:
+        plt.plot(x, segment, 'ko')
+        plt.plot(x, noisefree, 'r')
+        plt.show()
+    return noisefree.max(), np.std(noisefree-segment)
 
 # Reference columns of the focal plane array used for
 # radiometric calibration.  Avoid the center (due to 
@@ -79,16 +100,15 @@ def main():
     meta = {'lines':480,'rows':1280,'bands':1,'interleave':'bsq',
       'data type':4}
 
-    brightest = np.ones((rows,columns,nbright))*-9999
-    brightest_bg = np.ones((rows,columns,nbright))*-9999
-
+    foreground = np.ones((lines,rows,columns))
+    background = np.ones((lines,rows,columns))
     with open(args.input,'rb') as fin:
 
         # Accumulate n brightest observations of the source
         for line in range(lines):
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            brightest = addcounts(brightest,frame)
+            foreground[line,:,:] = frame
            
     if args.background is not None:
         with open(args.background,'rb') as fin:
@@ -97,28 +117,37 @@ def main():
             for line in range(lines):
                 bg = np.fromfile(fin, count=nframe, dtype=dtype)
                 bg = np.array(bg.reshape((rows, columns)), dtype=np.float32)
-                brightest_bg = addcounts(brightest_bg,bg)
-            brightest = brightest - brightest_bg
+                background[line,:,:] = bg
 
-    stdev = brightest.std(axis=2)
-    flat = brightest.mean(axis=2)
-    stdev[np.logical_not(np.isfinite(stdev))] = 0
-    flat[np.logical_not(np.isfinite(flat))] = -9999
-    DN_average, DN_stdev = [],[]
+    flat = np.ones((rows,columns)) * -9999
+    noise = np.ones((rows,columns)) * -9999
 
+    DN_average, DN_noise = [],[]
     for row in range(rows):
+       for col in range(columns):
 
-        ref = np.nanmean(flat[row, reference_cols])
-        print('row',row,'reference average is',ref)
-        flat[row,:] = flat[row,:] / ref
-        DN_average.append(ref)
+           y = np.squeeze(foreground[:,row,col])
+           fg, resid_fg = polymax(y,plot=(row==150 and col==200))
 
-        sigma = np.nanmean(stdev[row, reference_cols])
-        DN_stdev.append(sigma)
+           y = np.squeeze(background[:,row,col])
+           bg, resid_bg = polymax(y,plot=(row==150 and col==200))
+
+           flat[row,col] = fg - bg
+           noise[row,col] = resid_fg
+
+       ref = np.nanmean(flat[row, reference_cols])
+       ref_noise = np.nanmean(noise[row, reference_cols])
+       print('row',row,'reference average is',ref)
+       flat[row,:] = flat[row,:] / ref
+       DN_average.append(ref)
+       DN_noise.append(ref_noise)
+
+   #sigma = np.nanmean(stdev[row, reference_cols])
+   #DN_stdev.append(sigma)
 
     flat[np.logical_not(np.isfinite(flat))] = -9999
     meta['average_DNs'] = np.array(DN_average)
-    meta['stdev_DNs'] = np.array(DN_stdev)
+    meta['stdev_DNs'] = np.array(DN_noise)
     envi.save_image(args.output+'.hdr',np.array(flat,dtype=np.float32),
         metadata=meta,ext='',force=True)
 

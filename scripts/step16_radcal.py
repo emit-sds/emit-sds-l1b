@@ -1,7 +1,11 @@
 # David R Thompson
 import numpy as np
 import pylab as plt
+from spectral.io import envi
 from scipy.interpolate import interp1d
+
+plot = True
+frame_averaging = 15
 
 q,wl,fwhm = np.loadtxt('../data/EMIT_Wavelengths_20211117.txt').T * 1000.0
 
@@ -11,14 +15,10 @@ def resample(wl_old, spectrum, method='linear'):
 
 # Load irradiance
 # translate uncertainty from percenmt to one sigma irradiance
-wl_irr, irradiance, irradiance_uncert = np.loadtxt('../data/ogse/tvac2/lamp_s1344_irradiance.txt', skiprows=2).T 
-print(wl_irr,irradiance)
-plt.plot(wl_irr, irradiance,'ko')
-irradiance = resample(wl_irr, irradiance, method='cubic')
-plt.plot(wl, irradiance,'r')
+wl_irr, irr, irradiance_uncert = np.loadtxt('../data/ogse/tvac2/lamp_s1344_irradiance.txt', skiprows=2).T 
+irradiance = resample(wl_irr, irr, method='cubic')
 irradiance_uncert = resample(wl_irr, irradiance_uncert)
 irradiance_uncert = irradiance_uncert / 100.0 * irradiance
-print(irradiance_uncert/irradiance)
 
 # Mirror transmittance
 wl_mirror, mirror_rfl = np.loadtxt('../data/ogse/tvac2/mirror_coating_reflectance.txt').T
@@ -26,13 +26,10 @@ mirror_rfl = resample(wl_mirror, mirror_rfl)
 mirror_uncert = np.ones(len(mirror_rfl)) * 0.01
 
 # Spectralon reflectance
-wl_spec, spectralon_rfl, spectralon_uncert =\
+wl_spec, spec_rfl, spec_uncert =\
      np.loadtxt('../data/ogse/tvac2/panel_srt-99-120_reflectance.txt',skiprows=2).T  
-plt.figure()
-plt.plot(wl_spec,spectralon_rfl,'ko')
-spectralon_rfl = resample(wl_spec, spectralon_rfl)
-plt.plot(wl,spectralon_rfl,'r')
-spectralon_uncert = resample(wl_spec, spectralon_uncert)
+spectralon_rfl = resample(wl_spec, spec_rfl)
+spectralon_uncert = resample(wl_spec, spec_uncert)
 
 # Window transmittance
 wl_window, window_trans = np.loadtxt('../data/ogse/tvac2/window_infrasil301-302_transmittance.txt',skiprows=1).T
@@ -63,6 +60,37 @@ rdn_uncert = np.sqrt((drdn_dirr * irradiance_uncert)**2 + \
                      (drdn_dbrdf * brdf_uncert)**2 + \
                      (drdn_dmirror * mirror_uncert)**2 +\
                      (distance_uncert_rdn**2))
-plt.figure()
-plt.plot(wl, rdn_uncert/rdn)
-plt.show()
+
+I = envi.open('../data/EMIT_FlatField_20211216.hdr')
+DN = np.array([float(d) for d in I.metadata['average_dns']])
+DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
+
+
+
+channels = np.arange(len(wl),dtype=int)
+factors = rdn / DN
+factors_uncert = rdn_uncert / DN
+np.savetxt('../data/EMIT_RadiometricCoeffs_20211217.txt',
+          np.c_[channels,factors,factors_uncert], fmt='%10.8f')
+
+if plot:
+    plt.plot(wl,DN/DN_std/np.sqrt(frame_averaging),'k')
+    plt.title('SNR')
+    plt.figure()
+    plt.plot(wl_irr,irr,'ko')
+    plt.plot(wl,irradiance,'r')
+    plt.figure()
+    plt.plot(wl_spec,spec_rfl,'ko')
+    plt.plot(wl,spectralon_rfl,'r')
+    plt.figure()
+    plt.plot(wl, factors)
+    plt.xlim([360,2540])
+    plt.figure()
+    plt.plot(wl[1:], np.diff(factors)/factors[1:])
+    plt.xlim([360,2540])
+    plt.figure()
+    plt.plot(wl, rdn_uncert/rdn)
+    plt.show()
+
+
+
