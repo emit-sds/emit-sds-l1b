@@ -13,7 +13,8 @@ import json
 import logging
 import argparse
 
-left, right, top, bottom = 22, 1270, 20, 320
+# The 10 columns on either side of the FPA are masked.
+left, right, top, bottom = 10, 1270, 20, 320
 
 
 def find_header(infile):
