@@ -15,6 +15,7 @@ import argparse
 from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
+import ray
 
 
 def find_header(infile):
@@ -25,8 +26,8 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
-@jit   
-def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=3, blur_spectral=3):
+@ray.remote
+def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
@@ -39,9 +40,10 @@ def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=3, blur_spectral=3):
           tcol = int(center*2 - col)
           if tcol>0 and tcol<1280:
               ghost[ghost_row, tcol] = \
-                 ghost[ghost_row, tcol] + frame[row,col] * intensity
+                 ghost[ghost_row, tcol] + frame[row,col] * intensity * fudge
 
-  ghost = gaussian_filter(ghost,[blur_spectral, blur_spatial])
+  start = 25
+  ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
   new = frame - ghost
   return new
 
@@ -53,6 +55,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--ncpus',default=30)
     parser.add_argument('ghost_config')
     parser.add_argument('output')
     args = parser.parse_args()
@@ -66,24 +69,24 @@ def main():
     else:
         raise ValueError('Unsupported data type')
 
-    with open(args.ghost_config,'r') as fin:
-        config = json.load(fin)
-
     rows = int(infile.metadata['bands'])
     columns = int(infile.metadata['samples'])
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
+    ray.init()
+
     envi.write_envi_header(args.output+'.hdr',infile.metadata)
 
     ghost_config = np.loadtxt(args.ghost_config)
-    ghostmap = [[] for r in rows]
+    ghostmap = [[] for r in range(rows)]
     for source, target, confidence, intensity in ghost_config:
-        ghostmap[source].append(target,intensity)
+        ghostmap[int(source)].append((int(target),intensity))
 
     with open(args.input,'rb') as fin:
       with open(args.output,'wb') as fout:
 
+        frames = []
         for line in range(lines):
 
             # Read a frame of data
@@ -93,14 +96,24 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             if infile.metadata['interleave'] == 'bil':
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                fixed = fix_ghost(frame, ghostmap)
-                np.array(fixed, dtype=np.float32).tofile(fout)
             elif infile.metadata['interleave'] == 'bip':
                 frame = np.array(frame.reshape((columns,rows)),dtype=np.float32).T
-                fixed = fix_ghost(frame, ghostmap)
-                np.array(fixed.T, dtype=np.float32).tofile(fout)
             else:
                 raise ValueError('unsupported interleave')
+
+            frames.append(frame)
+
+            if len(frames) == args.ncpus or line == (lines-1):
+                jobs = [fix_ghost.remote(f, ghostmap) for f in frames]
+                fixed_all = ray.get(jobs)
+                for fixed in fixed_all:
+                   if infile.metadata['interleave'] == 'bil':
+                       np.array(fixed, dtype=np.float32).tofile(fout)
+                   elif infile.metadata['interleave'] == 'bip':
+                       np.array(fixed.T, dtype=np.float32).tofile(fout)
+                   else:
+                       raise ValueError('unsupported interleave')
+                frames = []
 
     print('done') 
 
