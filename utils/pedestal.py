@@ -12,10 +12,8 @@ from spectral.io import envi
 import json
 import logging
 import argparse
-
-# The 10 columns on either side of the FPA are masked.
-left, right, top, bottom = 10, 1270, 20, 320
-
+from emit import masked_rows, masked_cols, embed_frame, extract_frame
+from emit import native_rows
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -24,6 +22,13 @@ def find_header(infile):
     return '.'.join(infile.split('.')[:-1])+'.hdr'
   else:
     raise FileNotFoundError('Did not find header file')
+
+
+def fix_pedestal(frame):
+    pedestal = np.mean(frame[:,masked_cols], axis=1)
+    frame = (frame.T-pedestal).T
+    pedestal = np.mean(frame[masked_rows,:], axis=0)
+    frame = frame-pedestal
 
 
 def main():
@@ -51,10 +56,6 @@ def main():
     columns = int(infile.metadata['samples'])
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
-    masked_rows = np.concatenate((np.arange(top,dtype=int),
-                np.arange(bottom,rows,dtype=int)),axis=0)
-    masked_cols = np.concatenate((np.arange(left,dtype=int),
-                np.arange(right,columns,dtype=int)),axis=0)
     envi.write_envi_header(args.output+'.hdr',infile.metadata)
 
     with open(args.input,'rb') as fin:
@@ -67,10 +68,14 @@ def main():
                 logging.info('Line '+str(line))
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            pedestal = np.mean(frame[:,masked_cols], axis=1)
-            frame = (frame.T-pedestal).T
-            pedestal = np.mean(frame[masked_rows,:], axis=0)
-            frame = frame-pedestal
+
+            if rows < native_rows:
+                frame = embed_frame(frame)
+                fixed = fix_pedestal(frame)
+                fixed = extract_frame(fixed)
+            else:
+                fixed = fix_pedestal(frame)
+
             np.array(frame, dtype=np.float32).tofile(fout)
 
     print('done') 
