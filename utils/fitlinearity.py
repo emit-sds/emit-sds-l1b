@@ -10,7 +10,6 @@ from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 from scipy.optimize import minimize
 from scipy.interpolate import BSpline,interp1d
-from statsmodels.nonparametric.smoothers_lowess import lowess
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
 import json
@@ -118,10 +117,6 @@ def main():
             continue
          ideal = slope*L
          grid = np.arange(2**16)
-        
-        #use = DN>100
-        #ideal = lowess(np.array(DN[use],dtype=float), 
-        #              np.array(ideal[use],dtype=float),xvals=DN,frac=0.1,return_sorted=False)
         
          resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
          resamp = resamp / grid

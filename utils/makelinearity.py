@@ -10,8 +10,6 @@ from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 from scipy.optimize import minimize
 from scipy.interpolate import BSpline,interp1d
-#from statsmodels.nonparametric.smoothers_lowess import lowess
-from lowess import lowess
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
 import json
