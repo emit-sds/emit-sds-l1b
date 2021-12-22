@@ -17,6 +17,7 @@ def main():
 
     infile = envi.open(args.input+'.hdr')
     data = infile.load() 
+    print(data.shape)
 
     if int(infile.metadata['data type']) == 2:
         dtype = np.uint16

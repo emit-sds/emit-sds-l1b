@@ -20,7 +20,7 @@ for infile in sorted(glob(basedir+'*badfix.hdr')):
   while True:
       ghostchan = np.argmax(np.mean(ghost[use,:],axis=0))
       ghost_series = np.mean(ghost[use,:],axis=0)[(ghostchan-margin):(ghostchan+margin+1)]
-      if sum(ghost_series)<10:
+      if sum(ghost_series)<5:
           break
       ratio = sum(ghost_series) / sum(source_series)
       print(sourcechan, ghostchan, sum(ghost_series), ratio)

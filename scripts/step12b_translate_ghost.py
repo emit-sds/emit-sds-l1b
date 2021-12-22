@@ -2,6 +2,7 @@
 import numpy as np
 import pylab as plt
 import os, sys, glob
+import pylab as plt
 
 x = np.loadtxt('../data/ghost_pointwise.txt')
 y = []
@@ -22,6 +23,9 @@ for i in range(x.shape[0]):
          y.append(m)
        n[3] = n[3] / float(gap)
        y.append(n)
+       plt.plot(n[0],n[1],'ko')
+plt.show()
 with open('../data/ghost_pointwise_interp.txt','w') as fout:
    for n in y:
        fout.write('%i %i %10.8f %10.8f\n' % (n[0],n[1],n[2],n[3]))
+

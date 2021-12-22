@@ -69,31 +69,6 @@ def main():
     resamp = pca.components_
     mu = pca.mean_
     
-   #mu = data.mean(axis=0)
-   #plt.plot(mu)
-   #plt.show()
-   #zm = data - mu
-   #
-   #use = np.arange(0,47000,10)
-   #C = np.cov(zm[:,use], rowvar=False)
-   #C[np.logical_not(np.isfinite(C))]=0
-
-   #print('Calculating eigenvectors')
-   #ev,vec = np.linalg.eigh(C)
-   #
-   #print(ev[-args.nev:])
-   #print(mu)
-   #resamp = []
-   #for i in range(args.nev):
-   #   v = vec[:,-(i+1)]
-   #   #plt.plot(v)
-   #   v = interp1d(use,v,fill_value='extrapolate',bounds_error=False)(np.arange(2**16))
-   #   v = v / norm(v)
-   #   resamp.append(v)
-   ##plt.show()
-
-   #resamp = np.array(resamp)
-
     combined = np.concatenate((mu[np.newaxis,:],resamp),axis=0)
     combined = combined.astype(np.float32)
     envi.save_image(args.output+'.hdr',combined,ext='',force=True)

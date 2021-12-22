@@ -3,9 +3,6 @@ import sys, os
 import numpy as np
 from glob import glob
 
-spatial = np.zeros((1280,1280,5))
-spectral = np.zeros((480,480,5))
-
 if False:
 
     files = glob('/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/*linear')

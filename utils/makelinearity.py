@@ -30,11 +30,14 @@ left, right, top, bottom = 25, 1264, 26, 313
 
 def main():
 
-    description = "Calculate Flat field"
+    description = "Make linearity curves"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('--plot',action='store_true')
+    parser.add_argument('--chan_lo',type=int)
+    parser.add_argument('--chan_hi',type=int)
+    parser.add_argument('--fullrange',action='store_true')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -88,7 +91,16 @@ def main():
 
     data = np.array(data)
     curves = []
-    for wl in np.arange(top,bottom):
+
+    # Set wavength ranges used for the estimation
+    lo, hi = top, bottom
+    if args.chan_lo is not None:
+        lo = args.chan_lo
+    if args.chan_hi is not None:
+        hi = args.chan_hi
+        
+    for wl in np.arange(lo,hi):
+
         DN = data[:,wl,active_rows].mean(axis=1)
         L = np.array(illums) 
 
@@ -96,58 +108,41 @@ def main():
         
         # best least-squares slope forcing zero intercept
         tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
-        use = np.where(np.logical_and(DN>10,DN<35000))[0]
+        tofit = np.where(np.logical_and(DN>100,DN<30000))[0]
 
         slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
-        print(slope)   
+        #slope, offset = np.polyfit(L[tofit],DN[tofit],1)
+        print(slope)#,offset) 
+
         if not np.isfinite(slope):
            continue
+
         ideal = slope*L
         grid = np.arange(2**16)
-
-       #use = DN>100
-       #ideal = lowess(np.array(DN[use],dtype=float), 
-       #              np.array(ideal[use],dtype=float),xvals=DN,frac=0.1,return_sorted=False)
 
         resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
         resamp = resamp / grid
 
+        if not args.fullrange:
+            resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
         # Don't correct above the saturation level
-        #resamp[grid>40000] = DN[grid>40000]
-        #smoothed[ideal>1000]=ideal[ideal>1000]
-        resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
         resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
 
-        checkband = np.argmin(abs(grid-20000))
-        if resamp[checkband]>0.998 and resamp[checkband]<1.002:
+       #checkband = np.argmin(abs(grid-20000))
+       #if resamp[checkband]>0.998 and resamp[checkband]<1.002:
+        if True:
             curves.append(resamp)
-
     curves = np.array(curves,dtype=np.float32)
+    print(curves.shape)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)
 
     if args.plot:
             plt.figure(0)
-            #plt.loglog(grid,curves[np.arange(0,curves.shape[0],50),:].T,'k-')
-            plt.semilogx(grid,(curves[np.arange(0,curves.shape[0],50),:]).T,'k-')
-            #plt.semilogx(ys[use],ideal[use]/corrected[use],color+'-')
-            #plt.plot(xscaled[use],ideal[use],color+'+')
-            #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
-            #plt.semilogx(ys[use],np.zeros(len(use)),'k:')
-           #plt.xlabel('DN')
-           #plt.ylabel('Deviation from linearity (%)')
+            plt.semilogx(DN, (DN/ideal).T,'k.')
+            #plt.semilogx(grid,(curves[np.arange(0,curves.shape[0],50),:]).T,'k-')
             plt.box(False)
             plt.grid(True)
-
-           #plt.figure(1)
-           #plt.semilogx(grid,resamp/grid,'k')
-            #plt.plot(xscaled[use],ideal[use],color+'+')
-            #plt.semilogx(xs[use],(corrected[use]-target[use])/(target[use])*100,'ro')
-            #plt.semilogx(ys[use],np.zeros(len(use)),'k:')
-           #plt.xlabel('DN')
-           #plt.ylabel('Deviation from linearity (%)')
-           #plt.box(False)
-           #plt.grid(True)
-
+            plt.ylim([0.9,3.0])
             plt.show()
 
 if __name__ == '__main__':

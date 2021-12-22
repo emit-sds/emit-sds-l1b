@@ -138,7 +138,7 @@ def main():
        ref = np.nanmean(flat[row, reference_cols])
        ref_noise = np.nanmean(noise[row, reference_cols])
        print('row',row,'reference average is',ref)
-       flat[row,:] = flat[row,:] / ref
+       flat[row,:] = ref / flat[row,:] 
        DN_average.append(ref)
        DN_noise.append(ref_noise)
 

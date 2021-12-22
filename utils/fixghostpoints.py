@@ -27,7 +27,7 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 @ray.remote
-def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4):
+def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape

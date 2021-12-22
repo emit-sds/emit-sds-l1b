@@ -40,6 +40,26 @@ window_uncert = np.ones(len(window_trans)) * 0.01
 brdf_factor = np.ones(len(wl)) * 1.015
 brdf_uncert = np.ones(len(wl)) * 0.01
 
+#plt.plot(wl,irradiance)
+#plt.title('Irradiance')
+#plt.show()
+#plt.figure()
+#plt.plot(wl,spectralon_rfl)
+#plt.title('spectralon_rfl')
+#plt.show()
+#plt.figure()
+#plt.plot(wl,mirror_rfl)
+#plt.title('mirror_rfl')
+#plt.show()
+#plt.figure()
+#plt.plot(wl,window_trans)
+#plt.title('window_trans')
+#plt.show()
+#plt.figure()
+#plt.plot(wl,brdf_factor)
+#plt.title('brdf_factor')
+#plt.show()
+
 # Radiance 
 rdn = irradiance * spectralon_rfl * mirror_rfl * window_trans / np.pi * brdf_factor
 
@@ -70,27 +90,56 @@ DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
 channels = np.arange(len(wl),dtype=int)
 factors = rdn / DN
 factors_uncert = rdn_uncert / DN
+SNR = DN/DN_std/np.sqrt(frame_averaging)
 np.savetxt('../data/EMIT_RadiometricCoeffs_20211217.txt',
           np.c_[channels,factors,factors_uncert], fmt='%10.8f')
+np.savetxt('../data/EMIT_RadiometricUncertainty_20211217.txt',
+          np.c_[channels,factors_uncert/factors], fmt='%10.8f',
+          header='Uncertainty, fractional')
+np.savetxt('../data/EMIT_RadiometricReference_20211217.txt',
+          np.c_[wl,rdn], fmt='%10.8f')
+np.savetxt('../data/EMIT_RadiometricReferenceDN_20211217.txt',
+          np.c_[wl,DN], fmt='%10.8f')
+np.savetxt('../data/EMIT_RadiometricReferenceSNR_20211217.txt',
+          np.c_[wl,SNR], fmt='%10.8f')
+
+
 
 if plot:
-    plt.plot(wl,DN/DN_std/np.sqrt(frame_averaging),'k')
-    plt.title('SNR')
-    plt.figure()
-    plt.plot(wl_irr,irr,'ko')
-    plt.plot(wl,irradiance,'r')
-    plt.figure()
-    plt.plot(wl_spec,spec_rfl,'ko')
-    plt.plot(wl,spectralon_rfl,'r')
-    plt.figure()
-    plt.plot(wl, factors)
-    plt.xlim([360,2540])
-    plt.figure()
-    plt.plot(wl[1:], np.diff(factors)/factors[1:])
-    plt.xlim([360,2540])
-    plt.figure()
-    plt.plot(wl, rdn_uncert/rdn)
-    plt.show()
+   plt.plot(wl, drdn_dspec * spectralon_uncert / rdn, color=[0.8, 0.2, 0.2])
+   plt.plot(wl, drdn_dtrans * window_uncert / rdn, color=[0.2, 0.8, 0.2])
+   plt.plot(wl, drdn_dirr * irradiance_uncert / rdn, color=[0.2, 0.2, 0.8])
+   plt.plot(wl, drdn_dbrdf * brdf_uncert / rdn, color=[0.2, 0.8, 0.8])
+   plt.plot(wl, drdn_dmirror * mirror_uncert / rdn, color=[0.8, 0.8, 0.2])
+   plt.plot(wl, distance_uncert_rdn / rdn, color=[0.8, 0.2, 0.8])
+   plt.plot(wl, rdn_uncert/rdn, 'k')
+   plt.legend(('Spectralon reflectance','Window transmittance',
+         'Lamp irradiance','Spectralon BRDF','Mirror reflectance',
+         'OGSE geometry','Total uncertainty'))
+   plt.grid(True)
+   plt.box(False)
+   plt.xlabel('Wavelength (nm)')
+   plt.ylabel('Radiometric uncertainty, fractional')
+   plt.xlim([380,2500])
+   plt.ylim([0,0.1])
+   plt.show()
+   #plt.plot(wl,DN/DN_std/np.sqrt(frame_averaging),'k')
+   #plt.title('SNR')
+   #plt.figure()
+   #plt.plot(wl_irr,irr,'ko')
+   #plt.plot(wl,irradiance,'r')
+   #plt.figure()
+   #plt.plot(wl_spec,spec_rfl,'ko')
+   #plt.plot(wl,spectralon_rfl,'r')
+   #plt.figure()
+   #plt.plot(wl, factors)
+   #plt.xlim([360,2540])
+   #plt.figure()
+   #plt.plot(wl[1:], np.diff(factors)/factors[1:])
+   #plt.xlim([360,2540])
+   #plt.figure()
+   #plt.plot(wl, rdn_uncert/rdn)
+   #plt.show()
 
 
 
