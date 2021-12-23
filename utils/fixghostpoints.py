@@ -16,6 +16,8 @@ from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
 import ray
+from emit import native_rows, frame_embed, frame_extract
+from emit import first_illuminated_row
 
 
 def find_header(infile):
@@ -25,6 +27,7 @@ def find_header(infile):
     return '.'.join(infile.split('.')[:-1])+'.hdr'
   else:
     raise FileNotFoundError('Did not find header file')
+
 
 @ray.remote
 def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25):
@@ -42,7 +45,7 @@ def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, f
               ghost[ghost_row, tcol] = \
                  ghost[ghost_row, tcol] + frame[row,col] * intensity * fudge
 
-  start = 25
+  start = first_illuminated_row
   ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
   new = frame - ghost
   return new
@@ -101,12 +104,19 @@ def main():
             else:
                 raise ValueError('unsupported interleave')
 
+            # embed subframe if needed
+            if rows < native_rows:
+                frame = frame_embed(frame)
             frames.append(frame)
 
             if len(frames) == args.ncpus or line == (lines-1):
                 jobs = [fix_ghost.remote(f, ghostmap) for f in frames]
                 fixed_all = ray.get(jobs)
                 for fixed in fixed_all:
+
+                   # remove embedding if needed
+                   if rows < native_rows:
+                       fixed = frame_extract(fixed)
                    if infile.metadata['interleave'] == 'bil':
                        np.array(fixed, dtype=np.float32).tofile(fout)
                    elif infile.metadata['interleave'] == 'bip':

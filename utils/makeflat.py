@@ -142,9 +142,6 @@ def main():
        DN_average.append(ref)
        DN_noise.append(ref_noise)
 
-   #sigma = np.nanmean(stdev[row, reference_cols])
-   #DN_stdev.append(sigma)
-
     flat[np.logical_not(np.isfinite(flat))] = -9999
     meta['average_DNs'] = np.array(DN_average)
     meta['stdev_DNs'] = np.array(DN_noise)

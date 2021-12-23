@@ -35,6 +35,7 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
+
 def main():
 
     description = "Average a dark sequence with outlier rejection"
@@ -80,11 +81,11 @@ def main():
         dark_avg = sp.array(darkframes).mean(axis=0)
         dark_std = sp.array(darkframes).std(axis=0)/sp.sqrt(ndark)
 
-        with open(args.output_dark,'w') as fout:
-            sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
-            sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
-        with open(args.output_dark+'.hdr','w') as fout:
-            fout.write(header_string % (columns, rows))
+    with open(args.output_dark,'w') as fout:
+        sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
+        sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
+    with open(args.output_dark+'.hdr','w') as fout:
+        fout.write(header_string % (columns, rows))
 
     print('done') 
 
