@@ -14,6 +14,9 @@ import logging
 import argparse
 from numba import jit
 from math import pow
+from emit import native_rows, embed_frame, extract_frame
+
+
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -22,6 +25,15 @@ def find_header(infile):
     return '.'.join(infile.split('.')[:-1])+'.hdr'
   else:
     raise FileNotFoundError('Did not find header file')
+
+
+def fix_scatter(frame, spectral_correction, spatial_correction):
+   if frame.shape[0] != spectral_correction.shape[0] or \
+       frame.shape[1] != spatial_correction.shape[1]:
+       logging.error('Mismatched frame size')
+   fixed = spectral_correction @ (spatial_correction @ frame.T).T
+   return fixed
+
 
 def main():
 
@@ -65,13 +77,20 @@ def main():
             # Read a frame of data
             if line%10==0:
                 logging.info('Line '+str(line))
-            print(line)
 
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            fixed = spectral @ (spatial @ frame.T).T
+
+            if rows < native_rows:
+                frame = embed_frame(frame)
+                fixed = fix_scatter(frame, spectral, spatial)
+                fixed = extract_frame(fixed)
+            else:
+                fixed = fix_scatter(frame, spectral, spatial)
+
             np.array(fixed, dtype=np.float32).tofile(fout)
 
+ 
     print('done') 
 
 if __name__ == '__main__':
