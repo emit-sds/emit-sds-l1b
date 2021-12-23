@@ -15,6 +15,8 @@ import logging
 import argparse
 from numba import jit
 from math import pow
+from emit import native_rows, embed_frame, extract_frame
+
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -23,6 +25,7 @@ def find_header(infile):
     return '.'.join(infile.split('.')[:-1])+'.hdr'
   else:
     raise FileNotFoundError('Did not find header file')
+
 
 # Polynomial fitting from https://gist.github.com/kadereub/
 @jit(nopython=True)
@@ -76,7 +79,7 @@ def closest(a,B):
 
 
 @jit
-def fix(frame,bad):
+def fix_bad(frame,bad):
 
     rows, columns = frame.shape
     fixed = frame.copy()
@@ -97,10 +100,6 @@ def fix(frame,bad):
             for badc in bad_channels:
                fixed[badc,col] = slope * best_spectrum[badc] + offset
             nfixed = nfixed + 1
-           #print('fixing',col,bad_channels)
-           #plt.plot(frame[:,col])
-           #plt.plot(fixed[:,col])
-           #plt.show()
     print(nfixed,'fixed')
     return fixed
 
@@ -148,8 +147,13 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
-            fixed = fix(frame,bad)
-            
+            if rows < native_rows:
+                frame = embed_frame(frame)
+                fixed = fix_bad(frame, bad)
+                fixed = extract_frame(fixed)
+            else:
+                fixed = fix_bad(frame, bad)
+
             np.array(fixed, dtype=np.float32).tofile(fout)
 
     print('done') 
