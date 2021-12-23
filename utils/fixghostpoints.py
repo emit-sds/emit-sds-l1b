@@ -16,8 +16,8 @@ from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
 import ray
-from emit import native_rows, frame_embed, frame_extract
-from emit import first_illuminated_row
+from emit_fpa import native_rows, frame_embed, frame_extract
+from emit_fpa import first_illuminated_row
 
 
 def find_header(infile):

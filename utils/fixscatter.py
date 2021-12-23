@@ -14,7 +14,7 @@ import logging
 import argparse
 from numba import jit
 from math import pow
-from emit import native_rows, frame_embed, frame_extract
+from emit_fpa import native_rows, frame_embed, frame_extract
 
 
 

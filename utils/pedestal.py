@@ -12,8 +12,8 @@ from spectral.io import envi
 import json
 import logging
 import argparse
-from emit import masked_rows, masked_cols, embed_frame, extract_frame
-from emit import native_rows
+from emit_fpa import masked_rows, masked_cols, embed_frame, extract_frame
+from emit_fpa import native_rows
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):

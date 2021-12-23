@@ -15,7 +15,7 @@ import logging
 import argparse
 from numba import jit
 from math import pow
-from emit import native_rows, embed_frame, extract_frame
+from emit_fpa import native_rows, embed_frame, extract_frame
 
 
 def find_header(infile):
