@@ -35,12 +35,15 @@ vignetted_cols = np.concatenate((np.arange(last_masked_col_left+1, first_illumin
 
 # EMIT frames can be in native format or in subframe (328 row) format.
 # This function extracts a subframe from a native format frame
-def frame_extract(frame):
+def frame_extract(frame, clip_columns = False):
   if frame.shape[1] != native_columns:
      raise IndexError('All frames should have '+str(native_columns)+' columns')
   if frame.shape[0] != native_rows:
      raise IndexError('Native frames should have '+str(native_rows)+' rows')
-  return frame[first_valid_row:(last_valid_row+1),:]
+  frame = frame[first_valid_row:(last_valid_row+1),:]
+  if clip_columns:
+      frame = frame[:,first_illuminated_column:(last_illuminated_column+1)]
+  return frame
  
 
 # EMIT frames can be in native format or in subframe (328 row) format.

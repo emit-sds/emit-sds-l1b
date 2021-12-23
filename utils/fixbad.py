@@ -15,7 +15,7 @@ import logging
 import argparse
 from numba import jit
 from math import pow
-from emit_fpa import native_rows, embed_frame, extract_frame
+from emit_fpa import native_rows, frame_embed, frame_extract
 
 
 def find_header(infile):
@@ -148,9 +148,9 @@ def main():
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
             if rows < native_rows:
-                frame = embed_frame(frame)
+                frame = frame_embed(frame)
                 fixed = fix_bad(frame, bad)
-                fixed = extract_frame(fixed)
+                fixed = frame_extract(fixed)
             else:
                 fixed = fix_bad(frame, bad)
 
