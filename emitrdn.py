@@ -18,21 +18,24 @@ import argparse
 import multiprocessing
 
 # Import some EMIT-specific functions
-my_directory = os.path.abspath(__file__)
-sys.path.append(my_directory + 'utlis/')
+my_directory, my_executable = os.path.split(os.path.abspath(__file__))
+sys.path.append(my_directory + '/utils/')
+print(sys.path)
 
-from emit_fpa import native_rows, frame_embed, frame_extract
+from emit_fpa import native_rows, native_columns, frame_embed, frame_extract
 from fixbad import fix_bad 
 from fixlinearity import fix_frame
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
 from pedestal import fix_pedestal
+from emit2dark import dark_from_file
+
 
 header_template = """ENVI
 description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
-samples = {columns}
+samples = {ncolumns}
 lines = {lines}
-bands = {channels}
+bands = {nchannels}
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -43,7 +46,16 @@ wavelength = {{{wavelength_string}}}
 fwhm = {{{fwhm_string}}}
 band names = {{{band_names_string}}}"""
 
-      
+ 
+def find_header(infile):
+  if os.path.exists(infile+'.hdr'):
+    return infile+'.hdr'
+  elif os.path.exists('.'.join(infile.split('.')[:-1])+'.hdr'):
+    return '.'.join(infile.split('.')[:-1])+'.hdr'
+  else:
+    raise FileNotFoundError('Did not find header file')
+
+     
 class Config:
 
     def __init__(self, filename, input_file='', output_file='', dark_file=None):
@@ -51,72 +63,40 @@ class Config:
         # Load calibration file data
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
+        
+        # Adjust local filepaths where needed
+        for fi in ['spectral_calibration_file','srf_correction_file',
+                   'crf_correction_file','linearity_file',
+                   'radiometric_coefficient_file',
+                   'bad_element_file','flat_field_file']:
+            path = getattr(self,fi)
+            if path[0] != '/':
+                path = os.path.join(my_directory, path)
+                setattr(self,fi,path)
+
         try:
            if dark_file is not None:
                self.dark_frame_file = dark_file
-           self.dark = darkfromfile(self.dark_frame_file)
+           self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
            _, self.wl_full, self.fwhm_full = \
                 sp.loadtxt(self.spectral_calibration_file).T * 1000
            self.srf_correction = sp.fromfile(self.srf_correction_file,
-                dtype = sp.float32).reshape((self.channels_raw, 
-                    self.channels_raw))
+                dtype = sp.float32).reshape((native_rows, native_rows))
            self.crf_correction = sp.fromfile(self.crf_correction_file,
-                dtype = sp.float32).reshape((self.columns_raw, 
-                    self.columns_raw))
+                dtype = sp.float32).reshape((native_columns, native_columns))
            self.bad = sp.fromfile(self.bad_element_file,
-                dtype = sp.uint16).reshape((self.channels_raw, 
-                    self.columns_raw))
+                dtype = sp.uint16).reshape((native_rows, native_columns))
            self.flat_field = sp.fromfile(self.flat_field_file,
-                dtype = sp.float32).reshape((2, self.channels_raw, 
-                    self.columns_raw))[0,:,:]
-           self.radiometric_calibration, _, _ = \
+                dtype = sp.float32).reshape((2, native_rows, native_columns))
+           self.flat_field = self.flat_field[0,:,:]
+           _, self.radiometric_calibration, self.radiometric_uncert = \
                 sp.loadtxt(self.radiometric_coefficient_file).T
            self.linearity = sp.fromfile(self.linearity_file, 
-                dtype=sp.uint16).reshape((65536,))
+                dtype=sp.uint16, count=65536).reshape((65536,))
         except ValueError:
             logging.error('Incorrect file size for calibration data')
         except AttributeError:
             logging.error('One or more missing calibration files')
-
-        if self.channels != (self.channels_raw - \
-            (self.channels_masked[0] + self.channels_masked[1])):
-            raise ValueError('channel mask inconsistent with total channels')
-
-        if self.columns != (self.columns_raw - \
-            (self.columns_masked[0] + self.columns_masked[1])):
-            raise ValueError('column mask inconsistent with total channels')
-
-        self.wl = np.array([w for w in \
-            self.wl_full[self.channels_masked[0]:-self.channels_masked[1]]])
-        self.fwhm = np.array([w for w in \
-            self.fwhm_full[self.channels_masked[0]:-self.channels_masked[1]]])
-
-        # Check for NaNs in calibration data
-        for name in ['dark', 'wl_full', 'srf_correction', 
-                'crf_correction', 'bad', 'flat_field',
-                'radiometric_calibration','linearity']:
-            obj = getattr(self, name)
-            invalid  = np.logical_not(sp.isfinite(obj))
-            if invalid.sum() > 0:
-                msg='Replacing %i non-finite values in %s' 
-                logging.warning(msg % (invalid.sum(),name))
-            obj[invalid]=0 
-
-        # Size of regular frame and raw frame (with header)
-        self.frame_shape = (self.channels, self.columns)
-        self.nframe = sp.prod(self.frame_shape)
-        self.raw_shape = (self.channels_raw + self.header_channels, self.columns_raw)
-        self.nraw = sp.prod(self.raw_shape)
-
-        # Form output metadata strings
-        self.band_names_string = ','.join(['channel_'+str(i) \
-                for i in range(len(self.wl))])
-        self.fwhm_string =  ','.join([str(w) for w in self.fwhm])
-        self.wavelength_string = ','.join([str(w) for w in self.wl])
-
-        # Clean channels have no bad elements
-        self.clean = sp.where(np.logical_not(self.bad).all(axis=1))[0]
-        logging.warning(str(len(self.clean))+' clean channels')
 
         # Find the input files
         if len(input_file)>0:
@@ -144,15 +124,14 @@ def main():
     description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
-    my_directory, my_file = os.path.split(os.path.realpath(__file___))
     default_config = my_directory + '/configs/tvac2_config.json'
     parser.add_argument('--config_file', default = default_config)
     parser.add_argument('--dark_file', default = None)
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
-    parser.add_argument('input_file', nargs='?', default='')
-    parser.add_argument('output_file', nargs='?', default='')
+    parser.add_argument('input_file', default='')
+    parser.add_argument('output_file', default='')
     args = parser.parse_args()
 
     config = Config(args.config_file, args.input_file, 
@@ -170,10 +149,32 @@ def main():
     lines = 0
     raw = 'Start'
 
+    infile = envi.open(find_header(args.input_file))
+
+    if int(infile.metadata['data type']) == 2:
+        dtype = np.int16
+    elif int(infile.metadata['data type']) == 4:
+        dtype = np.float32
+    else:
+        raise ValueError('Unsupported data type')
+    if infile.metadata['interleave'] != 'bil':
+        raise ValueError('Unsupported interleave')
+
+    rows = int(infile.metadata['bands'])
+    columns = int(infile.metadata['samples'])
+    lines = int(infile.metadata['lines'])
+    nframe = rows * columns
+
     with open(config.input_file,'rb') as fin:
         with open(config.output_file,'wb') as fout:
 
-            raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
+            raw = sp.fromfile(fin, count=nframe, dtype=dtype)
+
+            if dtype == np.int16:
+               # left shift by 2 binary digits, 
+               # returning to the 16 bit range.
+               raw = raw * 4
+               
             while len(raw)>0:
 
                 # Read a frame of data
@@ -181,10 +182,11 @@ def main():
                     logging.info('Calibrating line '+str(lines))
                 
                 raw = np.array(raw, dtype=sp.float32)
-                raw = raw.reshape(config.raw_shape)
-                header = raw[:config.header_channels, :]
-                frame  = raw[config.header_channels:, :]
-                if frame.shape[0] < native_rows:
+                frame = raw.reshape((rows,columns))
+
+                # All operations take place assuming 480 rows.
+                # EMIT avionics only downlink a subset of this data
+                if raw.shape[0] < native_rows:
                     frame = frame_embed(frame)
                 
                 # Detector corrections
@@ -194,7 +196,9 @@ def main():
                 frame = frame * config.flat_field
 
                 # Optical corrections
-                frame = fix_scatter(frame, config.spectral_correction, config.spatial_correction)
+                frame = fix_scatter(frame, 
+                    config.spectral_correction, 
+                    config.spatial_correction)
                 frame = fix_ghost(frame, config.ghostmap)
 
                 # Absolute radiometry
@@ -205,18 +209,40 @@ def main():
                 if config.reverse_channels:
                     frame = sp.flip(frame, axis=0)
 
-                # Clip the channels to the appropriate size
-                if config.extract_subframe:
+                # Clip the channels to the appropriate size, if needed
+                if args.extract_subframe:
                     frame = frame_extract(frame, columns = True)
+
+                # Write to file
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
                 lines = lines + 1
             
                 # Read next chunk
                 raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
 
+
+    # Form output metadata strings
+    wl = config.wl_full.copy()
+    fwhm = config.fwhm_full.copy()
+
+    if config.extract_subframe:
+        ncolumns = last_illuminated_column - first_illuminated_column + 1
+        nchannels = last_illuminated_row - first_illuminated_row + 1
+        clip_rows = np.arange(first_illuminated_row,
+                              last_illuminated_row+1,dtype=int)
+        wl = wl[clip_rows]
+        fwhm = fwhm[clip_rows]
+    else:
+        nchannels, ncolumns = native_rows, native_columns
+
+    band_names_string = ','.join(['channel_'+str(i) \
+       for i in range(len(wl))])
+    fwhm_string =  ','.join([str(w) for w in fwhm])
+    wavelength_string = ','.join([str(w) for w in wl])
+    
+
     params = {'lines': lines}
-    params.update(globals())
-    params.update(config.__dict__)
+    params.update(**locals())
     with open(config.output_header,'w') as fout:
         fout.write(header_template.format(**params))
 
