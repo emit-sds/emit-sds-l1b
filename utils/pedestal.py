@@ -29,6 +29,7 @@ def fix_pedestal(frame):
     frame = (frame.T-pedestal).T
     pedestal = np.mean(frame[masked_rows,:], axis=0)
     frame = frame-pedestal
+    return frame
 
 
 def main():
@@ -76,7 +77,7 @@ def main():
             else:
                 fixed = fix_pedestal(frame)
 
-            np.array(frame, dtype=np.float32).tofile(fout)
+            np.array(fixed, dtype=np.float32).tofile(fout)
 
     print('done') 
 
