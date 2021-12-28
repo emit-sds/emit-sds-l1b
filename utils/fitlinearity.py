@@ -50,12 +50,11 @@ def main():
     ncomp = args.components
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
-    print('mu',mu)
-    print('evec',evec)
     data = np.ones((len(args.input),480,1280)) * -9999
 
     for fi,infilepath in enumerate(args.input):
 
+        print('loading %i/%i: %s'%(fi,len(args.input),infilepath))
         toks = infilepath.split('_')
         for tok in toks:
             if 'Field' in tok:
@@ -86,20 +85,25 @@ def main():
         nframe = rows * columns
         
         sequence = []
-        with open(infilepath,'rb') as fin:
-        
-            for line in range(lines):
-        
-                # Read a frame of data
-                frame = np.fromfile(fin, count=nframe, dtype=dtype)
-                frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                sequence.append(frame)
-                
-        sequence = np.array(sequence)
-        data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
+
+        infile = envi.open(infilepath+'.hdr')
+        data[fi,:,active_cols] = (infile.load())[:,active_cols,:].mean(axis=0)
+       #with open(infilepath,'rb') as fin:
+       #
+       #    print(infilepath)
+       #    for line in range(lines):
+       #
+       #        # Read a frame of data
+       #        frame = np.fromfile(fin, count=nframe, dtype=dtype)
+       #        frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
+       #        sequence.append(frame)
+       #        
+       #sequence = np.array(sequence)
+       #data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
                
     out = np.zeros((480,1280,ncomp))
-    for wl in np.arange(25,313):
+    #for wl in np.arange(25,313):
+    for wl in np.arange(100,313):
    
        for col in range(columns):
 
