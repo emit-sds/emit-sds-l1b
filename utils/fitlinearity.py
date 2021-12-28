@@ -13,6 +13,8 @@ from scipy.interpolate import BSpline,interp1d
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
 from makelinearity import linearize
+from emit_fpa import linearity_nbasis
+import scipy.linalg as linalg
 import json
 
 
@@ -32,25 +34,29 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('basis')
+    parser.add_argument('--draft',default=None)
     parser.add_argument('output')
-    parser.add_argument('--components',type=int,default=5)
     args = parser.parse_args()
 
     xs,ys = [],[]
     nfiles = len(args.input) 
     illums =[] 
-    data = []
+    out = np.zeros((480,1280,linearity_nbasis))
+    if args.draft is not None:
+        out = envi.open(args.draft+'.hdr').load()
 
-    basis = envi.open(args.basis+'.hdr').load()
+    basis = np.squeeze(envi.open(args.basis+'.hdr').load())
     evec = np.squeeze(basis[1:,:].T)
-    if len(evec.shape)<2:
-        evec = evec[:,np.newaxis]
+    if evec.shape[1] != linearity_nbasis:
+        raise IndexError('Linearity basis does not match file size')
     evec[np.isnan(evec)] = 0
-    nev = np.squeeze(evec.shape[1])
-    ncomp = args.components
+    for i in range(linearity_nbasis):
+      evec[:,i] = evec[:,i] / linalg.norm(evec[:,i])
+    print(linalg.norm(evec,axis=1),linalg.norm(evec,axis=0))
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
-    data = np.ones((len(args.input),480,1280)) * -9999
+    data, last_fieldpoint = [], -9999
+
 
     for fi,infilepath in enumerate(args.input):
 
@@ -60,6 +66,10 @@ def main():
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
+               if last_fieldpoint<0: 
+                   last_fieldpoint = fieldpoint
+               elif last_fieldpoint != fieldpoint:
+                   raise IndexError('One fieldpoint per call. Use --draft')
                active_cols = np.arange(fieldpoint-37-1,fieldpoint+38-1,dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
@@ -87,7 +97,10 @@ def main():
         sequence = []
 
         infile = envi.open(infilepath+'.hdr')
-        data[fi,:,active_cols] = (infile.load())[:,active_cols,:].mean(axis=0)
+        frame_data = infile.load().mean(axis=0)
+        data.append(frame_data[active_cols,:])
+    data = np.array(data) 
+    print(data.shape)
        #with open(infilepath,'rb') as fin:
        #
        #    print(infilepath)
@@ -101,20 +114,20 @@ def main():
        #sequence = np.array(sequence)
        #data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
                
-    out = np.zeros((480,1280,ncomp))
     #for wl in np.arange(25,313):
     for wl in np.arange(100,313):
    
-       for col in range(columns):
+       for mycol,col in enumerate(active_cols):
 
-         DN = data[:,wl,col]
+         DN = data[:,mycol,wl]
          L = np.array(illums) 
-         resamp = linearize(DN, L)
-         coef = (resamp - mu) @ evec
-         out[wl,col,:] = coef[:ncomp]
-         if wl>50 and col>100 and col<1200:
+         resamp = linearize(DN, L,plot=(wl>50 and col>40 and col<1200))
+         coef = (resamp - mu)[np.newaxis,:] @ evec
+         out[wl,col,:] = coef[:linearity_nbasis]
+         if wl>50 and col>40 and col<1200:
              plt.plot(resamp)
-             plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
+             plt.plot(resamp-mu)
+             plt.plot(np.squeeze(np.sum(evec*coef,axis=1)) + mu,'k.')
              plt.show()
          print('!',wl,col,coef)
 

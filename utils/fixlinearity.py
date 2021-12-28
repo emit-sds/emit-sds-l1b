@@ -82,7 +82,7 @@ def main():
                 # Read a frame of data
                 frame = np.fromfile(fin, count=nframe, dtype=dtype)
                 frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                new = fix_linearity(frame, mu)# evec, coeffs)
+                new = fix_linearity(frame, mu, evec, coeffs)
                 np.array(new,dtype=np.float32).tofile(fout)
 
 if __name__ == '__main__':

@@ -33,8 +33,8 @@ def main():
         infile = envi.open(find_header(infilepath))
         x = np.squeeze(infile.load())
 
-        for i in range(0,x.shape[0],20):
-            plt.plot(x[i,:]/np.arange(2**16, dtype=float))
+        for i in range(0,x.shape[0]):
+            plt.plot(x[i,:])
         plt.show()
 
 if __name__ == '__main__':

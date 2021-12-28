@@ -9,6 +9,7 @@ from scipy.signal import medfilt
 from scipy.linalg import norm, eigh
 import sys, os
 from r_pca import R_pca
+from emit_fpa import linearity_nbasis
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -27,7 +28,6 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--nev',type=int,default=8)
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -60,8 +60,8 @@ def main():
     data = data[use,:]
 
     # ignore extrema
-    data[:,42000:]=np.tile(data[:,42000:42001],(1,len(grid[42000:])))
-    data[:,:500]=np.tile(data[:,500:501],(1,500))
+    #data[:,42000:]=np.tile(data[:,42000:42001],(1,len(grid[42000:])))
+    #data[:,:500]=np.tile(data[:,500:501],(1,500))
     print(data.shape[0],'datapoints')
 
     for i in range(data.shape[0]):
@@ -74,18 +74,28 @@ def main():
     for d in data:
         data_resamp.append(interp1d(grid,d)(grid_resamp))
     data_resamp = np.array(data_resamp)
-    mu = data_resamp.mean(axis=0)
-    C = np.cov(data_resamp-mu,rowvar=False)
+   
+    model = PCA(n_components=linearity_nbasis)
+    model.fit(data_resamp)
+    mu_resamp = model.mean_.copy()
+    evec_resamp = model.components_.copy()
 
-    ev, evec_resamp = eigh(C)
-    evec_resamp = np.fliplr(evec_resamp[:,-args.nev:]).T
+   #mu = data_resamp.mean(axis=0)
+   #C = np.cov(data_resamp-mu,rowvar=False)
+
+   #ev, evec_resamp = eigh(C)
+   #evec_resamp = np.fliplr(evec_resamp[:,-linearity_nbasis:]).T
     
+    # Resample and renormalize eigenvectors
     evec = []
-    for ev in evec_resamp:
-       evec.append(interp1d(grid_resamp, ev, bounds_error=False, 
-           fill_value='extrapolate')(grid))
+    for ev_resamp in evec_resamp:
+       ev = interp1d(grid_resamp, ev_resamp, bounds_error=False, 
+                     fill_value='extrapolate')(grid)
+       ev_normalized = ev / norm(ev)
+       evec.append(ev_normalized)
     evec = np.array(evec)
-    mu = interp1d(grid_resamp, mu, bounds_error=False, fill_value='extrapolate')(grid)
+    mu = interp1d(grid_resamp, mu_resamp, 
+                   bounds_error=False, fill_value='extrapolate')(grid)
     
     combined = np.concatenate((mu[np.newaxis,:],evec),axis=0)
     combined = combined.astype(np.float32)

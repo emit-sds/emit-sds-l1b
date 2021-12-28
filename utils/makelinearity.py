@@ -46,7 +46,7 @@ def linearize(DN, L, plot=False):
          DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
       
      extrap_range = DN>42000
-     extrap_train = np.logical_and(DN>35000,DN<42000)
+     extrap_train = np.logical_and(DN>30000,DN<43000)
      if sum(extrap_train)>2 and sum(extrap_range)>2:
          p = np.polyfit(DN[extrap_train], 
                         DN[extrap_train]/ideal[extrap_train], 1)
@@ -59,7 +59,6 @@ def linearize(DN, L, plot=False):
 
      # Don't correct above the saturation level
      #resamp[grid>42000] = resamp[np.argmin(abs(grid-42000))]
-
 
      if plot:
         plt.figure(0)
