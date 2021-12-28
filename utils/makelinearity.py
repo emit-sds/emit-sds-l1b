@@ -44,13 +44,21 @@ def linearize(DN, L, plot=False):
          p = np.polyfit(DN[extrap_train], 
                         DN[extrap_train]/ideal[extrap_train], 1)
          DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
+      
+     extrap_range = DN>42000
+     extrap_train = np.logical_and(DN>35000,DN<42000)
+     if sum(extrap_train)>2 and sum(extrap_range)>2:
+         p = np.polyfit(DN[extrap_train], 
+                        DN[extrap_train]/ideal[extrap_train], 1)
+         DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
          
      resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
      resamp = resamp / grid
-     resamp[0] = 1.0
+     resamp[np.logical_not(np.isfinite(resamp))] = 1.0
+     resamp[:25] = resamp[25] 
 
      # Don't correct above the saturation level
-     resamp[grid>42000]=resamp[np.argmin(abs(grid-42000))]
+     #resamp[grid>42000] = resamp[np.argmin(abs(grid-42000))]
 
 
      if plot:
@@ -76,7 +84,6 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('--plot',action='store_true')
-    parser.add_argument('--fullrange',action='store_true')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -127,7 +134,8 @@ def main():
         DN = data[:,wl]
         L = np.array(illums) 
         resamp = linearize(DN, L, plot=(args.plot and wl==100))
-        curves.append(resamp)
+        if all(np.logical_and(resamp>0.98,resamp<1.02)):
+            curves.append(resamp)
   
     curves = np.array(curves,dtype=np.float32)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)

@@ -33,8 +33,7 @@ def main():
     parser.add_argument('input',nargs='+')
     parser.add_argument('basis')
     parser.add_argument('output')
-    parser.add_argument('--components',type=int,default=2)
-    parser.add_argument('--shift',type=int,default=8)
+    parser.add_argument('--components',type=int,default=5)
     args = parser.parse_args()
 
     xs,ys = [],[]
@@ -109,7 +108,7 @@ def main():
          resamp = linearize(DN, L)
          coef = (resamp - mu) @ evec
          out[wl,col,:] = coef[:ncomp]
-         if wl>30 and col>100 and col<1200:
+         if wl>50 and col>100 and col<1200:
              plt.plot(resamp)
              plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
              plt.show()

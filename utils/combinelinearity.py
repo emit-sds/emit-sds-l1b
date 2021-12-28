@@ -6,7 +6,7 @@ import pylab as plt
 from sklearn.decomposition import PCA
 from scipy.interpolate import interp1d
 from scipy.signal import medfilt
-from scipy.linalg import norm
+from scipy.linalg import norm, eigh
 import sys, os
 from r_pca import R_pca
 
@@ -27,7 +27,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--nev',type=int,default=3)
+    parser.add_argument('--nev',type=int,default=8)
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -58,6 +58,10 @@ def main():
     std = np.std(norms)
     use = (norms-mu)<(std*3)
     data = data[use,:]
+
+    # ignore extrema
+    data[:,42000:]=np.tile(data[:,42000:42001],(1,len(grid[42000:])))
+    data[:,:500]=np.tile(data[:,500:501],(1,500))
     print(data.shape[0],'datapoints')
 
     for i in range(data.shape[0]):
@@ -65,14 +69,30 @@ def main():
 
     data[np.logical_not(np.isfinite(data))]=0
 
-    pca = PCA(args.nev)
-    pca.fit(data)
-    resamp = pca.components_
-    mu = pca.mean_
+    data_resamp = []
+    grid_resamp = np.arange(0,2**16,10,dtype=int)
+    for d in data:
+        data_resamp.append(interp1d(grid,d)(grid_resamp))
+    data_resamp = np.array(data_resamp)
+    mu = data_resamp.mean(axis=0)
+    C = np.cov(data_resamp-mu,rowvar=False)
+
+    ev, evec_resamp = eigh(C)
+    evec_resamp = np.fliplr(evec_resamp[:,-args.nev:]).T
     
-    combined = np.concatenate((mu[np.newaxis,:],resamp),axis=0)
+    evec = []
+    for ev in evec_resamp:
+       evec.append(interp1d(grid_resamp, ev, bounds_error=False, 
+           fill_value='extrapolate')(grid))
+    evec = np.array(evec)
+    mu = interp1d(grid_resamp, mu, bounds_error=False, fill_value='extrapolate')(grid)
+    
+    combined = np.concatenate((mu[np.newaxis,:],evec),axis=0)
     combined = combined.astype(np.float32)
     envi.save_image(args.output+'.hdr',combined,ext='',force=True)
+
+    plt.plot(combined.T)
+    plt.show()
 
 if __name__ == '__main__':
 
