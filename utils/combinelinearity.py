@@ -27,12 +27,13 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
-    parser.add_argument('--nev',type=int,default=2)
+    parser.add_argument('--nev',type=int,default=3)
     parser.add_argument('output')
     args = parser.parse_args()
 
     data = None
     use = [90,165,240,315,390,465,540,615,690,765,840,915,990,1065,1140,1215]
+    use = [165,240,315,390,840,915,990,1065,1140]
 
     for fi,infilepath in enumerate(args.input):
         print(fi,'/',len(args.input))

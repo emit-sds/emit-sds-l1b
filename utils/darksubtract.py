@@ -35,7 +35,7 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def darksubtract(frame, dark):
+def subtract_dark(frame, dark):
     if frame.shape[0] != dark.shape[0] or \
        frame.shape[1] != dark.shape[1]: 
          logging.error('Mismatched dark and frame sizes')
@@ -83,7 +83,7 @@ def main():
                 logging.info('Line '+str(line))
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            frame = darksubtract(frame, dark)
+            frame = subtract_dark(frame, dark)
             np.array(frame, dtype=np.float32).tofile(fout)
 
     print('done') 
