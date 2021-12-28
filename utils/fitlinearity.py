@@ -70,7 +70,9 @@ def main():
                    last_fieldpoint = fieldpoint
                elif last_fieldpoint != fieldpoint:
                    raise IndexError('One fieldpoint per call. Use --draft')
-               active_cols = np.arange(fieldpoint-37-1,fieldpoint+38-1,dtype=int)
+               margin=9
+               active_cols = np.arange(max(24,fieldpoint-37-margin),
+                                       min(1265,fieldpoint+38-margin),dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
@@ -100,36 +102,23 @@ def main():
         frame_data = infile.load().mean(axis=0)
         data.append(frame_data[active_cols,:])
     data = np.array(data) 
-    print(data.shape)
-       #with open(infilepath,'rb') as fin:
-       #
-       #    print(infilepath)
-       #    for line in range(lines):
-       #
-       #        # Read a frame of data
-       #        frame = np.fromfile(fin, count=nframe, dtype=dtype)
-       #        frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-       #        sequence.append(frame)
-       #        
-       #sequence = np.array(sequence)
-       #data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
                
-    #for wl in np.arange(25,313):
-    for wl in np.arange(100,313):
+    for wl in np.arange(25,313):
    
        for mycol,col in enumerate(active_cols):
 
          DN = data[:,mycol,wl]
          L = np.array(illums) 
-         resamp = linearize(DN, L,plot=(wl>50 and col>40 and col<1200))
+         resamp = linearize(DN, L )#,plot=(wl>50 and col>40 and col<1200))
          coef = (resamp - mu)[np.newaxis,:] @ evec
          out[wl,col,:] = coef[:linearity_nbasis]
-         if wl>50 and col>40 and col<1200:
+         if False:#wl>50 and col>40 and col<1200:
              plt.plot(resamp)
              plt.plot(resamp-mu)
              plt.plot(np.squeeze(np.sum(evec*coef,axis=1)) + mu,'k.')
              plt.show()
-         print('!',wl,col,coef)
+         if wl%10==0:
+             print('!',wl,col,coef)
 
     envi.save_image(args.output+'.hdr',np.array(out,dtype=np.float32),ext='',force=True)
 

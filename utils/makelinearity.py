@@ -31,6 +31,8 @@ def linearize(DN, L, plot=False):
           
      # best least-squares slope forcing zero intercept
      tofit = np.where(np.logical_and(DN>2000,DN<36000))[0]
+     if len(tofit)<1:
+        return np.ones((2**16),dtype=float)
      slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
 
      ideal = slope*L
@@ -40,18 +42,19 @@ def linearize(DN, L, plot=False):
      # dynamic range, overwriting measured DNs
      extrap_range = DN<2000
      extrap_train = np.logical_and(DN>2000,DN<8000)
-     if sum(extrap_train)>2 and sum(extrap_range)>2:
+     if sum(extrap_train)>1 and sum(extrap_range)>0:
          p = np.polyfit(DN[extrap_train], 
                         DN[extrap_train]/ideal[extrap_train], 1)
          DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
       
      extrap_range = DN>42000
      extrap_train = np.logical_and(DN>30000,DN<43000)
-     if sum(extrap_train)>2 and sum(extrap_range)>2:
+     if sum(extrap_train)>1 and sum(extrap_range)>0:
          p = np.polyfit(DN[extrap_train], 
                         DN[extrap_train]/ideal[extrap_train], 1)
          DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
-         
+     else:
+         print(DN)
      resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
      resamp = resamp / grid
      resamp[np.logical_not(np.isfinite(resamp))] = 1.0
