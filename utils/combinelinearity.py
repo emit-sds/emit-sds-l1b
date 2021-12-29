@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d
 from scipy.signal import medfilt
 from scipy.linalg import norm, eigh
 import sys, os
-from r_pca import R_pca
 from emit_fpa import linearity_nbasis
 
 def find_header(infile):

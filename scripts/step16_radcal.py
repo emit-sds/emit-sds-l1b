@@ -81,7 +81,7 @@ rdn_uncert = np.sqrt((drdn_dirr * irradiance_uncert)**2 + \
                      (drdn_dmirror * mirror_uncert)**2 +\
                      (distance_uncert_rdn**2))
 
-I = envi.open('../data/EMIT_FlatField_20211216.hdr')
+I = envi.open('../data/EMIT_FlatField_20211228.hdr')
 DN = np.array([float(d) for d in I.metadata['average_dns']])
 DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
 
@@ -91,16 +91,16 @@ channels = np.arange(len(wl),dtype=int)
 factors = rdn / DN
 factors_uncert = rdn_uncert / DN
 SNR = DN/DN_std/np.sqrt(frame_averaging)
-np.savetxt('../data/EMIT_RadiometricCoeffs_20211217.txt',
+np.savetxt('../data/EMIT_RadiometricCoeffs_20211228.txt',
           np.c_[channels,factors,factors_uncert], fmt='%10.8f')
-np.savetxt('../data/EMIT_RadiometricUncertainty_20211217.txt',
+np.savetxt('../data/EMIT_RadiometricUncertainty_20211228.txt',
           np.c_[channels,factors_uncert/factors], fmt='%10.8f',
           header='Uncertainty, fractional')
-np.savetxt('../data/EMIT_RadiometricReference_20211217.txt',
+np.savetxt('../data/EMIT_RadiometricReference_20211228.txt',
           np.c_[wl,rdn], fmt='%10.8f')
-np.savetxt('../data/EMIT_RadiometricReferenceDN_20211217.txt',
+np.savetxt('../data/EMIT_RadiometricReferenceDN_20211228.txt',
           np.c_[wl,DN], fmt='%10.8f')
-np.savetxt('../data/EMIT_RadiometricReferenceSNR_20211217.txt',
+np.savetxt('../data/EMIT_RadiometricReferenceSNR_20211228.txt',
           np.c_[wl,SNR], fmt='%10.8f')
 
 

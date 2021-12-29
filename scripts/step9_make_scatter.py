@@ -18,10 +18,10 @@ if False:
 
 if True:
 
-    cmd = 'python ../utils/combinescatter.py --spatial  ../scripts/spatial_params.txt ../data/EMIT_SpatialScatter_20211122' 
+    cmd = 'python ../utils/combinescatter.py --manual 2.0 --spatial  ../scripts/spatial_params.txt ../data/EMIT_SpatialScatter_20211226' 
     os.system(cmd)
 
-    cmd = 'python ../utils/combinescatter.py ../scripts/spectral_params.txt ../data/EMIT_SpectralScatter_20211122' 
+    cmd = 'python ../utils/combinescatter.py --manual 2.0  ../scripts/spectral_params.txt ../data/EMIT_SpectralScatter_20211226' 
     os.system(cmd)
  
  
