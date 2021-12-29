@@ -15,9 +15,10 @@ import argparse
 from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
-import ray
 from emit_fpa import native_rows, frame_embed, frame_extract
 from emit_fpa import first_illuminated_row
+from fixghost import fix_ghost
+import ray
 
 
 def find_header(infile):
@@ -30,26 +31,8 @@ def find_header(infile):
 
 
 @ray.remote
-def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25):
-
-  ghost = np.zeros(frame.shape)
-  rows, cols = frame.shape
-  if rows>cols:
-      raise IndexError('Misformed frame')
-
-  for row in range(rows):
-    for ghost_row, intensity in ghostmap[row]:
-       for col in range(cols):
-          tcol = int(center*2 - col)
-          if tcol>0 and tcol<1280:
-              ghost[ghost_row, tcol] = \
-                 ghost[ghost_row, tcol] + frame[row,col] * intensity * fudge
-
-  start = first_illuminated_row
-  ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
-  new = frame - ghost
-  return new
-
+def fix_ghost_parallel(frame, ghostmap):
+  return fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25)
 
 
 def main():
@@ -76,8 +59,6 @@ def main():
     columns = int(infile.metadata['samples'])
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
-
-    ray.init()
 
     envi.write_envi_header(args.output+'.hdr',infile.metadata)
 
@@ -110,7 +91,7 @@ def main():
             frames.append(frame)
 
             if len(frames) == args.ncpus or line == (lines-1):
-                jobs = [fix_ghost.remote(f, ghostmap) for f in frames]
+                jobs = [fix_ghost_parallel.remote(f, ghostmap) for f in frames]
                 fixed_all = ray.get(jobs)
                 for fixed in fixed_all:
 

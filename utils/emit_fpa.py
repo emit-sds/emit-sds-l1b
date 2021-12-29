@@ -1,6 +1,9 @@
 # David R Thompson
 import numpy as np
 
+# OSF seam channels
+osf_seam_positions = (188,)
+
 # Number of basis vectors used to describe EMIT nonlinearity
 linearity_nbasis = 2
 

@@ -16,6 +16,7 @@ import argparse
 from numba import jit
 from math import pow
 from emit_fpa import native_rows, frame_embed, frame_extract
+from emit_fpa import osf_seam_positions
 
 
 def find_header(infile):
@@ -85,22 +86,38 @@ def fix_bad(frame,bad):
     fixed = frame.copy()
     valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
     nfixed = 0
+    
+    # First interpolate linearly over OSF seam positions
+    for col in range(columns):
+      for seam in osf_seam_positions:
+        # Use only valid pixels
+        ok_top = np.logical_and(np.arange(rows)>seam, bad[:,col]==0)
+        top = np.where(ok_top)[0][0]
+        ok_bottom = np.logical_and(np.arange(rows)<seam, bad[:,col]==0)
+        bottom = np.where(ok_bottom)[0][-1]
+        # Weighted average
+        fixed[seam,col] = top * (top-seam)/(top-bottom) + \
+                          bottom * (seam-bottom)/(top-bottom)
+
+
+    # Now fix bad pixels in the map using spectral angle 
+    # matching plus linear regression inference approach
+    # Chapman et al., Remote Sensing 2019
     for col in range(columns):
         if np.sum(bad[:,col])<0:
             bad_channels = np.where(bad[:,col]!=0)[0]
             good_channels = np.where(bad[:,col]==0)[0]
             best_sa = 99999
-            B = frame[good_channels, :]
+            B = fixed[good_channels, :]
             B = B[:,valid_columns]
-            neighbor = closest(frame[good_channels,col],B)
+            neighbor = closest(fixed[good_channels,col],B)
             best = valid_columns[neighbor]
-            best_spectrum = frame[:,best]
+            best_spectrum = fixed[:,best]
             slope, offset = fit_poly(best_spectrum[good_channels],
-                                       frame[good_channels, col], 1)
+                                       fixed[good_channels, col], 1)
             for badc in bad_channels:
                fixed[badc,col] = slope * best_spectrum[badc] + offset
             nfixed = nfixed + 1
-    print(nfixed,'fixed')
     return fixed
 
 
