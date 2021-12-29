@@ -46,6 +46,8 @@ def main():
     parser.add_argument('output')
     args = parser.parse_args()
 
+    ray.init()
+
     infile = envi.open(find_header(args.input))
 
     if int(infile.metadata['data type']) == 2:
