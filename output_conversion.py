@@ -80,7 +80,7 @@ def main():
     add_glt(nc_ds, args.glt_file)
 
     logging.debug('Creating and writing obs data')
-    nc_ds.createDimension('observation_bands', len(obs_ds.metadata['bands']))
+    nc_ds.createDimension('observation_bands', int(obs_ds.metadata['bands']))
     add_variable(nc_ds, "obs", "f4", "Observation Data", None,
                  obs_ds.open_memmap(interleave='bip')[...].copy(), {"dimensions": ("number_of_scans", "pixels_per_scan", "observation_bands")})
 
@@ -92,6 +92,10 @@ def main():
     nc_ds.sync()
     nc_ds.close()
     logging.debug(f'Successfully created {args.output_filename}')
+
+    #TODO add ummg creation
+    import subprocess
+    subprocess.call(f'touch {args.ummg_file}',shell=True)
 
     return
 
