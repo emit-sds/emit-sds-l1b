@@ -24,7 +24,7 @@ def sum_of_gaussians(x, mean1=0, amplitude1=1., sigma1=1.,
                         amplitude2=1., sigma2=1.,
                         amplitude3=1., sigma3=1.):
     return (amplitude1 * np.exp(-0.5 * ((x - mean1) / sigma1)**2) +
-            amplitude2 * np.exp(-0.5 * ((x - mean1) / sigma2)**2) +
+            amplitude2 * np.exp(-0.5 * ((x - mean1) / sigma2)**2)  +
             amplitude3 * np.exp(-0.5 * ((x - mean1) / sigma3)**2))
 
 
@@ -75,8 +75,8 @@ def main():
         ampn = norm.pdf(x,640,sigma1)
         ampn = ampn / ampn.sum()
         print('amplitude',ampn.max())
-        amp2 = amp2 * ampn.max() * args.manual
-        amp3 = amp3 * ampn.max() * args.manual
+        amp2 = amp2 * ampn.max() * float(args.manual)
+        amp3 = amp3 * ampn.max() * float(args.manual)
         print('spatial - using',amp2,sigma2,amp3,sigma3)
 
         for i in range(left, right+1):
@@ -109,8 +109,8 @@ def main():
         ampn = norm.pdf(x,240,sigma1)
         ampn = ampn / ampn.sum()
         print('amplitude',ampn.max())
-        amp2 = amp2 * ampn.max() * args.manual
-        amp3 = amp3 * ampn.max() * args.manual
+        amp2 = amp2 * ampn.max() * float(args.manual)
+        amp3 = amp3 * ampn.max() * float(args.manual)
         print('spectral - using',amp2,sigma2,amp3,sigma3)
 
         for i in range(shortw,longw+1):

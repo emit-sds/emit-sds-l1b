@@ -12,6 +12,9 @@ from scipy.optimize import minimize
 from scipy.interpolate import BSpline,interp1d
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
+from makelinearity import linearize
+from emit_fpa import linearity_nbasis
+import scipy.linalg as linalg
 import json
 
 
@@ -31,37 +34,45 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('basis')
+    parser.add_argument('--draft',default=None)
     parser.add_argument('output')
-    parser.add_argument('--components',type=int,default=2)
-    parser.add_argument('--shift',type=int,default=8)
     args = parser.parse_args()
 
     xs,ys = [],[]
     nfiles = len(args.input) 
     illums =[] 
-    data = []
+    out = np.zeros((480,1280,linearity_nbasis))
+    if args.draft is not None:
+        out = envi.open(args.draft+'.hdr').load()
 
-    basis = envi.open(args.basis+'.hdr').load()
+    basis = np.squeeze(envi.open(args.basis+'.hdr').load())
     evec = np.squeeze(basis[1:,:].T)
-    if len(evec.shape)<2:
-        evec = evec[:,np.newaxis]
+    if evec.shape[1] != linearity_nbasis:
+        raise IndexError('Linearity basis does not match file size')
     evec[np.isnan(evec)] = 0
-    nev = np.squeeze(evec.shape[1])
-    ncomp = args.components
+    for i in range(linearity_nbasis):
+      evec[:,i] = evec[:,i] / linalg.norm(evec[:,i])
+    print(linalg.norm(evec,axis=1),linalg.norm(evec,axis=0))
     mu = np.squeeze(basis[0,:])
     mu[np.isnan(mu)] = 0
-    print('mu',mu)
-    print('evec',evec)
-    data = np.ones((len(args.input),480,1280)) * -9999
+    data, last_fieldpoint = [], -9999
+
 
     for fi,infilepath in enumerate(args.input):
 
+        print('loading %i/%i: %s'%(fi,len(args.input),infilepath))
         toks = infilepath.split('_')
         for tok in toks:
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
-               active_cols = np.arange(fieldpoint-37-1,fieldpoint+38-1,dtype=int)
+               if last_fieldpoint<0: 
+                   last_fieldpoint = fieldpoint
+               elif last_fieldpoint != fieldpoint:
+                   raise IndexError('One fieldpoint per call. Use --draft')
+               margin=9
+               active_cols = np.arange(max(24,fieldpoint-37-margin),
+                                       min(1265,fieldpoint+38-margin),dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
@@ -86,55 +97,28 @@ def main():
         nframe = rows * columns
         
         sequence = []
-        with open(infilepath,'rb') as fin:
-        
-            for line in range(lines):
-        
-                # Read a frame of data
-                frame = np.fromfile(fin, count=nframe, dtype=dtype)
-                frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                sequence.append(frame)
-                
-        sequence = np.array(sequence)
-        data[fi,:,active_cols] = np.mean(sequence[:,:,active_cols], axis=0).T
+
+        infile = envi.open(infilepath+'.hdr')
+        frame_data = infile.load().mean(axis=0)
+        data.append(frame_data[active_cols,:])
+    data = np.array(data) 
                
-    out = np.zeros((480,1280,ncomp))
-    for wl in np.arange(26,313):
+    for wl in np.arange(25,313):
    
-       for col in range(columns):
+       for mycol,col in enumerate(active_cols):
 
-         DN = data[:,wl,col]
+         DN = data[:,mycol,wl]
          L = np.array(illums) 
-         L = L / L.mean() * DN.mean()
-         
-         # best least-squares slope forcing zero intercept
-         tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
-         use = np.where(np.logical_and(DN>10,DN<35000))[0]
-        
-         slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
-         print(slope)   
-         if not np.isfinite(slope):
-            continue
-         ideal = slope*L
-         grid = np.arange(2**16)
-        
-         resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
-         resamp = resamp / grid
-        
-         # Don't correct above the saturation level
-         #resamp[grid>40000] = DN[grid>40000]
-         #smoothed[ideal>1000]=ideal[ideal>1000]
-         resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
-         resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
-
-         resamp[np.isnan(resamp)]=0
-         coef = (resamp - mu) @ evec
-         out[wl,col,:] = coef[:ncomp]
-          #if wl>30 and col>100 and col<1200:
-          #    plt.plot(resamp)
-          #    plt.plot(np.squeeze(evec@coef[:,np.newaxis]) + mu,'k.')
-          #    plt.show()
-         # print('!',wl,col,coef)
+         resamp = linearize(DN, L )#,plot=(wl>50 and col>40 and col<1200))
+         coef = (resamp - mu)[np.newaxis,:] @ evec
+         out[wl,col,:] = coef[:linearity_nbasis]
+         if False:#wl>50 and col>40 and col<1200:
+             plt.plot(resamp)
+             plt.plot(resamp-mu)
+             plt.plot(np.squeeze(np.sum(evec*coef,axis=1)) + mu,'k.')
+             plt.show()
+         if wl%10==0:
+             print('!',wl,col,coef)
 
     envi.save_image(args.output+'.hdr',np.array(out,dtype=np.float32),ext='',force=True)
 

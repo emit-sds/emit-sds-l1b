@@ -24,6 +24,59 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
+# Create linearity curve for a paired list of DNs and illuminations
+def linearize(DN, L, plot=False):
+
+     L = L / L.mean() * DN.mean()
+          
+     # best least-squares slope forcing zero intercept
+     tofit = np.where(np.logical_and(DN>2000,DN<36000))[0]
+     if len(tofit)<1:
+        return np.ones((2**16),dtype=float)
+     slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
+
+     ideal = slope*L
+     grid = np.arange(2**16)
+
+     # First we extrapolate the linearity behavior at the bottom 5% of the
+     # dynamic range, overwriting measured DNs
+     extrap_range = DN<2000
+     extrap_train = np.logical_and(DN>2000,DN<8000)
+     if sum(extrap_train)>1 and sum(extrap_range)>0:
+         p = np.polyfit(DN[extrap_train], 
+                        DN[extrap_train]/ideal[extrap_train], 1)
+         DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
+      
+     extrap_range = DN>42000
+     extrap_train = np.logical_and(DN>30000,DN<43000)
+     if sum(extrap_train)>1 and sum(extrap_range)>0:
+         p = np.polyfit(DN[extrap_train], 
+                        DN[extrap_train]/ideal[extrap_train], 1)
+         DN[extrap_range] = np.polyval(p, DN[extrap_range]) * ideal[extrap_range]
+     else:
+         print(DN)
+     resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
+     resamp = resamp / grid
+     resamp[np.logical_not(np.isfinite(resamp))] = 1.0
+     resamp[:25] = resamp[25] 
+
+     # Don't correct above the saturation level
+     #resamp[grid>42000] = resamp[np.argmin(abs(grid-42000))]
+
+     if plot:
+        plt.figure(0)
+        plt.plot(DN, 1.0/(DN/ideal).T,'k.')
+        plt.plot(grid, resamp,'r')
+        plt.box(False)
+        plt.grid(True)
+        plt.ylim([0.9,3.0])
+        plt.show()
+
+
+     return resamp
+
+
+
 left, right, top, bottom = 25, 1264, 26, 313
 
 def main():
@@ -33,9 +86,6 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('--plot',action='store_true')
-    parser.add_argument('--chan_lo',type=int)
-    parser.add_argument('--chan_hi',type=int)
-    parser.add_argument('--fullrange',action='store_true')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -58,7 +108,6 @@ def main():
                simple = simple.replace('candelam2','')
                simple = simple.replace('p','.')
                illums.append(float(simple))
-        print(infilepath)
         infile = envi.open(find_header(infilepath))
         
         if int(infile.metadata['data type']) == 2:
@@ -76,73 +125,24 @@ def main():
         nframe = rows * columns
         
         x,y = [],[]
-        with open(infilepath,'rb') as fin:
-        
-            image_data = np.zeros((rows,columns))
-            for line in range(lines):
-        
-                # Read a frame of data
-                frame = np.fromfile(fin, count=nframe, dtype=dtype)
-                frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-                image_data[:,active_rows] = frame[:,active_rows]
-        data.append(image_data)        
+        image_data = (infile.load())[:,active_rows,:].mean(axis=1).mean(axis=0)
+        data.append(image_data)
 
     data = np.array(data)
     curves = []
-
-    # Set wavength ranges used for the estimation
-    lo, hi = top, bottom
-    if args.chan_lo is not None:
-        lo = args.chan_lo
-    if args.chan_hi is not None:
-        hi = args.chan_hi
         
-    for wl in np.arange(lo,hi):
+    for wl in np.arange(top,bottom):
 
-        DN = data[:,wl,active_rows].mean(axis=1)
+        DN = data[:,wl]
         L = np.array(illums) 
-
-        L = L / L.mean() * DN.mean()
-        
-        # best least-squares slope forcing zero intercept
-        tofit = np.where(np.logical_and(DN>1000,DN<35000))[0]
-        tofit = np.where(np.logical_and(DN>100,DN<30000))[0]
-
-        slope = np.sum(DN[tofit]*L[tofit])/np.sum(pow(L[tofit],2))
-        #slope, offset = np.polyfit(L[tofit],DN[tofit],1)
-        print(slope)#,offset) 
-
-        if not np.isfinite(slope):
-           continue
-
-        ideal = slope*L
-        grid = np.arange(2**16)
-
-        resamp = interp1d(DN, ideal, bounds_error=False, fill_value='extrapolate')(grid)
-        resamp = resamp / grid
-
-        if not args.fullrange:
-            resamp[grid<1000]=resamp[np.argmin(abs(grid-1000))]
-        # Don't correct above the saturation level
-        resamp[grid>40000]=resamp[np.argmin(abs(grid-40000))]
-
-       #checkband = np.argmin(abs(grid-20000))
-       #if resamp[checkband]>0.998 and resamp[checkband]<1.002:
-        if True:
+        resamp = linearize(DN, L, plot=(args.plot and wl==100))
+        if all(np.logical_and(resamp>0.98,resamp<1.02)):
             curves.append(resamp)
+  
     curves = np.array(curves,dtype=np.float32)
-    print(curves.shape)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)
 
-    if args.plot:
-            plt.figure(0)
-            plt.semilogx(DN, (DN/ideal).T,'k.')
-            #plt.semilogx(grid,(curves[np.arange(0,curves.shape[0],50),:]).T,'k-')
-            plt.box(False)
-            plt.grid(True)
-            plt.ylim([0.9,3.0])
-            plt.show()
-
+    
 if __name__ == '__main__':
 
     main()

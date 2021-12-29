@@ -1,6 +1,9 @@
 # David R Thompson
 import numpy as np
 
+# Number of basis vectors used to describe EMIT nonlinearity
+linearity_nbasis = 2
+
 # The columns on either side of the FPA are masked.
 last_masked_col_left, first_masked_col_right = 9, 1272
 

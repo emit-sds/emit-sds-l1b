@@ -1,10 +1,12 @@
 {
-   'srf_correction_file': 'data/EMIT_SpectralScatter_20211226',
-   'crf_correction_file': 'data/EMIT_SpatialScatter_20211226',
-   'bad_element_file': 'data/EMIT_Bad_Elements_20211203',
-   'flat_field_file': 'data/EMIT_FlatField_20211216',
-   'radiometric_coefficient_file': 'data/EMIT_RadiometricCoeffs_20211217.txt',
-   'spectral_calibration_file': 'data/EMIT_Wavelengths_20211117.txt',
-   'linearity_file': 'data/EMIT_LinearityBasis_20211118',
-   'extract_subframe': true
+   "srf_correction_file": "data/EMIT_SpectralScatter_20211226",
+   "crf_correction_file": "data/EMIT_SpatialScatter_20211226",
+   "bad_element_file": "data/EMIT_Bad_Elements_20211203",
+   "flat_field_file": "data/EMIT_FlatField_20211216",
+   "radiometric_coefficient_file": "data/EMIT_RadiometricCoeffs_20211217.txt",
+   "spectral_calibration_file": "data/EMIT_Wavelengths_20211117.txt",
+   "linearity_file": "data/EMIT_LinearityBasis_20211215",
+   "ghost_map": "data/EMIT_GhostMap_20211228.txt",
+   "linearity_map_file": "data/EMIT_LinearityMap_20211215",
+   "extract_subframe": true
 }

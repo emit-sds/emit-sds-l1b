@@ -16,8 +16,8 @@ import argparse
 
 header_string = """ENVI
 description = {EMIT Dark Frame}
-samples = %i
 lines = %i
+samples = %i
 bands = 2
 header offset = 0
 file type = ENVI Standard
@@ -35,20 +35,12 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
+def dark_from_file(filepath):
 
-def main():
-
-    description = "Average a dark sequence with outlier rejection"
-
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('input')
-    parser.add_argument('output_dark')
-    args = parser.parse_args()
-
-    infile = envi.open(find_header(args.input))
+    infile = envi.open(find_header(filepath))
 
     if int(infile.metadata['data type']) == 2:
-        dtype = sp.uint16
+        dtype = sp.int16
     elif int(infile.metadata['data type']) == 4:
         dtype = sp.float32
     else:
@@ -60,13 +52,11 @@ def main():
     columns = int(infile.metadata['samples'])
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
-    print(nframe)
+
     darkframes = []
-
-    with open(args.input,'rb') as fin:
-
+    with open(filepath, 'rb') as fin:
         for line in range(lines):
-
+        
             # Read a frame of data
             if line%10==0:
                 logging.info('Averaging line '+str(line))
@@ -77,15 +67,35 @@ def main():
             frame = frame.reshape((rows, columns))
             darkframes.append(frame)
 
-        ndark = len(darkframes)
-        dark_avg = sp.array(darkframes).mean(axis=0)
+    ndark = len(darkframes)
+    dark_avg = sp.array(darkframes).mean(axis=0)
+
+    if ndark>1:
         dark_std = sp.array(darkframes).std(axis=0)/sp.sqrt(ndark)
+    else:
+        dark_std = np.ones((dark_avg.shape)) * -9999
+    return dark_avg, dark_std
+
+
+  
+
+def main():
+
+    description = "Average a dark sequence with outlier rejection"
+
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('input')
+    parser.add_argument('output_dark')
+    args = parser.parse_args()
+
+    dark_avg, dark_std = dark_from_file(args.input)
 
     with open(args.output_dark,'w') as fout:
         sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
         sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
+
     with open(args.output_dark+'.hdr','w') as fout:
-        fout.write(header_string % (columns, rows))
+        fout.write(header_string % dark_avg.shape)
 
     print('done') 
 

@@ -16,18 +16,22 @@ import json
 import logging
 import argparse
 import multiprocessing
+import ray
 
 # Import some EMIT-specific functions
 my_directory, my_executable = os.path.split(os.path.abspath(__file__))
 sys.path.append(my_directory + '/utils/')
-print(sys.path)
 
 from emit_fpa import native_rows, native_columns, frame_embed, frame_extract
+from emit_fpa import first_illuminated_column, last_illuminated_column
+from emit_fpa import first_illuminated_row, last_illuminated_row
+from emit_fpa import linearity_nbasis
 from fixbad import fix_bad 
-from fixlinearity import fix_frame
+from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
-from fixghost import fix_ghost
+from fixghostpointwise import fix_ghost
 from pedestal import fix_pedestal
+from darksubtract import subtract_dark
 from emit2dark import dark_from_file
 
 
@@ -58,7 +62,7 @@ def find_header(infile):
      
 class Config:
 
-    def __init__(self, filename, input_file='', output_file='', dark_file=None):
+    def __init__(self, filename, dark_file=None):
 
         # Load calibration file data
         with open(filename,'r') as fin:
@@ -67,75 +71,92 @@ class Config:
         # Adjust local filepaths where needed
         for fi in ['spectral_calibration_file','srf_correction_file',
                    'crf_correction_file','linearity_file',
-                   'radiometric_coefficient_file',
+                   'radiometric_coefficient_file', 'linearity_map_file',
                    'bad_element_file','flat_field_file']:
             path = getattr(self,fi)
             if path[0] != '/':
                 path = os.path.join(my_directory, path)
                 setattr(self,fi,path)
 
-        try:
-           if dark_file is not None:
-               self.dark_frame_file = dark_file
-           self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
-           _, self.wl_full, self.fwhm_full = \
-                sp.loadtxt(self.spectral_calibration_file).T * 1000
-           self.srf_correction = sp.fromfile(self.srf_correction_file,
-                dtype = sp.float32).reshape((native_rows, native_rows))
-           self.crf_correction = sp.fromfile(self.crf_correction_file,
-                dtype = sp.float32).reshape((native_columns, native_columns))
-           self.bad = sp.fromfile(self.bad_element_file,
-                dtype = sp.uint16).reshape((native_rows, native_columns))
-           self.flat_field = sp.fromfile(self.flat_field_file,
-                dtype = sp.float32).reshape((2, native_rows, native_columns))
-           self.flat_field = self.flat_field[0,:,:]
-           _, self.radiometric_calibration, self.radiometric_uncert = \
-                sp.loadtxt(self.radiometric_coefficient_file).T
-           self.linearity = sp.fromfile(self.linearity_file, 
-                dtype=sp.uint16, count=65536).reshape((65536,))
-        except ValueError:
-            logging.error('Incorrect file size for calibration data')
-        except AttributeError:
-            logging.error('One or more missing calibration files')
+        if dark_file is not None:
+            self.dark_frame_file = dark_file
+        self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
+        _, self.wl_full, self.fwhm_full = \
+             sp.loadtxt(self.spectral_calibration_file).T * 1000
+        self.srf_correction = sp.fromfile(self.srf_correction_file,
+             dtype = sp.float32).reshape((native_rows, native_rows))
+        self.crf_correction = sp.fromfile(self.crf_correction_file,
+             dtype = sp.float32).reshape((native_columns, native_columns))
+        self.bad = sp.fromfile(self.bad_element_file,
+             dtype = sp.int16).reshape((native_rows, native_columns))
+        self.flat_field = sp.fromfile(self.flat_field_file,
+             dtype = sp.float32).reshape((1, native_rows, native_columns))
+        self.flat_field = self.flat_field[0,:,:]
+        _, self.radiometric_calibration, self.radiometric_uncert = \
+             sp.loadtxt(self.radiometric_coefficient_file).T
 
-        # Find the input files
-        if len(input_file)>0:
-            self.input_file = input_file
-        if len(output_file)>0:
-            self.output_file = output_file
+        # Load ghost map into the dictionary object
+        ghost_config = np.loadtxt(self.ghost_map)
+        self.ghostmap = [[] for r in range(rows)]
+        for source, target, confidence, intensity in ghost_config:
+            self.ghostmap[int(source)].append((int(target),intensity))
+             
+        basis = envi.open(self.linearity_file+'.hdr').load()
+        self.linearity_mu = np.squeeze(basis[0,:])
+        self.linearity_mu[np.isnan(self.linearity_mu)] = 0
+        self.linearity_evec = np.squeeze(basis[1:,:].T)
+        self.linearity_evec[np.isnan(self.linearity_evec)] = 0
+        self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
 
-        # Identify input file header
-        if self.input_file.endswith('.img'):
-            self.input_header = self.input_file.replace('.img','.hdr') 
-        else:
-            self.input_header = self.input_file + '.hdr'
+@ray.remote
+def calibrate_raw(frame, config):
 
-        # Identify output file header
-        if self.output_file.endswith('.img'):
-            self.output_header = self.output_file.replace('.img','.hdr') 
-        else:
-            self.output_header = self.output_file + '.hdr'
+    # Detector corrections
+    frame = subtract_dark(frame, config.dark)
+    frame = fix_pedestal(frame)
+    frame = fix_linearity(frame, config.linearity_mu, 
+        config.linearity_evec, config.linearity_coeffs)
+    frame = fix_bad(frame, config.bad)
+    frame = frame * config.flat_field
 
+    # Optical corrections
+    frame = fix_scatter(frame, config.srf_correction, 
+        config.crf_correction)
+    frame = fix_ghost(frame, config.ghostmap)
 
+    # Absolute radiometry
+    frame = (frame.T * config.radiometric_calibration).T
+   
+    # Catch NaNs
+    frame[sp.logical_not(sp.isfinite(frame))]=0
 
+    # Clip the channels to the appropriate size, if needed
+    if config.extract_subframe:
+        frame = frame[:,first_illuminated_column:(last_illuminated_column + 1)]
+        frame = frame[first_illuminated_row:(last_illuminated_row + 1),:]
+        frame = sp.flip(frame, axis=0)
+
+    return frame
+   
 
 def main():
 
     description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
-    default_config = my_directory + '/configs/tvac2_config.json'
+    default_config = my_directory + '/config/tvac2_config.json'
     parser.add_argument('--config_file', default = default_config)
     parser.add_argument('--dark_file', default = None)
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
+    parser.add_argument('--maxjobs', type=int, default=30)
     parser.add_argument('input_file', default='')
     parser.add_argument('output_file', default='')
     args = parser.parse_args()
 
-    config = Config(args.config_file, args.input_file, 
-        args.output_file, args.dark_file)
+    config = Config(args.config_file, args.dark_file)
+    ray.init()
 
     # Set up logging
     for handler in logging.root.handlers[:]:
@@ -143,7 +164,8 @@ def main():
     if args.log_file is None:
         logging.basicConfig(format='%(message)s', level=args.level)
     else:
-        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=args.level, filename=args.log_file)
+        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', 
+            level=args.level, filename=args.log_file)
 
     logging.info('Starting calibration')
     lines = 0
@@ -164,62 +186,52 @@ def main():
     columns = int(infile.metadata['samples'])
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
+    lines_analyzed = 0
 
-    with open(config.input_file,'rb') as fin:
-        with open(config.output_file,'wb') as fout:
+    with open(args.input_file,'rb') as fin:
+        with open(args.output_file,'wb') as fout:
 
             raw = sp.fromfile(fin, count=nframe, dtype=dtype)
-
-            if dtype == np.int16:
-               # left shift by 2 binary digits, 
-               # returning to the 16 bit range.
-               raw = raw * 4
+            jobs = []
                
             while len(raw)>0:
 
+                if dtype == np.int16:
+                   # left shift by 2 binary digits, 
+                   # returning to the 16 bit range.
+                   raw = raw * 4
+
                 # Read a frame of data
-                if lines%10==0:
-                    logging.info('Calibrating line '+str(lines))
+                if lines_analyzed%10==0:
+                    logging.info('Calibrating line '+str(lines_analyzed))
                 
                 raw = np.array(raw, dtype=sp.float32)
-                frame = raw.reshape((rows,columns))
 
                 # All operations take place assuming 480 rows.
                 # EMIT avionics only downlink a subset of this data
+                # We embed the raw data in a larger frame for analysis.
+                frame = raw.reshape((rows,columns))
                 if raw.shape[0] < native_rows:
-                    frame = frame_embed(frame)
-                
-                # Detector corrections
-                frame = subtract_dark(frame, config.dark)
-                frame = correct_pedestal_shift(frame)
-                frame = fix_bad(frame, config.badmap)
-                frame = frame * config.flat_field
+                    frame = frame_embed(frame)               
 
-                # Optical corrections
-                frame = fix_scatter(frame, 
-                    config.spectral_correction, 
-                    config.spatial_correction)
-                frame = fix_ghost(frame, config.ghostmap)
+                jobs.append(calibrate_raw.remote(frame, config))
+                lines_analyzed = lines_analyzed + 1
 
-                # Absolute radiometry
-                frame = (frame.T * config.radiometric_calibration).T
-   
-                # Reverse channels, catch NaNs, and write
-                frame[sp.logical_not(sp.isfinite(frame))]=0
-                if config.reverse_channels:
-                    frame = sp.flip(frame, axis=0)
-
-                # Clip the channels to the appropriate size, if needed
-                if args.extract_subframe:
-                    frame = frame_extract(frame, columns = True)
-
-                # Write to file
-                sp.asarray(frame, dtype=sp.float32).tofile(fout)
-                lines = lines + 1
+                if len(jobs) == args.maxjobs:
+                    
+                    # Write to file
+                    result = ray.get(jobs)
+                    for frame in result:
+                        sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                    jobs = []
             
                 # Read next chunk
-                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
+                raw = sp.fromfile(fin, count=nframe, dtype=dtype)
 
+            # Do any final jobs
+            result = ray.get(jobs)
+            for frame in result:
+                sp.asarray(frame, dtype=sp.float32).tofile(fout)
 
     # Form output metadata strings
     wl = config.wl_full.copy()
@@ -228,8 +240,7 @@ def main():
     if config.extract_subframe:
         ncolumns = last_illuminated_column - first_illuminated_column + 1
         nchannels = last_illuminated_row - first_illuminated_row + 1
-        clip_rows = np.arange(first_illuminated_row,
-                              last_illuminated_row+1,dtype=int)
+        clip_rows = np.arange(last_illuminated_row,first_illuminated_row-1,-1,dtype=int)
         wl = wl[clip_rows]
         fwhm = fwhm[clip_rows]
     else:
@@ -243,7 +254,7 @@ def main():
 
     params = {'lines': lines}
     params.update(**locals())
-    with open(config.output_header,'w') as fout:
+    with open(args.output_file+'.hdr','w') as fout:
         fout.write(header_template.format(**params))
 
     logging.info('Done')
