@@ -27,7 +27,7 @@ for i in range(1,len(sys.argv),2):
     os.system(cmd)
 
     badfix = ped + '_badfix'
-    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixbad.py %s ~/src/emit-sds-l1b/data/EMIT_Bad_Elements_20211203 %s' % (ped,badfix)
+    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixbad.py %s /home/drt/src/emit-sds-l1b/data/EMIT_Bad_Elements_20211229 %s' % (ped,badfix)
     print(cmd)
     os.system(cmd)
 
