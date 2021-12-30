@@ -23,10 +23,11 @@ my_directory, my_executable = os.path.split(os.path.abspath(__file__))
 sys.path.append(my_directory + '/utils/')
 
 from emit_fpa import native_rows, native_columns, frame_embed, frame_extract
-from emit_fpa import first_illuminated_column, last_illuminated_column
-from emit_fpa import first_illuminated_row, last_illuminated_row
+from emit_fpa import first_distributed_column, last_distributed_column
+from emit_fpa import first_distributed_row, last_distributed_row
 from emit_fpa import linearity_nbasis
-from fixbad import fix_bad 
+from fixbad import fix_bad
+from fixosf import fix_osf
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
@@ -116,8 +117,8 @@ def calibrate_raw(frame, config):
     frame = fix_pedestal(frame)
     frame = fix_linearity(frame, config.linearity_mu, 
         config.linearity_evec, config.linearity_coeffs)
-    frame = fix_bad(frame, config.bad)
     frame = frame * config.flat_field
+    frame = fix_bad(frame, config.bad)
 
     # Optical corrections
     frame = fix_scatter(frame, config.srf_correction, 
@@ -127,13 +128,16 @@ def calibrate_raw(frame, config):
     # Absolute radiometry
     frame = (frame.T * config.radiometric_calibration).T
    
+    # Fix OSF
+    frame = fix_osf(frame)
+
     # Catch NaNs
     frame[sp.logical_not(sp.isfinite(frame))]=0
 
     # Clip the channels to the appropriate size, if needed
     if config.extract_subframe:
-        frame = frame[:,first_illuminated_column:(last_illuminated_column + 1)]
-        frame = frame[first_illuminated_row:(last_illuminated_row + 1),:]
+        frame = frame[:,first_distributed_column:(last_distributed_column + 1)]
+        frame = frame[first_distributed_row:(last_distributed_row + 1),:]
         frame = sp.flip(frame, axis=0)
 
     return frame
@@ -238,9 +242,9 @@ def main():
     fwhm = config.fwhm_full.copy()
 
     if config.extract_subframe:
-        ncolumns = last_illuminated_column - first_illuminated_column + 1
-        nchannels = last_illuminated_row - first_illuminated_row + 1
-        clip_rows = np.arange(last_illuminated_row,first_illuminated_row-1,-1,dtype=int)
+        ncolumns = last_distributed_column - first_distributed_column + 1
+        nchannels = last_distributed_row - first_distributed_row + 1
+        clip_rows = np.arange(last_distributed_row,first_distributed_row-1,-1,dtype=int)
         wl = wl[clip_rows]
         fwhm = fwhm[clip_rows]
     else:
@@ -251,7 +255,6 @@ def main():
     fwhm_string =  ','.join([str(w) for w in fwhm])
     wavelength_string = ','.join([str(w) for w in wl])
     
-
     params = {'lines': lines}
     params.update(**locals())
     with open(args.output_file+'.hdr','w') as fout:

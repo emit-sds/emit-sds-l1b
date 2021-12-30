@@ -17,11 +17,14 @@ first_valid_row, last_valid_row =  6, 333
 # Subframes have 328 rows
 valid_rows = last_valid_row - first_valid_row + 1
 
-# Rows that are not masked 
+# Rows that are not masked, columns not significantly
+# Vignetted
 first_illuminated_row, last_illuminated_row = 20, 320
-
-# Columns that are not significantly vignetted
 first_illuminated_column, last_illuminated_column = 24, 1265
+
+# The range of elements that is distributed
+first_distributed_column, last_distributed_column = 24, 1265
+first_distributed_row, last_distributed_row = 26, 313
 
 # EMIT FPA size
 native_rows, native_columns = 480, 1280

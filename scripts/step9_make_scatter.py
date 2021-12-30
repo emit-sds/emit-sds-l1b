@@ -11,7 +11,7 @@ from spectral.io import envi
 # correction matrices
 validate = True
 
-if True:
+if False:
 
     # First combine the data from all the point spread function measurements
     # This requires running basic electronic corrections on all datasets first
@@ -30,7 +30,7 @@ if True:
 
 if True:
 
-  curves = []
+  spatial, spectral = [],[]
 
   # Now build scatter correction matrices.  Do it twice: first with a null (no-op)
   # correction for comparison, and second for real.
@@ -45,28 +45,51 @@ if True:
     # Evaluate the result by calibrating a test image
     if validate:
 
-        # Test image for calibration purposes
-        testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211116_041506_UTC_InFieldScatter/' 
-        darkfile = testdir+'20211116_042012_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir+'20211116_042022_UTC_InFieldScatter_580p0nm.raw'
+        # Test image for spatial scatter validation 
+        testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/'
+        darkfile = testdir + '20211114_032430_UTC_InFieldScatter_dark.raw'
+        dnfile = testdir + '20211114_032447_UTC_InFieldScatter_900p48nm.raw'
+       #testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211116_041506_UTC_InFieldScatter/' 
+       #darkfile = testdir+'20211116_042012_UTC_InFieldScatter_dark.raw'
+       #dnfile = testdir+'20211116_042022_UTC_InFieldScatter_580p0nm.raw'
         rdnfile = dnfile.replace('.raw','_rdn')
         cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
         os.system(cmd)
         
-        # Extract the point spread function in the spectral dimension
+        # Extract the point spread function in the spatial dimension
         I = envi.open(rdnfile+'.hdr').load()
         I = np.squeeze(np.mean(I,axis=0)).T
         band = np.argmax(np.mean(I,axis=1))
         I = np.squeeze(I[band,:])
         
         # Plot the result to the screen
-        curves.append(I)
+        spatial.append(I)
+        plt.semilogy(I)
+        plt.show()
+
+        # Test image for spectral scatter validation 
+        testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211115_InFieldScatter/'
+        darkfile = testdir+'20211115_195047_UTC_InFieldScatter_dark.raw'
+        dnfile = testdir+'20211115_195057_UTC_InFieldScatter_951p56nm.raw'
+        rdnfile = dnfile.replace('.raw','_rdn')
+        cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
+        os.system(cmd)
+ 
+        # Extract the point spread function in the spectral dimension
+        I = envi.open(rdnfile+'.hdr').load()
+        I = np.squeeze(np.mean(I,axis=0)).T
+        position = np.argmax(np.mean(I,axis=0))
+        I = np.squeeze(I[:,position])
+        
+        # Plot the result to the screen
+        spectral.append(I)
         plt.semilogy(I)
         plt.show()
 
   # Save pretty plots
   if validate:
-      np.savetxt('EMIT_l1bplots_SRF.txt', np.array(curves).T)
+      np.savetxt('EMIT_l1bplots_Spatial.txt', np.array(spatial).T)
+      np.savetxt('EMIT_l1bplots_Spectral.txt', np.array(spectral).T)
  
  
  

@@ -31,13 +31,18 @@ for i in range(1,len(sys.argv),2):
     print(cmd)
     os.system(cmd)
 
-    linear = badfix + '_linear'
-    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixlinearity.py %s ~/src/emit-sds-l1b/data/EMIT_LinearityBasis_20211215 ~/src/emit-sds-l1b/data/EMIT_LinearityMap_20211215 %s' % (badfix,linear)
+    osffix = badfix + '_osffix'
+    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixosf.py %s %s' % (badfix,osffix)
+    print(cmd)
+    os.system(cmd)
+
+    linear = osffix + '_linear'
+    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixlinearity.py %s ~/src/emit-sds-l1b/data/EMIT_LinearityBasis_20211215 ~/src/emit-sds-l1b/data/EMIT_LinearityMap_20211215 %s' % (osffix,linear)
     print(cmd)
     os.system(cmd)
 
     scatterfix = linear + '_scatterfix'
-    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixscatter.py %s ~/src/emit-sds-l1b/data/EMIT_SpatialScatter_20211122 ~/src/emit-sds-l1b/data/EMIT_SpectralScatter_20211122 %s' % (linear,scatterfix)
+    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixscatter.py %s ~/src/emit-sds-l1b/data/EMIT_SpatialScatter_20211226 ~/src/emit-sds-l1b/data/EMIT_SpectralScatter_20211226 %s' % (linear,scatterfix)
     print(cmd)
     os.system(cmd)
   
