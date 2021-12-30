@@ -16,6 +16,7 @@ import argparse
 from numba import jit
 from math import pow
 from emit_fpa import native_rows, frame_embed, frame_extract
+from emit_fpa import first_illuminated_row, last_illuminated_row
 from emit_fpa import osf_seam_positions
 
 
@@ -87,17 +88,18 @@ def fix_bad(frame,bad):
     valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
     nfixed = 0
     
-    # First interpolate linearly over OSF seam positions
-    for col in range(columns):
-      for seam in osf_seam_positions:
-        # Use only valid pixels
-        ok_top = np.logical_and(np.arange(rows)>seam, bad[:,col]==0)
-        top = np.where(ok_top)[0][0]
-        ok_bottom = np.logical_and(np.arange(rows)<seam, bad[:,col]==0)
-        bottom = np.where(ok_bottom)[0][-1]
-        # Weighted average
-        fixed[seam,col] = top * (top-seam)/(top-bottom) + \
-                          bottom * (seam-bottom)/(top-bottom)
+   ## First interpolate linearly over OSF seam positions
+   #for col in range(columns):
+   #  for seam_lo, seam_hi in osf_seam_positions:
+   #    # Use only valid pixels
+   #    ok_top = np.logical_and(np.arange(rows)>seam_hi, bad[:,col]==0)
+   #    top = min(np.where(ok_top)[0])
+   #    ok_bottom = np.logical_and(np.arange(rows)<seam_lo, bad[:,col]==0)
+   #    bottom = max(np.where(ok_bottom)[0])
+   #    # Weighted average
+   #    seam = np.arange(seam_lo, seam_hi+1)
+   #    fixed[seam,col] = fixed[top] * (top-seam)/(top-bottom) + \
+   #                      fixed[bottom] * (seam-bottom)/(top-bottom)
 
 
     # Now fix bad pixels in the map using spectral angle 
@@ -105,8 +107,18 @@ def fix_bad(frame,bad):
     # Chapman et al., Remote Sensing 2019
     for col in range(columns):
         if np.sum(bad[:,col])<0:
-            bad_channels = np.where(bad[:,col]!=0)[0]
-            good_channels = np.where(bad[:,col]==0)[0]
+
+            tofix_channels = np.where(bad[:,col]!=0)[0]
+
+            # Don't match on OSF or extrema
+            good_channels = (bad[:,col]==0)
+            for seam_lo, seam_hi in osf_seam_positions:
+                good_channels[np.arange(seam_lo-1,seam_hi+2)] = False
+            good_channels[:first_illuminated_row] = False
+            good_channels[(last_illuminated_row+1):] = False
+            good_channels = np.where(good_channels)[0]
+
+            # calcluate spectral angle over valid FPA elements
             best_sa = 99999
             B = fixed[good_channels, :]
             B = B[:,valid_columns]
@@ -115,7 +127,7 @@ def fix_bad(frame,bad):
             best_spectrum = fixed[:,best]
             slope, offset = fit_poly(best_spectrum[good_channels],
                                        fixed[good_channels, col], 1)
-            for badc in bad_channels:
+            for badc in tofix_channels:
                fixed[badc,col] = slope * best_spectrum[badc] + offset
             nfixed = nfixed + 1
     return fixed

@@ -9,6 +9,7 @@ from scipy.linalg import solve, inv
 from astropy import modeling
 from sklearn.linear_model import RANSACRegressor
 from skimage.filters import threshold_otsu
+from numpy import nanmedian
 import json
 from numba import jit
 from lowess import lowess
@@ -21,9 +22,6 @@ def find_header(infile):
     return '.'.join(infile.split('.')[:-1])+'.hdr'
   else:
     raise FileNotFoundError('Did not find header file')
-
-
-nbright = 64#10#32
 
 
 def moving_average(x, w=5):
@@ -44,6 +42,7 @@ def polymax(y, plot=False):
         plt.show()
     return noisefree.max(), np.std(noisefree-segment)
 
+
 # Reference columns of the focal plane array used for
 # radiometric calibration.  Avoid the center (due to 
 # symmetric ghosting) and avoid the divot from 1015-1035.
@@ -51,20 +50,7 @@ reference_cols = np.concatenate((np.arange(140,340),
                             np.arange(940,1015),
                             np.arange(1035,1140)),axis=0)
 
-@jit
-def addcounts(brightest, frame):
-  for row in range(frame.shape[0]):
-      for col in range(frame.shape[1]):
-          for pos in range(nbright):
-             if frame[row,col] > brightest[row,col,pos]:
-                 mynext = frame[row,col]
-                 # bubble sort
-                 for j in range(pos,nbright):
-                    swap = brightest[row,col,j]
-                    brightest[row,col,j] = mynext
-                    mynext = swap
-                 break
-  return brightest
+
 
 def main():
 
@@ -73,10 +59,6 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
     parser.add_argument('--cue_channel',default=50,type=int)
-    parser.add_argument('--ref_lo',default=99,type=int)
-    parser.add_argument('--ref_hi',default=1180,type=int)
-    parser.add_argument('--hw_lo',default=8,type=int)
-    parser.add_argument('--hw_hi',default=40,type=int)
     parser.add_argument('--background',type=str)
     parser.add_argument('output')
     args = parser.parse_args()
@@ -135,8 +117,8 @@ def main():
            flat[row,col] = fg - bg
            noise[row,col] = resid_fg
 
-       ref = np.nanmean(flat[row, reference_cols])
-       ref_noise = np.nanmean(noise[row, reference_cols])
+       ref = nanmedian(flat[row, reference_cols])
+       ref_noise = nanmedian(noise[row, reference_cols])
        print('row',row,'reference average is',ref)
        flat[row,:] = ref / flat[row,:] 
        DN_average.append(ref)
