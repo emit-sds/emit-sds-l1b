@@ -39,22 +39,28 @@ def find_header(infile):
 
 def serialize_ghost_config(config):
   x = []
+  x.append(np.log(config['blur_spectral']))
+  x.append(np.log(config['blur_spatial']))
   for i in range(len(config['orders'])):
      #x.append(config['orders'][i]['extent'][0])
      #x.append(config['orders'][i]['extent'][1])
      #x.append(config['orders'][i]['slope'])
      #x.append(config['orders'][i]['offset'])
-      x.append(np.log(config['orders'][i]['scaling']))
      #x.append(config['orders'][i]['intensity_slope'])
      #x.append(config['orders'][i]['intensity_offset'])
+      x.append(np.log(config['orders'][i]['scaling']))
   return x    
 
 
 def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
-  if (len(x)) != len(config['orders']):
+  if (len(x)+2) != len(config['orders']):
       raise IndexError('bad state vector size')
   ind = 0
+  ghost_config['blur_spectral'] = np.exp(x[ind])
+  ind = ind + 1
+  ghost_config['blur_spatial'] = np.exp(x[ind])
+  ind = ind + 1
   for i in range(len(config['orders'])):
    #ghost_config['orders'][i]['extent'][0] = x[ind]
    #ind = ind + 1
@@ -74,8 +80,8 @@ def deserialize_ghost_config(x, config):
 
 
 #@ray.remote
-def frame_error(frame, ghostmap):
-    fixed = fix_ghost_matrix(frame, ghostmap) 
+def frame_error(frame, ghostmap, blur_spectral=1):
+    fixed = fix_ghost_matrix(frame, ghostmap, blur_spectral = blur_spectral) 
     half = 640
     max_left = np.percentile(frame[:,:half],99)
     max_right = np.percentile(frame[:,half:],99)
@@ -88,7 +94,8 @@ def frame_error(frame, ghostmap):
 def err(x, frames, ghost_config):
     new_config = deserialize_ghost_config(x, ghost_config)
     ghostmap = build_ghost_matrix(new_config)
-    jobs = [frame_error(frame, ghostmap) for frame in frames]
+    blur_spectral = ghost_config['blur_spectral']
+    jobs = [frame_error(frame, ghostmap, blur_spectral=blur_spectral) for frame in frames]
     errs = np.array(jobs)
     print(sum(errs))
     return sum(errs)
@@ -121,9 +128,10 @@ def main():
     frames = []
     for infile in args.input:
         I = envi.open(find_header(infile))
-        bip = np.squeeze(I.load())
-        bil = bip.T
-        frames.append(bil)
+        frame = np.squeeze(I.load())
+        if frame.shape[0] > frame.shape[1]:
+            frame = frame.T
+        frames.append(frame)
     frames = np.array(frames)
     with open(args.config,'r') as fin:
         ghost_config = json.load(fin)
