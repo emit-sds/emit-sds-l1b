@@ -89,6 +89,17 @@ DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
 
 channels = np.arange(len(wl),dtype=int)
 factors = rdn / DN
+
+# Interpolate over water vapor absorption at 2 microns
+plt.plot(factors)
+edges = np.concatenate((np.arange(90,94), np.arange(125,131)), axis=0)
+interior = np.arange(94,125)
+channels = np.arange(len(factors))
+model = np.polyfit(channels[edges],factors[edges],2)
+factors[interior] = np.polyval(model, channels[interior])
+plt.plot(factors)
+plt.show()
+
 factors_uncert = rdn_uncert / DN
 SNR = DN/DN_std/np.sqrt(frame_averaging)
 np.savetxt('../data/EMIT_RadiometricCoeffs_20211228.txt',

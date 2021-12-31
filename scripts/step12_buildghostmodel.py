@@ -4,7 +4,8 @@ import numpy as np
 import pylab as plt
 
 
-ghost_config = {'center':649.5, 'blur_spatial':50, 'orders':[]}
+ghost_config = {'center':649.5, 'blur_spatial':50, 'blur_spectral':1, 
+  'orders':[]}
 plot = False
 
 with open('../data/ghost_pointwise_edit.txt','r') as fin:

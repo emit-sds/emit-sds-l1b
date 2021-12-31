@@ -101,6 +101,8 @@ class Config:
         with open(self.ghost_map_file,'r') as fin:
             ghost_config = json.load(fin)
         self.ghost_matrix = build_ghost_matrix(ghost_config)
+        self.ghost_blur_spectral = ghost_config['blur_spectral']
+        self.ghost_blur_spatial = ghost_config['blur_spatial']
              
         basis = envi.open(self.linearity_file+'.hdr').load()
         self.linearity_mu = np.squeeze(basis[0,:])
@@ -122,7 +124,9 @@ def calibrate_raw(frame, config):
 
     # Optical corrections
     frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
-    frame = fix_ghost_matrix(frame, config.ghost_matrix)
+    frame = fix_ghost_matrix(frame, config.ghost_matrix, 
+         blur_spatial = config.ghost_blur_spatial, 
+         blur_spectral = config.ghost_blur_spectral)
 
     # Absolute radiometry
     frame = (frame.T * config.radiometric_calibration).T
