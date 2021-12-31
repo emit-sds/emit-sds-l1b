@@ -83,8 +83,6 @@ def build_ghost_matrix(ghost_config):
           y = y + yinc
           i = x * islope + ioffset
           i = i * scaling
-          #i = i / abs(yinc)
-          #print(x,y,i)
        
    #plt.imshow(ghostmap)
    #plt.show()

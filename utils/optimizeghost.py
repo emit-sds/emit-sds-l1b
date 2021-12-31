@@ -80,8 +80,9 @@ def deserialize_ghost_config(x, config):
 
 
 #@ray.remote
-def frame_error(frame, ghostmap, blur_spectral=1):
-    fixed = fix_ghost_matrix(frame, ghostmap, blur_spectral = blur_spectral) 
+def frame_error(frame, ghostmap, blur_spectral=1, blur_spatial=1):
+    fixed = fix_ghost_matrix(frame, ghostmap, blur_spectral = blur_spectral,
+        blur_spatial=blur_spatial) 
     half = 640
     max_left = np.percentile(frame[:,:half],99)
     max_right = np.percentile(frame[:,half:],99)
@@ -94,8 +95,10 @@ def frame_error(frame, ghostmap, blur_spectral=1):
 def err(x, frames, ghost_config):
     new_config = deserialize_ghost_config(x, ghost_config)
     ghostmap = build_ghost_matrix(new_config)
+    blur_spatial = ghost_config['blur_spatial']
     blur_spectral = ghost_config['blur_spectral']
-    jobs = [frame_error(frame, ghostmap, blur_spectral=blur_spectral) for frame in frames]
+    jobs = [frame_error(frame, ghostmap, blur_spatial=blur_spatial,
+         blur_spectral=blur_spectral) for frame in frames]
     errs = np.array(jobs)
     print(sum(errs))
     return sum(errs)
@@ -137,9 +140,7 @@ def main():
         ghost_config = json.load(fin)
  
     x0 = serialize_ghost_config(ghost_config)
-    #opts = {'maxiter':100}
     best = minimize(err, x0, args=(frames, ghost_config), jac=jac,method='BFGS')
-       #options=opts,
     print(best.nit,'iterations')
     print(best.message)
     best_config = deserialize_ghost_config(best.x, ghost_config)
