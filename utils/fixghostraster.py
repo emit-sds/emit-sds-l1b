@@ -33,7 +33,7 @@ def find_header(infile):
 
 @ray.remote
 def fix_ghost_parallel(frame, ghostmap):
-  return fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 2.0)
+  return fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25)
 
 
 
@@ -46,7 +46,7 @@ def build_ghost_matrix(ghost_config):
     for order in ghost_config['orders']:
 
       x0, x1 = order['extent']
-      print(x0,x1)
+      scaling = order['scaling']
 
       # calculate target channel endpoints
       slope, offset = order['slope'], order['offset']
@@ -81,11 +81,12 @@ def build_ghost_matrix(ghost_config):
           x = x + xinc
           y = y + yinc
           i = x * islope + ioffset
-          i = i / abs(yinc)
-          print(x,y,i)
-        
-    plt.imshow(ghostmap)
-    plt.show()
+          i = i * scaling
+          #i = i / abs(yinc)
+          #print(x,y,i)
+       
+   #plt.imshow(ghostmap)
+   #plt.show()
     return ghostmap 
 
 

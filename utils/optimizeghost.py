@@ -16,14 +16,15 @@ from scipy.ndimage import gaussian_filter
 import json
 from scipy.optimize import minimize
 from numba import jit
-from fixghost import fix_ghost
+from fixghost import fix_ghost_matrix
+from fixghostraster import build_ghost_matrix
 import ray
 import ray.services
 
 rayargs={'num_cpus':40}
 ray.init(**rayargs)
 
-eps = 1e-4
+eps = 1e-2
 optimize_blur=False
 
 
@@ -37,55 +38,59 @@ def find_header(infile):
 
 
 def serialize_ghost_config(config):
-
-  if optimize_blur:
-      x = [config['blur_spatial'],config['blur_spectral']]
-  else:
-      x = []
+  x = []
   for i in range(len(config['orders'])):
-      x.append(np.log(config['orders'][i]['intensity']))
+     #x.append(config['orders'][i]['extent'][0])
+     #x.append(config['orders'][i]['extent'][1])
+     #x.append(config['orders'][i]['slope'])
+     #x.append(config['orders'][i]['offset'])
+      x.append(np.log(config['orders'][i]['scaling']))
+     #x.append(config['orders'][i]['intensity_slope'])
+     #x.append(config['orders'][i]['intensity_offset'])
   return x    
 
 
 def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
-  if optimize_blur:
-    if (len(x)-2) != len(config['orders']):
+  if (len(x)) != len(config['orders']):
       raise IndexError('bad state vector size')
-    ghost_config['blur_spatial'] = x[0]
-    ghost_config['blur_spectral'] = x[1]
-    ind = 2
-  else:
-    if (len(x)) != len(config['orders']):
-      raise IndexError('bad state vector size')
-    ind = 0
+  ind = 0
   for i in range(len(config['orders'])):
-    ghost_config['orders'][i]['intensity'] = np.exp(x[ind+i])
+   #ghost_config['orders'][i]['extent'][0] = x[ind]
+   #ind = ind + 1
+   #ghost_config['orders'][i]['extent'][1] = x[ind]
+   #ind = ind + 1
+   #ghost_config['orders'][i]['slope'] = x[ind]
+   #ind = ind + 1
+   #ghost_config['orders'][i]['offset'] = x[ind]
+   #ind = ind + 1
+   #ghost_config['orders'][i]['intensity_slope'] = x[ind]
+   #ind = ind + 1
+   #ghost_config['orders'][i]['intensity_offset'] = x[ind]
+   #ind = ind + 1
+    ghost_config['orders'][i]['scaling'] = np.exp(x[ind])
+    ind = ind + 1
   return ghost_config   
 
 
 #@ray.remote
-def frame_error(frame, new_config):
-    fixed = fix_ghost(frame, new_config)
+def frame_error(frame, ghostmap):
+    fixed = fix_ghost_matrix(frame, ghostmap) 
     half = 640
     max_left = np.percentile(frame[:,:half],99)
     max_right = np.percentile(frame[:,half:],99)
     if max_left>max_right:
-        return np.mean(pow(fixed[:,half:],2)) / np.mean(pow(frame[:,half:],2)) 
+        return np.mean(pow(fixed[:,half:],2))# / np.mean(pow(frame[:,half:],2)) 
     else:
-        return np.mean(pow(fixed[:,:half],2)) / np.mean(pow(frame[:,:half],2))
+        return np.mean(pow(fixed[:,:half],2))# / np.mean(pow(frame[:,:half],2))
 
 
 def err(x, frames, ghost_config):
     new_config = deserialize_ghost_config(x, ghost_config)
-    jobs = [frame_error(frame, new_config) for frame in frames]
-    errs = np.array(jobs)#ray.get(jobs)
-    disp = x.copy()
-    if optimize_blur:
-        disp[2:] = np.exp(x[2:])
-    else:
-        disp = np.exp(x)
-    print(disp,errs)
+    ghostmap = build_ghost_matrix(new_config)
+    jobs = [frame_error(frame, ghostmap) for frame in frames]
+    errs = np.array(jobs)
+    print(sum(errs))
     return sum(errs)
  
 @ray.remote
@@ -124,9 +129,11 @@ def main():
         ghost_config = json.load(fin)
  
     x0 = serialize_ghost_config(ghost_config)
-    opts = {'max_iters':10}
-    best = minimize(err, x0, args=(frames, ghost_config), jac=jac,
-        options=opts)#, bounds=[(1,10),(1,10)]+[(0,0.01) for q in x0[2:]])
+    #opts = {'maxiter':100}
+    best = minimize(err, x0, args=(frames, ghost_config), jac=jac,method='BFGS')
+       #options=opts,
+    print(best.nit,'iterations')
+    print(best.message)
     best_config = deserialize_ghost_config(best.x, ghost_config)
     
     with open(args.output,'w') as fout:

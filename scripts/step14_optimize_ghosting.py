@@ -7,8 +7,8 @@ from spectral.io import envi
 
 # segment the ghost orders into parts, based on a manual assessment of discontinuities
 # and inflections in the ghost spectrum.  Write the results as a new ghost file
-cmd = 'python ../utils/segmentghost.py ../data/emit_ghost.json ../data/emit_ghost_segmented.json'
-os.system(cmd)
+#cmd = 'python ../utils/segmentghost.py ../data/emit_ghost.json ../data/emit_ghost_segmented.json'
+#os.system(cmd)
 
 batch_template='''#!/bin/sh
 export MKL_NUM_THREADS=1
@@ -35,9 +35,9 @@ test_frame  = basedir+'test_frame'
 test_frame2 = basedir+'test_frame2'
 test_frame3 = basedir+'test_frame3'
 test_frame4 = basedir+'test_frame4'
-infile = datadir+'emit_ghost_segmented.json'
+infile = datadir+'emit_ghost.json'
 outfile = datadir+'emit_ghost_optimized.json'
-cmd = 'python %s %s %s %s %s'%(exe,infile,test_frame2,test_frame3,outfile)
+cmd = 'python %s %s %s %s'%(exe,infile,test_frame3,outfile)
 
 template = batch_template % cmd
 with open(templatefile,'w') as fout:

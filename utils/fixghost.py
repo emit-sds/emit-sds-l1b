@@ -41,7 +41,7 @@ def fix_ghost(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, f
   new = frame - ghost
   return new
 
-@jit
+#@jit
 def fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25):
 
   ghost = np.zeros(frame.shape)
@@ -50,11 +50,12 @@ def fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectr
       raise IndexError('Misformed frame')
 
   for col in range(cols):
+     tcol = int(center*2 - col)
+     if tcol<0 or tcol>1279:
+         continue
      source = frame[:,col]
      target = source[np.newaxis,:] @ ghostmap
-     tcol = int(center*2 - col)
-     if tcol>0 and tcol<1280:
-         ghost[:, tcol] = target * fudge
+     ghost[:, tcol] = target * fudge
 
   start = first_illuminated_row
   ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
