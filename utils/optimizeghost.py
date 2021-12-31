@@ -54,7 +54,7 @@ def serialize_ghost_config(config):
 
 def deserialize_ghost_config(x, config):
   ghost_config = deepcopy(config) 
-  if (len(x)+2) != len(config['orders']):
+  if (len(x)-2) != len(config['orders']):
       raise IndexError('bad state vector size')
   ind = 0
   ghost_config['blur_spectral'] = np.exp(x[ind])
