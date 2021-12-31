@@ -19,6 +19,7 @@ from emit_fpa import native_rows, frame_embed, frame_extract
 from emit_fpa import first_illuminated_row
 from fixghost import fix_ghost_matrix
 import ray
+import pylab as plt
 
 
 def find_header(infile):
@@ -32,7 +33,7 @@ def find_header(infile):
 
 @ray.remote
 def fix_ghost_parallel(frame, ghostmap):
-  return fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25)
+  return fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 2.0)
 
 
 
@@ -45,6 +46,7 @@ def build_ghost_matrix(ghost_config):
     for order in ghost_config['orders']:
 
       x0, x1 = order['extent']
+      print(x0,x1)
 
       # calculate target channel endpoints
       slope, offset = order['slope'], order['offset']
@@ -62,9 +64,9 @@ def build_ghost_matrix(ghost_config):
  
       # calculate steps required for generating pixels
       if abs(dx) > abs(dy): 
-          steps = int(round(dx))
+          steps = abs(int(round(dx)))
       else:
-          steps = int(round(dy))
+          steps = abs(int(round(dy)))
  
       # calculate increment in x & y for each step
       xinc = dx / float(steps)
@@ -74,14 +76,16 @@ def build_ghost_matrix(ghost_config):
       x = x0
       y = y0
       i = i0
-    
       for j in range(steps+1):
-          print(x,y)
           ghostmap[int(round(x)),int(round(y))] = i
           x = x + xinc
           y = y + yinc
           i = x * islope + ioffset
+          i = i / abs(yinc)
+          print(x,y,i)
         
+    plt.imshow(ghostmap)
+    plt.show()
     return ghostmap 
 
 
