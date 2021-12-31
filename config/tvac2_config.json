@@ -6,7 +6,7 @@
    "radiometric_coefficient_file": "data/EMIT_RadiometricCoeffs_20211228.txt",
    "spectral_calibration_file": "data/EMIT_Wavelengths_20211117.txt",
    "linearity_file": "data/EMIT_LinearityBasis_20211215",
-   "ghost_map": "data/EMIT_GhostMap_20211228.txt",
+   "ghost_map_file": "data/EMIT_GhostMap_20211231.json",
    "linearity_map_file": "data/EMIT_LinearityMap_20211215",
    "extract_subframe": true
 }

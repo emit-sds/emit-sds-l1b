@@ -30,7 +30,8 @@ from fixbad import fix_bad
 from fixosf import fix_osf
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
-from fixghost import fix_ghost
+from fixghost import fix_ghost_matrix
+from fixghostraster import build_ghost_matrix
 from pedestal import fix_pedestal
 from darksubtract import subtract_dark
 from emit2dark import dark_from_file
@@ -71,7 +72,7 @@ class Config:
         
         # Adjust local filepaths where needed
         for fi in ['spectral_calibration_file','srf_correction_file',
-                   'crf_correction_file','linearity_file','ghost_map',
+                   'crf_correction_file','linearity_file','ghost_map_file',
                    'radiometric_coefficient_file', 'linearity_map_file',
                    'bad_element_file','flat_field_file']:
             path = getattr(self,fi)
@@ -96,11 +97,10 @@ class Config:
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
 
-        # Load ghost map into the dictionary object
-        ghost_config = np.loadtxt(self.ghost_map)
-        self.ghostmap = [[] for r in range(native_rows)]
-        for source, target, confidence, intensity in ghost_config:
-            self.ghostmap[int(source)].append((int(target),intensity))
+        # Load ghost configuration and construct the matrix
+        with open(self.ghost_map_file,'r') as fin:
+            ghost_config = json.load(fin)
+        self.ghost_matrix = build_ghost_matrix(ghost_config)
              
         basis = envi.open(self.linearity_file+'.hdr').load()
         self.linearity_mu = np.squeeze(basis[0,:])
@@ -121,9 +121,8 @@ def calibrate_raw(frame, config):
     frame = fix_bad(frame, config.bad)
 
     # Optical corrections
-    frame = fix_scatter(frame, config.srf_correction, 
-        config.crf_correction)
-    frame = fix_ghost(frame, config.ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25)
+    frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
+    frame = fix_ghost_matrix(frame, config.ghost_matrix)
 
     # Absolute radiometry
     frame = (frame.T * config.radiometric_calibration).T

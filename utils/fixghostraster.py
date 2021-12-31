@@ -33,7 +33,7 @@ def find_header(infile):
 
 @ray.remote
 def fix_ghost_parallel(frame, ghostmap):
-  return fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=50, blur_spectral=1, fudge = 4.25)
+  return fix_ghost_matrix(frame, ghostmap)
 
 
 
