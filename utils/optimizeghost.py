@@ -24,9 +24,6 @@ import ray.services
 rayargs={'num_cpus':40}
 ray.init(**rayargs)
 
-eps = 1e-2
-optimize_blur=False
-
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -37,45 +34,33 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def serialize_ghost_config(config):
+def serialize_ghost_config(config, coarse):
   x = []
-  x.append(np.log(config['blur_spectral']))
-  x.append(np.log(config['blur_spatial']))
-  for i in range(len(config['orders'])):
-     #x.append(config['orders'][i]['extent'][0])
-     #x.append(config['orders'][i]['extent'][1])
-     #x.append(config['orders'][i]['slope'])
-     #x.append(config['orders'][i]['offset'])
-     #x.append(config['orders'][i]['intensity_slope'])
-     #x.append(config['orders'][i]['intensity_offset'])
-      x.append(np.log(config['orders'][i]['scaling']))
+  if not coarse:
+      x.append(np.log(config['blur_spectral']))
+      x.append(np.log(config['blur_spatial']))
+      for i in range(len(config['orders'])):
+          x.append(config['orders'][i]['intensity_slope'])
+          x.append(config['orders'][i]['intensity_offset'])
+  else:
+      for i in range(len(config['orders'])):
+          x.append(np.log(config['orders'][i]['scaling']))
   return x    
 
 
-def deserialize_ghost_config(x, config):
+def deserialize_ghost_config(x, config, coarse):
   ghost_config = deepcopy(config) 
-  if (len(x)-2) != len(config['orders']):
-      raise IndexError('bad state vector size')
   ind = 0
-  ghost_config['blur_spectral'] = np.exp(x[ind])
-  ind = ind + 1
-  ghost_config['blur_spatial'] = np.exp(x[ind])
-  ind = ind + 1
-  for i in range(len(config['orders'])):
-   #ghost_config['orders'][i]['extent'][0] = x[ind]
-   #ind = ind + 1
-   #ghost_config['orders'][i]['extent'][1] = x[ind]
-   #ind = ind + 1
-   #ghost_config['orders'][i]['slope'] = x[ind]
-   #ind = ind + 1
-   #ghost_config['orders'][i]['offset'] = x[ind]
-   #ind = ind + 1
-   #ghost_config['orders'][i]['intensity_slope'] = x[ind]
-   #ind = ind + 1
-   #ghost_config['orders'][i]['intensity_offset'] = x[ind]
-   #ind = ind + 1
-    ghost_config['orders'][i]['scaling'] = np.exp(x[ind])
-    ind = ind + 1
+  if not coarse:
+      ghost_config['blur_spectral'] = np.exp(x[0])
+      ghost_config['blur_spatial'] = np.exp(x[1])
+      for i in range(len(config['orders'])):
+            ghost_config['orders'][i]['intensity_slope'] = x[2+i]
+            ghost_config['orders'][i]['intensity_offset'] = x[2+i]
+  else:
+      for i in range(len(config['orders'])):
+          ghost_config['orders'][i]['scaling'] = np.exp(x[ind])
+          ind = ind + 1
   return ghost_config   
 
 
@@ -92,11 +77,11 @@ def frame_error(frame, ghostmap, blur_spectral=1, blur_spatial=1):
         return np.mean(pow(fixed[:,:half],2))# / np.mean(pow(frame[:,:half],2))
 
 
-def err(x, frames, ghost_config):
-    new_config = deserialize_ghost_config(x, ghost_config)
+def err(x, frames, ghost_config, coarse):
+    new_config = deserialize_ghost_config(x, ghost_config, coarse)
     ghostmap = build_ghost_matrix(new_config)
-    blur_spatial = ghost_config['blur_spatial']
-    blur_spectral = ghost_config['blur_spectral']
+    blur_spatial = new_config['blur_spatial']
+    blur_spectral = new_config['blur_spectral']
     jobs = [frame_error(frame, ghostmap, blur_spatial=blur_spatial,
          blur_spectral=blur_spectral) for frame in frames]
     errs = np.array(jobs)
@@ -104,16 +89,20 @@ def err(x, frames, ghost_config):
     return sum(errs)
  
 @ray.remote
-def partial(x, i, frames, ghost_config, base_cost):
+def partial(x, i, frames, ghost_config, base_cost, coarse):
     x_perturb = x.copy()
+    if coarse:
+      eps = 0.01
+    else:
+      eps = 1e-7
     x_perturb[i] = x[i] + eps
-    perturb_cost = err(x_perturb, frames, ghost_config)
+    perturb_cost = err(x_perturb, frames, ghost_config, coarse)
     return (perturb_cost - base_cost)/eps
 
 
-def jac(x, frames, ghost_config):
-    base_cost = err(x,frames,ghost_config)
-    jobs  = [partial.remote(x,i,frames,ghost_config,base_cost) for i in range(len(x))]
+def jac(x, frames, ghost_config, coarse):
+    base_cost = err(x,frames,ghost_config, coarse)
+    jobs  = [partial.remote(x,i,frames,ghost_config,base_cost, coarse) for i in range(len(x))]
     derivs = ray.get(jobs)
     return np.array(derivs)
 
@@ -139,11 +128,16 @@ def main():
     with open(args.config,'r') as fin:
         ghost_config = json.load(fin)
  
-    x0 = serialize_ghost_config(ghost_config)
-    best = minimize(err, x0, args=(frames, ghost_config), jac=jac,method='BFGS')
+    x0 = serialize_ghost_config(ghost_config, coarse=True)
+    best = minimize(err, x0, args=(frames, ghost_config, True), jac=jac,method='BFGS')
+    best_config = deserialize_ghost_config(best.x, ghost_config, coarse=True)
+
+    x0 = serialize_ghost_config(best_config, coarse=False)
+    best = minimize(err, x0, args=(frames, best_config, False), jac=jac,method='BFGS')
+    best_config = deserialize_ghost_config(best.x, best_config, coarse=False)
+
     print(best.nit,'iterations')
     print(best.message)
-    best_config = deserialize_ghost_config(best.x, ghost_config)
     
     with open(args.output,'w') as fout:
         fout.write(json.dumps(best_config,indent=2))
