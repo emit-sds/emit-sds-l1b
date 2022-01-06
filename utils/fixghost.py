@@ -20,7 +20,7 @@ from emit_fpa import first_illuminated_row
 from numba import jit
 
 
-def fix_ghost_matrix(frame, ghostmap, center=649.5, blur_spatial=0.1, blur_spectral=0.1):
+def fix_ghost_matrix(frame, ghostmap, blur_spatial, blur_spectral, center=649.5):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
