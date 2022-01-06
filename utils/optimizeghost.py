@@ -39,9 +39,9 @@ def serialize_ghost_config(config, coarse):
   if not coarse:
       x.append(np.log(config['blur_spectral']))
       x.append(np.log(config['blur_spatial']))
-      for i in range(len(config['orders'])):
-          x.append(config['orders'][i]['intensity_slope'])
-          x.append(config['orders'][i]['intensity_offset'])
+     #for i in range(len(config['orders'])):
+     #    x.append(config['orders'][i]['intensity_slope'])
+     #    x.append(config['orders'][i]['intensity_offset'])
   else:
       for i in range(len(config['orders'])):
           x.append(np.log(config['orders'][i]['scaling']))
@@ -54,17 +54,15 @@ def deserialize_ghost_config(x, config, coarse):
   if not coarse:
       ghost_config['blur_spectral'] = np.exp(x[0])
       ghost_config['blur_spatial'] = np.exp(x[1])
-      for i in range(len(config['orders'])):
-            ghost_config['orders'][i]['intensity_slope'] = x[2+i]
-            ghost_config['orders'][i]['intensity_offset'] = x[2+i]
+     #for i in range(len(config['orders'])):
+     #      ghost_config['orders'][i]['intensity_slope'] = x[2+i]
+     #      ghost_config['orders'][i]['intensity_offset'] = x[2+i]
   else:
       for i in range(len(config['orders'])):
-          ghost_config['orders'][i]['scaling'] = np.exp(x[ind])
-          ind = ind + 1
+          ghost_config['orders'][i]['scaling'] = np.exp(x[i])
   return ghost_config   
 
 
-#@ray.remote
 def frame_error(frame, ghostmap, blur_spectral=1, blur_spatial=1):
     fixed = fix_ghost_matrix(frame, ghostmap, blur_spectral = blur_spectral,
         blur_spatial=blur_spatial) 
@@ -129,14 +127,19 @@ def main():
         ghost_config = json.load(fin)
  
     x0 = serialize_ghost_config(ghost_config, coarse=True)
-    best = minimize(err, x0, args=(frames, ghost_config, True), jac=jac,method='BFGS')
+    best = minimize(err, x0, args=(frames, ghost_config, True), jac=jac,method='SLSQP')
     best_config = deserialize_ghost_config(best.x, ghost_config, coarse=True)
 
+    print(best.nit,'iterations')
+    print('final error:',err(best.x, frames, ghost_config, coarse=True))
+    print(best.message)
+
     x0 = serialize_ghost_config(best_config, coarse=False)
-    best = minimize(err, x0, args=(frames, best_config, False), jac=jac,method='BFGS')
+    best = minimize(err, x0, args=(frames, best_config, False), jac=jac,method='SLSQP')
     best_config = deserialize_ghost_config(best.x, best_config, coarse=False)
 
     print(best.nit,'iterations')
+    print('final error:',err(best.x, frames, best_config, coarse=False))
     print(best.message)
     
     with open(args.output,'w') as fout:

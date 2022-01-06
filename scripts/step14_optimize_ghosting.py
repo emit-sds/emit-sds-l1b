@@ -31,18 +31,17 @@ else:
     cmd = 'sbatch '+srun_flags+' '+templatefile
     datadir = '/home/drt/src/emit-sds-l1b/data/'
 
-test_frame  = basedir+'test_frame'
 test_frame2 = basedir+'test_frame2'
 test_frame3 = basedir+'test_frame3'
-test_frame4 = basedir+'test_frame4'
-test_frame5 = basedir+'test_frame5'
-infile = datadir+'emit_ghost.json'
-outfile = datadir+'emit_ghost_optimized.json'
-cmd = 'python %s %s %s %s %s %s %s %s'%(exe,infile,test_frame,test_frame2,test_frame3,test_frame4,test_frame5,outfile)
 
-template = batch_template % cmd
-with open(templatefile,'w') as fout:
-   fout.write(template)
-print(cmd)
-os.system(cmd)
+if True:
+    infile = datadir+'emit_ghost.json'
+    outfile = datadir+'../data/EMIT_GhostMap_20211231.json'
+    cmd = 'python %s %s %s %s %s'%(exe,infile,test_frame2,test_frame3,outfile)
+    template = batch_template % cmd
+    with open(templatefile,'w') as fout:
+       fout.write(template)
+    print(cmd)
+    os.system(cmd)
 
+   
