@@ -6,7 +6,8 @@ import pylab as plt
 
 ghost_config = {'center':649.5, 'blur_spatial':50, 'blur_spectral':1, 
   'orders':[]}
-plot = False
+plot = True
+write = False
 
 with open('../data/ghost_pointwise_edit.txt','r') as fin:
    sources, targets, intensities = [],[],[]
@@ -35,8 +36,11 @@ with open('../data/ghost_pointwise_edit.txt','r') as fin:
          sources, targets, intensities = [],[],[]
 if plot:
     plt.show()
-with open('../data/emit_ghost.json','w') as fout:
-    fout.write(json.dumps(ghost_config, indent=4))
+    plt.savefig('ghost_image')
+
+if write:
+    with open('../data/emit_ghost.json','w') as fout:
+        fout.write(json.dumps(ghost_config, indent=4))
          
    
   

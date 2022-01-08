@@ -47,7 +47,7 @@ for i in range(1,len(sys.argv),2):
     os.system(cmd)
   
     ghostfix = scatterfix + '_ghostfix'
-    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixghostpoints.py %s ~/src/emit-sds-l1b/data/EMIT_GhostMap_20211228.txt %s' % (scatterfix,ghostfix)
+    cmd = 'python /home/drt/src/emit-sds-l1b/utils/fixghostraster.py %s ~/src/emit-sds-l1b/data/EMIT_GhostMap_20211231.json %s' % (scatterfix,ghostfix)
     print(cmd)
     os.system(cmd)
   

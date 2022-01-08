@@ -62,6 +62,7 @@ brdf_uncert = np.ones(len(wl)) * 0.01
 
 # Radiance 
 rdn = irradiance * spectralon_rfl * mirror_rfl * window_trans / np.pi * brdf_factor
+print('!',irradiance[10],spectralon_rfl[10],mirror_rfl[10],window_trans[10],brdf_factor[10])
 
 distance_uncert = 0.0015875 # meters
 distance = 0.5
@@ -82,9 +83,9 @@ rdn_uncert = np.sqrt((drdn_dirr * irradiance_uncert)**2 + \
                      (distance_uncert_rdn**2))
 
 I = envi.open('../data/EMIT_FlatField_20211228.hdr')
+I = envi.open('../data/EMIT_FlatField_20220103a.hdr')
 DN = np.array([float(d) for d in I.metadata['average_dns']])
 DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
-
 
 
 channels = np.arange(len(wl),dtype=int)
@@ -98,23 +99,48 @@ channels = np.arange(len(factors))
 model = np.polyfit(channels[edges],factors[edges],2)
 factors[interior] = np.polyval(model, channels[interior])
 plt.plot(factors)
+plt.ylim([0,0.001])
 plt.show()
 
 factors_uncert = rdn_uncert / DN
 SNR = DN/DN_std/np.sqrt(frame_averaging)
-np.savetxt('../data/EMIT_RadiometricCoeffs_20211228.txt',
-          np.c_[channels,factors,factors_uncert], fmt='%10.8f')
-np.savetxt('../data/EMIT_RadiometricUncertainty_20211228.txt',
-          np.c_[channels,factors_uncert/factors], fmt='%10.8f',
-          header='Uncertainty, fractional')
-np.savetxt('../data/EMIT_RadiometricReference_20211228.txt',
-          np.c_[wl,rdn], fmt='%10.8f')
-np.savetxt('../data/EMIT_RadiometricReferenceDN_20211228.txt',
-          np.c_[wl,DN], fmt='%10.8f')
-np.savetxt('../data/EMIT_RadiometricReferenceSNR_20211228.txt',
-          np.c_[wl,SNR], fmt='%10.8f')
 
 
+if True:
+    # These filenames are used for the automatic selection method
+    np.savetxt('../data/EMIT_RadiometricCoeffs_20220103.txt',
+              np.c_[channels,factors,factors_uncert], fmt='%10.8f')
+    np.savetxt('../data/EMIT_RadiometricUncertainty_20220103.txt',
+              np.c_[channels,factors_uncert/factors], fmt='%10.8f',
+              header='Uncertainty, fractional')
+    np.savetxt('../data/EMIT_RadiometricReference_20220103.txt',
+              np.c_[wl,rdn], fmt='%10.8f')
+    np.savetxt('../data/EMIT_RadiometricReferenceDN_20220103.txt',
+              np.c_[wl,DN], fmt='%10.8f')
+    np.savetxt('../data/EMIT_RadiometricReferenceSNR_20220103.txt',
+              np.c_[wl,SNR], fmt='%10.8f')
+
+
+if False:
+   # These filenames are used for the manual selection method
+   np.savetxt('../data/EMIT_RadiometricCoeffs_20220103a.txt',
+             np.c_[channels,factors,factors_uncert], fmt='%10.8f')
+   np.savetxt('../data/EMIT_RadiometricUncertainty_20220103a.txt',
+             np.c_[channels,factors_uncert/factors], fmt='%10.8f',
+             header='Uncertainty, fractional')
+   np.savetxt('../data/EMIT_RadiometricReference_20220103a.txt',
+             np.c_[wl,rdn], fmt='%10.8f')
+   np.savetxt('../data/EMIT_RadiometricReferenceDN_20220103a.txt',
+             np.c_[wl,DN], fmt='%10.8f')
+   np.savetxt('../data/EMIT_RadiometricReferenceSNR_20220103a.txt',
+             np.c_[wl,SNR], fmt='%10.8f')
+
+
+
+if plot:
+   plt.plot(wl,mirror_rfl)
+   plt.plot(wl,window_trans)
+   plt.show()
 
 if plot:
    plt.plot(wl, drdn_dspec * spectralon_uncert / rdn, color=[0.8, 0.2, 0.2])
@@ -130,7 +156,7 @@ if plot:
    plt.grid(True)
    plt.box(False)
    plt.xlabel('Wavelength (nm)')
-   plt.ylabel('Radiometric uncertainty, fractional')
+   plt.ylabel('ylabelRadiometric uncertainty, fractional')
    plt.xlim([380,2500])
    plt.ylim([0,0.1])
    plt.show()

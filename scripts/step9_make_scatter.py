@@ -37,9 +37,11 @@ if True:
   for magnitude in [0,1]: 
 
     cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/spatial_params.txt ../data/EMIT_SpatialScatter_20211226' 
+    print(cmd)
     os.system(cmd)
 
     cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/spectral_params.txt ../data/EMIT_SpectralScatter_20211226' 
+    print(cmd)t:
     os.system(cmd)
  
     # Evaluate the result by calibrating a test image
@@ -47,13 +49,11 @@ if True:
 
         # Test image for spatial scatter validation 
         testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/'
-        darkfile = testdir + '20211114_032430_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir + '20211114_032447_UTC_InFieldScatter_900p48nm.raw'
-       #testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211116_041506_UTC_InFieldScatter/' 
-       #darkfile = testdir+'20211116_042012_UTC_InFieldScatter_dark.raw'
-       #dnfile = testdir+'20211116_042022_UTC_InFieldScatter_580p0nm.raw'
+        darkfile = testdir + '20211114_051100_UTC_InFieldScatter_dark.raw'
+        dnfile = testdir + '20211114_051117_UTC_InFieldScatter_2058p14nm.raw'
         rdnfile = dnfile.replace('.raw','_rdn')
         cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
+        print(cmd)
         os.system(cmd)
         
         # Extract the point spread function in the spatial dimension
@@ -69,10 +69,11 @@ if True:
 
         # Test image for spectral scatter validation 
         testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211115_InFieldScatter/'
-        darkfile = testdir+'20211115_195047_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir+'20211115_195057_UTC_InFieldScatter_951p56nm.raw'
+        darkfile = testdir+'20211115_225554_UTC_InFieldScatter_dark.raw'
+        dnfile = testdir+'20211115_225605_UTC_InFieldScatter_2060p12nm.raw'
         rdnfile = dnfile.replace('.raw','_rdn')
         cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
+        print(cmd)
         os.system(cmd)
  
         # Extract the point spread function in the spectral dimension

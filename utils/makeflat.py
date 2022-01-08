@@ -13,6 +13,7 @@ from numpy import nanmedian
 import json
 from numba import jit
 from lowess import lowess
+from PIL import Image
 
 
 def find_header(infile):
@@ -60,6 +61,7 @@ def main():
     parser.add_argument('input')
     parser.add_argument('--cue_channel',default=50,type=int)
     parser.add_argument('--background',type=str)
+    parser.add_argument('--mask_image',type=str,default=None)
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -81,6 +83,14 @@ def main():
     margin=2
     meta = {'lines':480,'rows':1280,'bands':1,'interleave':'bsq',
       'data type':4}
+
+    if args.mask_image is not None:
+        mask = np.asarray(Image.open(args.mask_image))
+        print(mask.shape) 
+        if len(mask.shape)>2:
+            mask = mask.max(axis=2)
+        if mask.shape[0] != lines or mask.shape[1] != columns:
+            raise IndexError('mask does not match image')
 
     foreground = np.ones((lines,rows,columns))
     background = np.ones((lines,rows,columns))
@@ -104,15 +114,22 @@ def main():
     flat = np.ones((rows,columns)) * -9999
     noise = np.ones((rows,columns)) * -9999
 
+
     DN_average, DN_noise = [],[]
     for row in range(rows):
        for col in range(columns):
 
            y = np.squeeze(foreground[:,row,col])
-           fg, resid_fg = polymax(y,plot=(row==150 and col==200))
-
-           y = np.squeeze(background[:,row,col])
-           bg, resid_bg = polymax(y,plot=(row==150 and col==200))
+           bg_y = np.squeeze(background[:,row,col])
+           if args.mask_image is None:
+               fg, resid_fg = polymax(y,plot=(row==150 and col==200))
+               bg, resid_bg = polymax(bg_y,plot=(row==150 and col==200))
+           else:
+               use_lines = np.where(mask[:,col])[0]
+               fg = foreground[use_lines,row,col].mean()
+               bg = background[use_lines,row,col].mean()
+               resid_fg = foreground[use_lines,row,col].std()
+               resid_bg = background[use_lines,row,col].std()
 
            flat[row,col] = fg - bg
            noise[row,col] = resid_fg

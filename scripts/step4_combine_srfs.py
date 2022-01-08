@@ -7,11 +7,12 @@ from scipy.interpolate import bisplrep,bisplev
 from spectral.io import envi
 sys.path.append('../utils')
 from lowess import lowess
+from emit_fpa import first_valid_row, last_valid_row 
 
 
-c,wl,f = np.loadtxt('/home/drt/src/emit-sds-l1b/data/EMIT_Wavelengths_20211104.txt').T
+c,wl,f = np.loadtxt('/home/drt/src/emit-sds-l1b//data/EMIT_Wavelengths_20211104.txt').T 
 x_all, y_all, x2_all = [],[],[]
-for fieldpoint,color in [(40,'r'),(340,'b'),(640,'g'),(940,'y'),(1240,'c')]:
+for fieldpoint,color in [(40,[0.2,0.2,0.8]),(340,[0.8,0.2,0.2]),(640,[0.2,0.8,0.2]),(940,[0.8,0.8,0.2]),(1240,[0.8,0.2,0.8])]:
     xc,x,y = [],[],[]
     files = glob.glob('/beegfs/scratch/drt/20211113_EMIT_SRF/all/*Field%i*'%fieldpoint)
     for fil in files:
@@ -22,7 +23,7 @@ for fieldpoint,color in [(40,'r'),(340,'b'),(640,'g'),(940,'y'),(1240,'c')]:
             fwhm = np.array(fwhm)
             if chn.size<2:
                 continue
-            plt.plot(wl[chn]*1000.0,fwhm,'.',color=color,alpha=0.3,markersize=10)
+            plt.plot(wl[chn],fwhm,'.',color=color,alpha=0.3,markersize=5)
             for c,f, in zip(chn,fwhm):
               x.append(c)
               xc.append(wl[c])
@@ -32,17 +33,18 @@ for fieldpoint,color in [(40,'r'),(340,'b'),(640,'g'),(940,'y'),(1240,'c')]:
     x,xc,y = np.array(xc),np.array(x),np.array(y)
     i = np.argsort(x)
     x,y,xc = x[i],y[i],xc[i]
-    #ys = lowess(xc,y,f=0.1)
     x_all = np.concatenate([x_all, xc])
     x2_all = np.concatenate([x2_all, np.ones(len(x))*fieldpoint])
     #y_all = np.concatenate([y_all, ys])
     y_all = np.concatenate([y_all, y])
-    #plt.plot(x,ys,color=color)
+
+    _,ys = lowess(y,xc).T
+    plt.plot(x,ys,color=color)
            
 for x,x2,y in zip(x_all,x2_all,y_all):
   print(x,x2,y)
 
-p  = bisplrep(x_all,x2_all,y_all,kx=1,ky=1)
+p  = bisplrep(x_all,x2_all,y_all,kx=1,ky=1,s=10)
 znew = bisplev(np.arange(480),np.arange(1280),p)
 
 envi.save_image('../data/EMIT_SRF_20211114.hdr',np.array(znew,dtype=np.float32),ext='',force=True)
@@ -60,9 +62,16 @@ plt.ylabel('FWHM')
 plt.box(False)
 plt.grid(True)
 
+dwl = (wl[0]-wl[1])*1000.0
 fig=plt.figure()
 ax = plt.axes()
-im = ax.imshow(znew)
-cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-plt.colorbar(im, cax=cax) # Similar to fig.colorbar(im, cax = cax)
+X, Y = np.meshgrid(np.arange(1280),np.arange(last_valid_row-first_valid_row+1))
+print(dwl,wl)
+im = ax.contour(X,Y,znew[first_valid_row:last_valid_row+1,:]*(dwl),inline=True,colors=['k'])
+plt.clabel(im, inline=1, fontsize=12, inline_spacing=0, fmt='%1.1f nm ')
+#cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+#plt.colorbar(im, cax=cax) # Similar to fig.colorbar(im, cax = cax)
+plt.xlabel('Cross track position')
+plt.ylabel('Spectral channel')
+plt.xlim([-50,1290])
 plt.show()

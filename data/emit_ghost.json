@@ -1,6 +1,7 @@
 {
     "center": 649.5,
-    "blur_spatial": 50,
+    "blur_spatial": 40,
+    "blur_spectral": 4,
     "orders": [
         {
             "slope": -8.79999999999983,

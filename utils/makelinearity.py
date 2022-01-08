@@ -60,9 +60,6 @@ def linearize(DN, L, plot=False):
      resamp[np.logical_not(np.isfinite(resamp))] = 1.0
      resamp[:25] = resamp[25] 
 
-     # Don't correct above the saturation level
-     #resamp[grid>42000] = resamp[np.argmin(abs(grid-42000))]
-
      if plot:
         plt.figure(0)
         plt.plot(DN, 1.0/(DN/ideal).T,'k.')
@@ -70,6 +67,8 @@ def linearize(DN, L, plot=False):
         plt.box(False)
         plt.grid(True)
         plt.ylim([0.9,3.0])
+        np.savetxt('linearity_plot_points.txt', np.c_[DN,1.0/(DN/ideal).T])
+        np.savetxt('linearity_plot_interp.txt', np.c_[grid,resamp])
         plt.show()
 
 
