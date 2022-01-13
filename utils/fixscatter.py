@@ -14,7 +14,7 @@ import logging
 import argparse
 from numba import jit
 from math import pow
-from emit_fpa import native_rows, frame_embed, frame_extract
+from fpa import FPA, frame_embed, frame_extract
 
 
 
@@ -41,10 +41,13 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--config')
     parser.add_argument('spatial_corr')
     parser.add_argument('spectral_corr')
     parser.add_argument('output')
     args = parser.parse_args()
+
+    fpa = FPA(args.config)
 
     infile = envi.open(find_header(args.input))
     spatialfile = envi.open(find_header(args.spatial_corr))
@@ -81,10 +84,10 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
-            if rows < native_rows:
-                frame = embed_frame(frame)
+            if rows < fpa.native_rows:
+                frame = embed_frame(frame, fpa)
                 fixed = fix_scatter(frame, spectral, spatial)
-                fixed = extract_frame(fixed)
+                fixed = extract_frame(fixed, fpa)
             else:
                 fixed = fix_scatter(frame, spectral, spatial)
 

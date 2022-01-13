@@ -12,8 +12,7 @@ from spectral.io import envi
 import json
 import logging
 import argparse
-from emit_fpa import masked_rows, masked_cols, frame_embed, frame_extract
-from emit_fpa import native_rows
+from fpa import FPA, frame_embed, frame_extract
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -24,10 +23,10 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def fix_pedestal(frame):
-    pedestal = np.mean(frame[:,masked_cols], axis=1)
+def fix_pedestal(frame, fpa):
+    pedestal = np.mean(frame[:,fpa.masked_cols], axis=1)
     frame = (frame.T-pedestal).T
-    pedestal = np.mean(frame[masked_rows,:], axis=0)
+    pedestal = np.mean(frame[fpa.masked_rows,:], axis=0)
     frame = frame-pedestal
     return frame
 
@@ -38,8 +37,11 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--config',type=str)
     parser.add_argument('output')
     args = parser.parse_args()
+
+    fpa = FPA(args.config)
 
     infile = envi.open(find_header(args.input))
 
@@ -70,12 +72,12 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
-            if rows < native_rows:
-                frame = frame_embed(frame)
-                fixed = fix_pedestal(frame)
-                fixed = frame_extract(fixed)
+            if rows < fpa.native_rows:
+                frame = frame_embed(frame, fpa)
+                fixed = fix_pedestal(frame, fpa)
+                fixed = frame_extract(fixed, fpa)
             else:
-                fixed = fix_pedestal(frame)
+                fixed = fix_pedestal(frame, fpa)
 
             np.array(fixed, dtype=np.float32).tofile(fout)
 

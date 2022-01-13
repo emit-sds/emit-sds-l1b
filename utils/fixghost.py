@@ -15,12 +15,10 @@ import argparse
 from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
-from emit_fpa import native_rows, frame_embed, frame_extract
-from emit_fpa import first_illuminated_row
 from numba import jit
 
 
-def fix_ghost_matrix(frame, ghostmap, blur_spatial, blur_spectral, center=649.5):
+def fix_ghost_matrix(frame, fpa, ghostmap, blur_spatial, blur_spectral, center=649.5):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
@@ -35,7 +33,7 @@ def fix_ghost_matrix(frame, ghostmap, blur_spatial, blur_spectral, center=649.5)
      target = source[np.newaxis,:] @ ghostmap
      ghost[:, tcol] = target 
 
-  start = first_illuminated_row
+  start = fpa.first_illuminated_row
   ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
   new = frame - ghost
   return new

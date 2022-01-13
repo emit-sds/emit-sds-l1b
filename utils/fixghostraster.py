@@ -15,8 +15,7 @@ import argparse
 from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
-from emit_fpa import native_rows, frame_embed, frame_extract
-from emit_fpa import first_illuminated_row
+from fpa import FPA, frame_embed, frame_extract
 from fixghost import fix_ghost_matrix
 import ray
 import pylab as plt
@@ -32,17 +31,17 @@ def find_header(infile):
 
 
 @ray.remote
-def fix_ghost_parallel(frame, ghostmap, blur_spatial, blur_spectral):
-  return fix_ghost_matrix(frame, ghostmap, blur_spatial=blur_spatial, 
+def fix_ghost_parallel(frame, fpa, ghostmap, blur_spatial, blur_spectral):
+  return fix_ghost_matrix(frame, fpa, ghostmap, blur_spatial=blur_spatial, 
           blur_spectral=blur_spectral)
 
 
 
 # DDA algorithm for line rasterization is
 # Courtesy Shivam Pradhan (GeeksForGeeks.org)
-def build_ghost_matrix(ghost_config):
+def build_ghost_matrix(ghost_config, fpa):
 
-    ghostmap = np.zeros((480,480))
+    ghostmap = np.zeros((fpa.native_rows, fpa.native_rows))
 
     for order in ghost_config['orders']:
 
@@ -95,10 +94,13 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--config')
     parser.add_argument('--ncpus',default=30)
     parser.add_argument('ghost_config')
     parser.add_argument('output')
     args = parser.parse_args()
+
+    fpa = FPA(args.config)
 
     ray.init()
 
@@ -120,7 +122,7 @@ def main():
 
     with open(args.ghost_config,'r') as fin:
         ghost_config = json.load(fin)
-    ghostmap = build_ghost_matrix(ghost_config)
+    ghostmap = build_ghost_matrix(ghost_config, fpa)
     blur_spatial = ghost_config['blur_spatial']
     blur_spectral = ghost_config['blur_spectral']
 
@@ -143,19 +145,19 @@ def main():
                 raise ValueError('unsupported interleave')
 
             # embed subframe if needed
-            if rows < native_rows:
-                frame = frame_embed(frame)
+            if rows < fpa.native_rows:
+                frame = frame_embed(frame, fpa)
             frames.append(frame)
 
             if len(frames) == args.ncpus or line == (lines-1):
-                jobs = [fix_ghost_parallel.remote(f, ghostmap, blur_spatial,
+                jobs = [fix_ghost_parallel.remote(f, fpa, ghostmap, blur_spatial,
                                      blur_spectral) for f in frames]
                 fixed_all = ray.get(jobs)
                 for fixed in fixed_all:
 
                    # remove embedding if needed
-                   if rows < native_rows:
-                       fixed = frame_extract(fixed)
+                   if rows < fpa.native_rows:
+                       fixed = frame_extract(fixed,fpa)
                    if infile.metadata['interleave'] == 'bil':
                        np.array(fixed, dtype=np.float32).tofile(fout)
                    elif infile.metadata['interleave'] == 'bip':

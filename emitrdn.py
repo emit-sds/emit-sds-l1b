@@ -22,10 +22,7 @@ import ray
 my_directory, my_executable = os.path.split(os.path.abspath(__file__))
 sys.path.append(my_directory + '/utils/')
 
-from emit_fpa import native_rows, native_columns, frame_embed, frame_extract
-from emit_fpa import first_distributed_column, last_distributed_column
-from emit_fpa import first_distributed_row, last_distributed_row
-from emit_fpa import linearity_nbasis
+from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
 from fixosf import fix_osf
 from fixlinearity import fix_linearity
@@ -64,7 +61,7 @@ def find_header(infile):
      
 class Config:
 
-    def __init__(self, filename, dark_file=None):
+    def __init__(self, fpa, filename, dark_file=None):
 
         # Load calibration file data
         with open(filename,'r') as fin:
@@ -86,13 +83,13 @@ class Config:
         _, self.wl_full, self.fwhm_full = \
              sp.loadtxt(self.spectral_calibration_file).T * 1000
         self.srf_correction = sp.fromfile(self.srf_correction_file,
-             dtype = sp.float32).reshape((native_rows, native_rows))
+             dtype = sp.float32).reshape((fpa.native_rows, fpa.native_rows))
         self.crf_correction = sp.fromfile(self.crf_correction_file,
-             dtype = sp.float32).reshape((native_columns, native_columns))
+             dtype = sp.float32).reshape((fpa.native_columns, fpa.native_columns))
         self.bad = sp.fromfile(self.bad_element_file,
-             dtype = sp.int16).reshape((native_rows, native_columns))
+             dtype = sp.int16).reshape((fpa.native_rows, fpa.native_columns))
         self.flat_field = sp.fromfile(self.flat_field_file,
-             dtype = sp.float32).reshape((1, native_rows, native_columns))
+             dtype = sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
         self.flat_field = self.flat_field[0,:,:]
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
@@ -100,7 +97,7 @@ class Config:
         # Load ghost configuration and construct the matrix
         with open(self.ghost_map_file,'r') as fin:
             ghost_config = json.load(fin)
-        self.ghost_matrix = build_ghost_matrix(ghost_config)
+        self.ghost_matrix = build_ghost_matrix(ghost_config, fpa)
         self.ghost_blur_spectral = ghost_config['blur_spectral']
         self.ghost_blur_spatial = ghost_config['blur_spatial']
              
@@ -112,19 +109,19 @@ class Config:
         self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
 
 @ray.remote
-def calibrate_raw(frame, config):
+def calibrate_raw(frame, fpa, config):
 
     # Detector corrections
     frame = subtract_dark(frame, config.dark)
-    frame = fix_pedestal(frame)
+    frame = fix_pedestal(frame, fpa)
     frame = fix_linearity(frame, config.linearity_mu, 
         config.linearity_evec, config.linearity_coeffs)
     frame = frame * config.flat_field
-    frame = fix_bad(frame, config.bad)
+    frame = fix_bad(frame, config.bad, fpa)
 
     # Optical corrections
     frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
-    frame = fix_ghost_matrix(frame, config.ghost_matrix, 
+    frame = fix_ghost_matrix(frame, fpa, config.ghost_matrix, 
          blur_spatial = config.ghost_blur_spatial, 
          blur_spectral = config.ghost_blur_spectral)
 
@@ -132,15 +129,15 @@ def calibrate_raw(frame, config):
     frame = (frame.T * config.radiometric_calibration).T
    
     # Fix OSF
-    frame = fix_osf(frame)
+    frame = fix_osf(frame, fpa)
 
     # Catch NaNs
     frame[sp.logical_not(sp.isfinite(frame))]=0
 
     # Clip the channels to the appropriate size, if needed
     if config.extract_subframe:
-        frame = frame[:,first_distributed_column:(last_distributed_column + 1)]
-        frame = frame[first_distributed_row:(last_distributed_row + 1),:]
+        frame = frame[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
+        frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         frame = sp.flip(frame, axis=0)
 
     return frame
@@ -162,7 +159,8 @@ def main():
     parser.add_argument('output_file', default='')
     args = parser.parse_args()
 
-    config = Config(args.config_file, args.dark_file)
+    fpa = FPA(args.config_file)
+    config = Config(fpa, args.config_file, args.dark_file)
     ray.init()
 
     # Set up logging
@@ -218,10 +216,10 @@ def main():
                 # EMIT avionics only downlink a subset of this data
                 # We embed the raw data in a larger frame for analysis.
                 frame = raw.reshape((rows,columns))
-                if raw.shape[0] < native_rows:
-                    frame = frame_embed(frame)               
+                if raw.shape[0] < fpa.native_rows:
+                    frame = frame_embed(frame, fpa)               
 
-                jobs.append(calibrate_raw.remote(frame, config))
+                jobs.append(calibrate_raw.remote(frame, fpa, config))
                 lines_analyzed = lines_analyzed + 1
 
                 if len(jobs) == args.maxjobs:
@@ -245,13 +243,13 @@ def main():
     fwhm = config.fwhm_full.copy()
 
     if config.extract_subframe:
-        ncolumns = last_distributed_column - first_distributed_column + 1
-        nchannels = last_distributed_row - first_distributed_row + 1
-        clip_rows = np.arange(last_distributed_row,first_distributed_row-1,-1,dtype=int)
+        ncolumns = fpa.last_distributed_column - fpa.first_distributed_column + 1
+        nchannels = fpa.last_distributed_row - fpa.first_distributed_row + 1
+        clip_rows = np.arange(fpa.last_distributed_row, fpa.first_distributed_row-1,-1,dtype=int)
         wl = wl[clip_rows]
         fwhm = fwhm[clip_rows]
     else:
-        nchannels, ncolumns = native_rows, native_columns
+        nchannels, ncolumns = fpa.native_rows, fpa.native_columns
 
     band_names_string = ','.join(['channel_'+str(i) \
        for i in range(len(wl))])

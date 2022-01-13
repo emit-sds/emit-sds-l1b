@@ -15,10 +15,7 @@ import logging
 import argparse
 from numba import jit
 from math import pow
-from emit_fpa import native_rows, frame_embed, frame_extract
-from emit_fpa import first_illuminated_row, last_illuminated_row
-from emit_fpa import osf_seam_positions
-
+from fpa import FPA, frame_embed, frame_extract
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -81,26 +78,12 @@ def closest(a,B):
 
 
 @jit
-def fix_bad(frame,bad):
+def fix_bad(frame, bad, fpa):
 
     rows, columns = frame.shape
     fixed = frame.copy()
     valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
     nfixed = 0
-    
-   ## First interpolate linearly over OSF seam positions
-   #for col in range(columns):
-   #  for seam_lo, seam_hi in osf_seam_positions:
-   #    # Use only valid pixels
-   #    ok_top = np.logical_and(np.arange(rows)>seam_hi, bad[:,col]==0)
-   #    top = min(np.where(ok_top)[0])
-   #    ok_bottom = np.logical_and(np.arange(rows)<seam_lo, bad[:,col]==0)
-   #    bottom = max(np.where(ok_bottom)[0])
-   #    # Weighted average
-   #    seam = np.arange(seam_lo, seam_hi+1)
-   #    fixed[seam,col] = fixed[top] * (top-seam)/(top-bottom) + \
-   #                      fixed[bottom] * (seam-bottom)/(top-bottom)
-
 
     # Now fix bad pixels in the map using spectral angle 
     # matching plus linear regression inference approach
@@ -112,10 +95,10 @@ def fix_bad(frame,bad):
 
             # Don't match on OSF or extrema
             good_channels = (bad[:,col]==0)
-            for seam_lo, seam_hi in osf_seam_positions:
+            for seam_lo, seam_hi in fpa.osf_seam_positions:
                 good_channels[np.arange(seam_lo-1,seam_hi+2)] = False
-            good_channels[:first_illuminated_row] = False
-            good_channels[(last_illuminated_row+1):] = False
+            good_channels[:fpa.first_illuminated_row] = False
+            good_channels[(fpa.last_illuminated_row+1):] = False
             good_channels = np.where(good_channels)[0]
 
             # calcluate spectral angle over valid FPA elements
@@ -139,9 +122,12 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--config',default=None)
     parser.add_argument('badmap')
     parser.add_argument('output')
     args = parser.parse_args()
+
+    fpa = FPA(args.config)
 
     infile = envi.open(find_header(args.input))
     badfile = envi.open(find_header(args.badmap))
@@ -176,12 +162,12 @@ def main():
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
 
-            if rows < native_rows:
-                frame = frame_embed(frame)
-                fixed = fix_bad(frame, bad)
-                fixed = frame_extract(fixed)
+            if rows < fpa.native_rows:
+                frame = frame_embed(frame, fpa)
+                fixed = fix_bad(frame, bad, fpa)
+                fixed = frame_extract(fixed, fpa)
             else:
-                fixed = fix_bad(frame, bad)
+                fixed = fix_bad(frame, bad, fpa)
 
             np.array(fixed, dtype=np.float32).tofile(fout)
 
