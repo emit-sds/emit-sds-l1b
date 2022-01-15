@@ -41,6 +41,8 @@ def dark_from_file(filepath):
 
     if int(infile.metadata['data type']) == 2:
         dtype = sp.int16
+    elif int(infile.metadata['data type']) == 12:
+        dtype = sp.uint16
     elif int(infile.metadata['data type']) == 4:
         dtype = sp.float32
     else:

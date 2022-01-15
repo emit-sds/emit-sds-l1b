@@ -19,6 +19,7 @@ class FPA:
               setattr(self,key,val) 
       
       self.valid_rows = self.last_valid_row - self.first_valid_row + 1
+      self.valid_columns = self.last_valid_column - self.first_valid_column + 1
 
       # Define masked rows and columns
       self.masked_rows = np.concatenate((np.arange(self.first_valid_row, 
@@ -57,7 +58,7 @@ def frame_embed(frame, fpa):
     if frame.shape[1] != fpa.valid_columns:
        raise IndexError('All frames should have '+str(fpa.valid_columns)+' columns')
     if frame.shape[0] == fpa.valid_rows:
-       raise IndexError('Invalid number of rows')
+       raise IndexError('Invalid number of rows: %i'%frame.shape[0])
     embedded = np.zeros((fpa.native_rows, fpa.native_columns))
     embedded[fpa.first_valid_row, fpa.last_valid_row+1] = frame
     return embedded    

@@ -57,6 +57,8 @@ def main():
     dark = np.squeeze(darkfile.load()[:,:,0])
 
     if int(infile.metadata['data type']) == 2:
+        dtype = np.int16
+    elif int(infile.metadata['data type']) == 12:
         dtype = np.uint16
     elif int(infile.metadata['data type']) == 4:
         dtype = np.float32
@@ -71,7 +73,9 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
-    envi.write_envi_header(args.output+'.hdr',infile.metadata)
+    metadata = infile.metadata.copy()
+    metadata['data type'] = 4
+    envi.write_envi_header(args.output+'.hdr', metadata)
 
     with open(args.input,'rb') as fin:
       with open(args.output,'wb') as fout:
