@@ -12,6 +12,7 @@ from scipy.optimize import minimize
 from scipy.interpolate import BSpline,interp1d
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
+from fpa import FPA
 import json
 
 
@@ -76,8 +77,6 @@ def linearize(DN, L, plot=False):
 
 
 
-left, right, top, bottom = 25, 1264, 26, 313
-
 def main():
 
     description = "Make linearity curves"
@@ -85,8 +84,17 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('--plot',action='store_true')
+    parser.add_argument('--margin',default=37)
+    parser.add_argument('--config')
     parser.add_argument('output')
     args = parser.parse_args()
+    margin = int(args.margin)
+
+    fpa = FPA(args.config)
+    left = fpa.first_illuminated_column
+    right = fpa.last_illuminated_column
+    top = fpa.first_illuminated_row
+    bottom = fpa.last_illuminated_row
 
     xs,ys = [],[]
     nfiles = len(args.input) 
@@ -100,7 +108,8 @@ def main():
             if 'Field' in tok:
                simple = tok.replace('Field','')
                fieldpoint= int(simple)
-               active_rows = np.arange(max(left,fieldpoint-37),min(fieldpoint+38,right),dtype=int)
+               active_rows = np.arange(max(left,fieldpoint-margin),
+                                      min(fieldpoint+margin,right)+1,dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')

@@ -13,7 +13,7 @@ from scipy.interpolate import BSpline,interp1d
 from skimage.filters import threshold_otsu
 from scipy.ndimage import gaussian_filter
 from makelinearity import linearize
-from emit_fpa import linearity_nbasis
+from fpa import FPA
 import scipy.linalg as linalg
 import json
 
@@ -34,23 +34,31 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
     parser.add_argument('basis')
+    parser.add_argument('--config')
+    parser.add_argument('--linearity_nbasis',default=2)
+    parser.add_argument('--width',default=37)
+    parser.add_argument('--margin',default=9)
     parser.add_argument('--draft',default=None)
     parser.add_argument('output')
     args = parser.parse_args()
 
+    fpa = FPA(args.config)
+
+    margin = int(args.margin)
+    width = int(args.width)
     xs,ys = [],[]
     nfiles = len(args.input) 
     illums =[] 
-    out = np.zeros((480,1280,linearity_nbasis))
+    out = np.zeros((fpa.native_rows,fpa.native_columns,args.linearity_nbasis))
     if args.draft is not None:
         out = envi.open(args.draft+'.hdr').load()
 
     basis = np.squeeze(envi.open(args.basis+'.hdr').load())
     evec = np.squeeze(basis[1:,:].T)
-    if evec.shape[1] != linearity_nbasis:
+    if evec.shape[1] != args.linearity_nbasis:
         raise IndexError('Linearity basis does not match file size')
     evec[np.isnan(evec)] = 0
-    for i in range(linearity_nbasis):
+    for i in range(args.linearity_nbasis):
       evec[:,i] = evec[:,i] / linalg.norm(evec[:,i])
     print(linalg.norm(evec,axis=1),linalg.norm(evec,axis=0))
     mu = np.squeeze(basis[0,:])
@@ -71,8 +79,8 @@ def main():
                elif last_fieldpoint != fieldpoint:
                    raise IndexError('One fieldpoint per call. Use --draft')
                margin=9
-               active_cols = np.arange(max(24,fieldpoint-37-margin),
-                                       min(1265,fieldpoint+38-margin),dtype=int)
+               active_cols = np.arange(max(fpa.first_illuminated_column, fieldpoint-width-margin),
+                                       min(fpa.last_illuminated_column ,fieldpoint+width+1-margin),dtype=int)
             elif 'candelam2' in tok:
                simple = tok.split('.')[0]
                simple = simple.replace('PD','')
@@ -103,7 +111,7 @@ def main():
         data.append(frame_data[active_cols,:])
     data = np.array(data) 
                
-    for wl in np.arange(25,313):
+    for wl in np.arange(fpa.first_valid_row, fpa.last_valid_row+1):
    
        for mycol,col in enumerate(active_cols):
 
@@ -111,7 +119,7 @@ def main():
          L = np.array(illums) 
          resamp = linearize(DN, L )#,plot=(wl>50 and col>40 and col<1200))
          coef = (resamp - mu)[np.newaxis,:] @ evec
-         out[wl,col,:] = coef[:linearity_nbasis]
+         out[wl,col,:] = coef[:args.linearity_nbasis]
          if False:#wl>50 and col>40 and col<1200:
              plt.plot(resamp)
              plt.plot(resamp-mu)

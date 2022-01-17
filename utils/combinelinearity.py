@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d
 from scipy.signal import medfilt
 from scipy.linalg import norm, eigh
 import sys, os
-from emit_fpa import linearity_nbasis
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -27,18 +26,14 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input',nargs='+')
+    parser.add_argument('--linearity_nbasis',default=2)
     parser.add_argument('output')
     args = parser.parse_args()
 
     data = None
-    use = [90,165,240,315,390,465,540,615,690,765,840,915,990,1065,1140,1215]
-    use = [165,240,315,390,840,915,990,1065,1140]
 
     for fi,infilepath in enumerate(args.input):
         print(fi,'/',len(args.input))
-        if not any([str(u) in infilepath for u in use]):
-            continue
-
         x = envi.open(infilepath+'.hdr').load()      
         x = np.squeeze(x)
         if data is None:
@@ -74,7 +69,7 @@ def main():
         data_resamp.append(interp1d(grid,d)(grid_resamp))
     data_resamp = np.array(data_resamp)
    
-    model = PCA(n_components=linearity_nbasis)
+    model = PCA(n_components=args.linearity_nbasis)
     model.fit(data_resamp)
     mu_resamp = model.mean_.copy()
     evec_resamp = model.components_.copy()
