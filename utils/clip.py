@@ -1,22 +1,10 @@
-#! /usr/bin/env python
-#
-#  Copyright 2020 California Institute of Technology
-#
-# EMIT Radiometric Calibration code
-# Author: David R Thompson, david.r.thompson@jpl.nasa.gov
-
-import scipy.linalg
-import os, sys
+# David R Thompson
 import numpy as np
-from spectral.io import envi
+import os, os.path, sys
 import json
-import logging
 import argparse
-from numba import jit
-from math import pow
-from fpa import FPA, frame_embed, frame_extract
-
-
+import logging
+from spectral.io import envi
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -27,35 +15,30 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def fix_scatter(frame, spectral_correction, spatial_correction):
-   if frame.shape[0] != spectral_correction.shape[0] or \
-       frame.shape[1] != spatial_correction.shape[1]:
-       logging.error('Mismatched frame size')
-   fixed = spectral_correction @ (spatial_correction @ frame.T).T
-   return fixed
+def clip_frame(frame, start_row, end_row, start_col, end_col):
+    clipped = frame[start_row:(end_row+1), :]
+    clipped = clipped[:, start_col:(end_col+1)]
+    return clipped
 
 
 def main():
 
-    description = "Fix spatial and spectral scatter"
+    description = "Fix pedestal shift for a data cube"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config')
-    parser.add_argument('spatial_corr')
-    parser.add_argument('spectral_corr')
+    parser.add_argument('--start_row',default=None,type=int)
+    parser.add_argument('--start_col',default=None,type=int)
+    parser.add_argument('--end_row',default=None,type=int)
+    parser.add_argument('--end_col',default=None,type=int)
     parser.add_argument('output')
     args = parser.parse_args()
 
-    fpa = FPA(args.config)
-
     infile = envi.open(find_header(args.input))
-    spatialfile = envi.open(find_header(args.spatial_corr))
-    spatial = np.squeeze(spatialfile.load())
-    spectralfile = envi.open(find_header(args.spectral_corr))
-    spectral = np.squeeze(spectralfile.load())
 
     if int(infile.metadata['data type']) == 2:
+        dtype = np.int16
+    elif int(infile.metadata['data type']) == 12:
         dtype = np.uint16
     elif int(infile.metadata['data type']) == 4:
         dtype = np.float32
@@ -70,7 +53,25 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
-    envi.write_envi_header(args.output+'.hdr',infile.metadata)
+    start_row = 0
+    if args.start_row is not None:
+        start_row = args.start_row
+    start_col = 0
+    if args.start_col is not None:
+        start_col = args.start_col
+    end_row = rows-1
+    if args.end_row is not None:
+        end_row = args.end_row
+    end_col = columns-1
+    if args.end_col is not None:
+        end_col = args.end_col
+
+
+    metadata = infile.metadata.copy()
+    metadata['data type'] = 4
+    metadata['bands'] = end_row - start_row + 1
+    metadata['samples'] = end_col - start_col + 1
+    envi.write_envi_header(args.output+'.hdr', metadata)
 
     with open(args.input,'rb') as fin:
       with open(args.output,'wb') as fout:
@@ -80,15 +81,15 @@ def main():
             # Read a frame of data
             if line%10==0:
                 logging.info('Line '+str(line))
-
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            fixed = fix_scatter(frame, spectral, spatial)
-            np.array(fixed, dtype=np.float32).tofile(fout)
+            clipped = clip_frame(frame, start_row, end_row, start_col, end_col)
+            np.array(clipped, dtype=np.float32).tofile(fout)
 
- 
     print('done') 
 
 if __name__ == '__main__':
 
     main()
+ 
+

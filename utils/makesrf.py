@@ -51,7 +51,7 @@ def main():
     if args.wavelengths is None:
        script = os.path.realpath(__file__)
        directory = os.path.split(script)[0]
-       q,wl,fwhm = np.loadtxt(directory+'/../data/EMIT_Wavelengths_20211104.txt').T * 1000.0
+       q,wl,fwhm = np.loadtxt(directory+'/../data/EMIT_Wavelengths_20220117.txt').T * 1000.0
     else:
        q,wl,fwhm = np.loadtxt(args.wavelengths).T * 1000.0
 
@@ -87,9 +87,10 @@ def main():
                 maxind = args.target_index
             ctr,amplitude,std = find_peak(frame[:,maxind])
             fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
-            allctrs.append(ctr)
-            alllines.append(line)
-            #print(line,ctr,fwhm)
+            if ctr>0 and ctr<frame.shape[0]:
+                 allctrs.append(ctr)
+                 alllines.append(line)
+                 #print(line,ctr,fwhm)
    
     chans_per_frame, offset = np.polyfit(alllines,allctrs,1)
     robust_model = RANSACRegressor()
@@ -115,7 +116,8 @@ def main():
             else:
                 maxind = args.target_index
             for ctr in chans:
-                sequences[ctr].append(frame[ctr,maxind])
+                if ctr in sequences:
+                    sequences[ctr].append(frame[ctr,maxind])
         
     for ctr, sequence in sequences.items():
          nm_per_channel = abs(wl[ctr] - wl[ctr+1])

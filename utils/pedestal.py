@@ -24,10 +24,14 @@ def find_header(infile):
 
 
 def fix_pedestal(frame, fpa):
-    pedestal = np.mean(frame[:,fpa.masked_cols], axis=1)
-    frame = (frame.T-pedestal).T
-    pedestal = np.mean(frame[fpa.masked_rows,:], axis=0)
-    frame = frame-pedestal
+    if len(fpa.masked_cols)>0:
+        pedestal = np.mean(frame[:,fpa.masked_cols], axis=1)
+        pedestal = pedestal * fpa.pedestal_multiplier
+        frame = (frame.T-pedestal).T
+    if len(fpa.masked_rows)>0:
+        pedestal = np.mean(frame[fpa.masked_rows,:], axis=0)
+        pedestal = pedestal * fpa.pedestal_multiplier
+        frame = frame-pedestal
     return frame
 
 
@@ -77,14 +81,7 @@ def main():
                 logging.info('Line '+str(line))
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-
-            if rows < fpa.native_rows:
-                frame = frame_embed(frame, fpa)
-                fixed = fix_pedestal(frame, fpa)
-                fixed = frame_extract(fixed, fpa)
-            else:
-                fixed = fix_pedestal(frame, fpa)
-
+            fixed = fix_pedestal(frame, fpa)
             np.array(fixed, dtype=np.float32).tofile(fout)
 
     print('done') 

@@ -15,7 +15,7 @@ import argparse
 from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
-from fpa import FPA, frame_embed, frame_extract
+from fpa import FPA
 from fixghost import fix_ghost_matrix
 import ray
 import pylab as plt
@@ -145,8 +145,6 @@ def main():
                 raise ValueError('unsupported interleave')
 
             # embed subframe if needed
-            if rows < fpa.native_rows:
-                frame = frame_embed(frame, fpa)
             frames.append(frame)
 
             if len(frames) == args.ncpus or line == (lines-1):
@@ -156,8 +154,6 @@ def main():
                 for fixed in fixed_all:
 
                    # remove embedding if needed
-                   if rows < fpa.native_rows:
-                       fixed = frame_extract(fixed,fpa)
                    if infile.metadata['interleave'] == 'bil':
                        np.array(fixed, dtype=np.float32).tofile(fout)
                    elif infile.metadata['interleave'] == 'bip':

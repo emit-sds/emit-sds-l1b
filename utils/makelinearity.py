@@ -134,10 +134,12 @@ def main():
         
         x,y = [],[]
         image_data = (infile.load())[:,active_rows,:].mean(axis=1).mean(axis=0)
+        print(image_data.shape)
         data.append(image_data)
 
     data = np.array(data)
     curves = []
+    print(data.shape)
         
     for wl in np.arange(top,bottom):
 

@@ -17,19 +17,24 @@ class FPA:
           config_dict = json.load(fin)
           for key, val in config_dict.items():
               setattr(self,key,val) 
-      
-      self.valid_rows = self.last_valid_row - self.first_valid_row + 1
-      self.valid_columns = self.last_valid_column - self.first_valid_column + 1
 
-      # Define masked rows and columns
-      self.masked_rows = np.concatenate((np.arange(self.first_valid_row, 
-              self.first_illuminated_row, dtype=int),
-           np.arange(self.last_illuminated_row+1, self.last_valid_row+1, dtype=int)),
-           axis=0)
-      self.masked_cols = np.concatenate((np.arange(0, 
-              self.last_masked_col_left+1, dtype=int),
-           np.arange(self.first_masked_col_right, self.native_columns, dtype=int)),
-           axis=0)
+      # Define masked rows 
+      if self.first_illuminated_row>=0 and self.last_illuminated_row>=0:
+          self.masked_rows = np.concatenate((
+                np.arange(0, self.first_illuminated_row, dtype=int),
+                np.arange(self.last_illuminated_row+1, self.native_rows, dtype=int)),
+               axis=0)
+      else:
+          self.masked_rows = []
+
+      # Define masked columns
+      if self.first_masked_col_right >=0 and self.last_masked_col_left>=0:
+          self.masked_cols = np.concatenate((
+                np.arange(0, self.last_masked_col_left+1, dtype=int),
+                np.arange(self.first_masked_col_right, self.native_columns, dtype=int)),
+               axis=0)
+      else:
+          self.masked_cols = []
 
       # These columns used for stray light checks
       self.vignetted_cols = np.concatenate((np.arange(self.last_masked_col_left+1, 

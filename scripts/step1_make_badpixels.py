@@ -227,12 +227,13 @@ row_offset = 6
 for i in range(len(manual_bads)):
   if type(manual_bads[i][1]) == int:
       manual_bads[i][1] = manual_bads[i][1] - row_offset
-  for j in range(len(manual_bads[i][1])):
-      manual_bads[i][1][j] = manual_bads[i][1][j] - row_offset
+  else:
+      for j in range(len(manual_bads[i][1])):
+          manual_bads[i][1][j] = manual_bads[i][1][j] - row_offset
 
 
 
-input_file = '/beegfs/scratch/drt/20211114_EMIT_Radcal/20211116_200400_UTC_GenericFOV/20211116_200836_UTC_GenericFOV_Fields-250-1455_darksub_pedestal'
+input_file = '/beegfs/scratch/drt/20211114_EMIT_Radcal/20211116_200400_UTC_GenericFOV/20211116_200836_UTC_GenericFOV_Fields-250-1455_clip_darksub_pedestal'
 output_file = '../data/EMIT_Bad_Elements_20220117'
 cue_channel=148
 
@@ -310,7 +311,10 @@ for bad_cols, bad_rows in manual_bads:
         cols_range = range(bad_cols[0],bad_cols[1]+1)
     for col in cols_range:
         for row in rows_range:
-            bad[row,col] = 1
+            if row>0 and row<bad.shape[0] and col>0 and col<bad.shape[1]:
+                bad[row,col] = 1
+            else:
+                print('row ',row,' column ',col,' out of bounds')
 
 if False:
     plt.hist(stdev.flatten(),500)

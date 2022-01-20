@@ -15,7 +15,7 @@ import logging
 import argparse
 from numba import jit
 from math import pow
-from fpa import FPA, frame_embed, frame_extract
+from fpa import FPA
 
 
 def find_header(infile):
@@ -75,15 +75,10 @@ def main():
             if line%10==0:
                 logging.info('Line '+str(line))
             print(line)
+
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-
-            if rows < fpa.native_rows:
-                frame = frame_embed(frame, fpa)
-                fixed = fix_osf(frame, fpa)
-                fixed = frame_extract(fixed, fpa)
-            else:
-                fixed = fix_osf(frame, fpa)
+            fixed = fix_osf(frame, fpa)
 
             np.array(fixed, dtype=np.float32).tofile(fout)
 
