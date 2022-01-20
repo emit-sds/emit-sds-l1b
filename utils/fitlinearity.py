@@ -126,7 +126,7 @@ def main():
              plt.plot(np.squeeze(np.sum(evec*coef,axis=1)) + mu,'k.')
              plt.show()
          if wl%10==0:
-             print('!',wl,col,coef)
+             print(wl,col,coef)
 
     envi.save_image(args.output+'.hdr',np.array(out,dtype=np.float32),ext='',force=True)
 
