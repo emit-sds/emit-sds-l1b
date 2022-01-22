@@ -12,10 +12,10 @@ write = False
 with open('../data/ghost_pointwise_edit.txt','r') as fin:
    sources, targets, intensities = [],[],[]
    for line in fin.readlines():
-     if len(line)>5:
+     if len(line)>3:
          toks = line.split()
-         sources.append(int(toks[0]))
-         targets.append(int(toks[1]))
+         sources.append(float(toks[0]))
+         targets.append(float(toks[1]))
          intensities.append(float(toks[-1]))
      else:
          slope, offset = np.polyfit(sources,targets,1)

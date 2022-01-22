@@ -126,6 +126,7 @@ def main():
         sequence = np.squeeze(sequence)
         sequence = sequence / max(sequence)                                         
         best, er = find_scatter(sequence, args)
+        best = [abs(b) for b in best]
         print('%i %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f'%(c, \
               best[0],best[1],best[2],best[3],best[4],best[5],best[6],er)) 
 
