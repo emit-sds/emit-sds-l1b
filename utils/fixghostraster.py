@@ -16,7 +16,7 @@ from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
 from fpa import FPA
-from fixghost import fix_ghost_matrix
+from fixghost import fix_ghost
 import ray
 import pylab as plt
 
@@ -32,7 +32,7 @@ def find_header(infile):
 
 @ray.remote
 def fix_ghost_parallel(frame, fpa, ghostmap, blur_spatial, blur_spectral):
-  return fix_ghost_matrix(frame, fpa, ghostmap, blur_spatial=blur_spatial, 
+  return fix_ghost(frame, fpa, ghostmap, blur_spatial=blur_spatial, 
           blur_spectral=blur_spectral)
 
 

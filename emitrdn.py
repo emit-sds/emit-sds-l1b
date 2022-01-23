@@ -27,7 +27,7 @@ from fixbad import fix_bad
 from fixosf import fix_osf
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
-from fixghost import fix_ghost_matrix
+from fixghost import fix_ghost
 from fixghostraster import build_ghost_matrix
 from pedestal import fix_pedestal
 from darksubtract import subtract_dark
@@ -121,7 +121,7 @@ def calibrate_raw(frame, fpa, config):
 
     # Optical corrections
     frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
-    frame = fix_ghost_matrix(frame, fpa, config.ghost_matrix, 
+    frame = fix_ghost(frame, fpa, config.ghost_matrix, 
          blur_spatial = config.ghost_blur_spatial, 
          blur_spectral = config.ghost_blur_spectral)
 

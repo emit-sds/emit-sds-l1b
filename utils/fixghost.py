@@ -18,16 +18,18 @@ from math import pow
 from numba import jit
 
 
-def fix_ghost_matrix(frame, fpa, ghostmap, blur_spatial, blur_spectral, center=649.5):
+def fix_ghost(frame, fpa, ghostmap, blur_spatial, blur_spectral, center=649.5):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
   if rows>cols:
       raise IndexError('Misformed frame')
+  if blur_spatial>cols or blur_spectral>rows:
+      raise IndexError('Illegal blur')
 
   for col in range(cols):
      tcol = int(center*2 - col)
-     if tcol<0 or tcol>1279:
+     if tcol<0 or tcol>=fpa.native_columns:
          continue
      source = frame[:,col]
      target = source[np.newaxis,:] @ ghostmap

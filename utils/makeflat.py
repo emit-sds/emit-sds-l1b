@@ -81,8 +81,7 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
     margin=2
-    meta = {'lines':480,'rows':1280,'bands':1,'interleave':'bsq',
-      'data type':4}
+    meta = {'interleave':'bsq', 'data type':4}
 
     if args.mask_image is not None:
         mask = np.asarray(Image.open(args.mask_image))

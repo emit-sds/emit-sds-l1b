@@ -7,14 +7,13 @@ from scipy.interpolate import interp1d
 plot = True
 frame_averaging = 15
 
-q,wl,fwhm = np.loadtxt('../data/EMIT_Wavelengths_20211117.txt').T * 1000.0
+q,wl,fwhm = np.loadtxt('../data/EMIT_Wavelengths_20220117.txt').T * 1000.0
 
 def resample(wl_old, spectrum, method='linear'):
   p = interp1d(wl_old, spectrum, kind=method, fill_value='extrapolate', bounds_error=False)
   return p(wl)
 
-# Load irradiance
-# translate uncertainty from percenmt to one sigma irradiance
+# Load irradiance, translate uncertainty from percenmt to one sigma irradiance
 wl_irr, irr, irradiance_uncert = np.loadtxt('../data/ogse/tvac2/lamp_s1344_irradiance.txt', skiprows=2).T 
 irradiance = resample(wl_irr, irr, method='cubic')
 irradiance_uncert = resample(wl_irr, irradiance_uncert)
@@ -40,26 +39,6 @@ window_uncert = np.ones(len(window_trans)) * 0.01
 brdf_factor = np.ones(len(wl)) * 1.015
 brdf_uncert = np.ones(len(wl)) * 0.01
 
-#plt.plot(wl,irradiance)
-#plt.title('Irradiance')
-#plt.show()
-#plt.figure()
-#plt.plot(wl,spectralon_rfl)
-#plt.title('spectralon_rfl')
-#plt.show()
-#plt.figure()
-#plt.plot(wl,mirror_rfl)
-#plt.title('mirror_rfl')
-#plt.show()
-#plt.figure()
-#plt.plot(wl,window_trans)
-#plt.title('window_trans')
-#plt.show()
-#plt.figure()
-#plt.plot(wl,brdf_factor)
-#plt.title('brdf_factor')
-#plt.show()
-
 # Radiance 
 rdn = irradiance * spectralon_rfl * mirror_rfl * window_trans / np.pi * brdf_factor
 print('!',irradiance[10],spectralon_rfl[10],mirror_rfl[10],window_trans[10],brdf_factor[10])
@@ -82,8 +61,7 @@ rdn_uncert = np.sqrt((drdn_dirr * irradiance_uncert)**2 + \
                      (drdn_dmirror * mirror_uncert)**2 +\
                      (distance_uncert_rdn**2))
 
-I = envi.open('../data/EMIT_FlatField_20211228.hdr')
-I = envi.open('../data/EMIT_FlatField_20220103a.hdr')
+I = envi.open('../data/EMIT_FlatField_20220117.hdr')
 DN = np.array([float(d) for d in I.metadata['average_dns']])
 DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
 
@@ -91,13 +69,31 @@ DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
 channels = np.arange(len(wl),dtype=int)
 factors = rdn / DN
 
-# Interpolate over water vapor absorption at 2 microns
 plt.plot(factors)
-edges = np.concatenate((np.arange(90,94), np.arange(125,131)), axis=0)
-interior = np.arange(94,125)
+
+# Interpolate over water vapor absorption at 1.88 microns
+a = np.argmin(abs(wl-1780))
+b = np.argmin(abs(wl-1800))
+c = np.argmin(abs(wl-1950))
+d = np.argmin(abs(wl-1970))
+edges = np.concatenate((np.arange(d,c), np.arange(b,a)), axis=0)
+interior = np.arange(c,b)
 channels = np.arange(len(factors))
 model = np.polyfit(channels[edges],factors[edges],2)
 factors[interior] = np.polyval(model, channels[interior])
+
+# Interpolate over water vapor absorption at 1.38 microns
+a = np.argmin(abs(wl-1340))
+b = np.argmin(abs(wl-1350))
+c = np.argmin(abs(wl-1410))
+d = np.argmin(abs(wl-1420))
+edges = np.concatenate((np.arange(d,c), np.arange(b,a)), axis=0)
+interior = np.arange(c,b)
+channels = np.arange(len(factors))
+model = np.polyfit(channels[edges],factors[edges],2)
+factors[interior] = np.polyval(model, channels[interior])
+
+# Show the interpolated result
 plt.plot(factors)
 plt.ylim([0,0.001])
 plt.show()
@@ -108,33 +104,18 @@ SNR = DN/DN_std/np.sqrt(frame_averaging)
 
 if True:
     # These filenames are used for the automatic selection method
-    np.savetxt('../data/EMIT_RadiometricCoeffs_20220103.txt',
+    timestamp = '20220117'
+    np.savetxt('../data/EMIT_RadiometricCoeffs_'+timestamp+'.txt',
               np.c_[channels,factors,factors_uncert], fmt='%10.8f')
-    np.savetxt('../data/EMIT_RadiometricUncertainty_20220103.txt',
+    np.savetxt('../data/EMIT_RadiometricUncertainty_'+timestamp+'.txt',
               np.c_[channels,factors_uncert/factors], fmt='%10.8f',
               header='Uncertainty, fractional')
-    np.savetxt('../data/EMIT_RadiometricReference_20220103.txt',
+    np.savetxt('../data/EMIT_RadiometricReference_'+timestamp+'.txt',
               np.c_[wl,rdn], fmt='%10.8f')
-    np.savetxt('../data/EMIT_RadiometricReferenceDN_20220103.txt',
+    np.savetxt('../data/EMIT_RadiometricReferenceDN_'+timestamp+'.txt',
               np.c_[wl,DN], fmt='%10.8f')
-    np.savetxt('../data/EMIT_RadiometricReferenceSNR_20220103.txt',
+    np.savetxt('../data/EMIT_RadiometricReferenceSNR_'+timestamp+'.txt',
               np.c_[wl,SNR], fmt='%10.8f')
-
-
-if False:
-   # These filenames are used for the manual selection method
-   np.savetxt('../data/EMIT_RadiometricCoeffs_20220103a.txt',
-             np.c_[channels,factors,factors_uncert], fmt='%10.8f')
-   np.savetxt('../data/EMIT_RadiometricUncertainty_20220103a.txt',
-             np.c_[channels,factors_uncert/factors], fmt='%10.8f',
-             header='Uncertainty, fractional')
-   np.savetxt('../data/EMIT_RadiometricReference_20220103a.txt',
-             np.c_[wl,rdn], fmt='%10.8f')
-   np.savetxt('../data/EMIT_RadiometricReferenceDN_20220103a.txt',
-             np.c_[wl,DN], fmt='%10.8f')
-   np.savetxt('../data/EMIT_RadiometricReferenceSNR_20220103a.txt',
-             np.c_[wl,SNR], fmt='%10.8f')
-
 
 
 if plot:
@@ -160,23 +141,6 @@ if plot:
    plt.xlim([380,2500])
    plt.ylim([0,0.1])
    plt.show()
-   #plt.plot(wl,DN/DN_std/np.sqrt(frame_averaging),'k')
-   #plt.title('SNR')
-   #plt.figure()
-   #plt.plot(wl_irr,irr,'ko')
-   #plt.plot(wl,irradiance,'r')
-   #plt.figure()
-   #plt.plot(wl_spec,spec_rfl,'ko')
-   #plt.plot(wl,spectralon_rfl,'r')
-   #plt.figure()
-   #plt.plot(wl, factors)
-   #plt.xlim([360,2540])
-   #plt.figure()
-   #plt.plot(wl[1:], np.diff(factors)/factors[1:])
-   #plt.xlim([360,2540])
-   #plt.figure()
-   #plt.plot(wl, rdn_uncert/rdn)
-   #plt.show()
 
 
 
