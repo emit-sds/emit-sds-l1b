@@ -39,7 +39,7 @@ for i in range(1,len(sys.argv),2):
     os.system(cmd)
 
     badfix = ped + '_badfix'
-    cmd = ('python '+base_dir+'/utils/fixbad.py %s '+base_dir+'/data/EMIT_Bad_Elements_20220117 %s') % (ped,badfix)
+    cmd = ('python '+base_dir+'/utils/fixbad.py %s '+base_dir+'/data/EMIT_BadElements_20220117 %s') % (ped,badfix)
     print(cmd)
     os.system(cmd)
 

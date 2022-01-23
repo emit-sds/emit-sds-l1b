@@ -234,7 +234,7 @@ for i in range(len(manual_bads)):
 
 
 input_file = '/beegfs/scratch/drt/20211114_EMIT_Radcal/20211116_200400_UTC_GenericFOV/20211116_200836_UTC_GenericFOV_Fields-250-1455_clip_darksub_pedestal'
-output_file = '../data/EMIT_Bad_Elements_20220117'
+output_file = '../data/EMIT_BadElements_20220117'
 cue_channel=148
 
 infile = envi.open(find_header(input_file))
