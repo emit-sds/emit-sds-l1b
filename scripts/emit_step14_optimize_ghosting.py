@@ -1,5 +1,5 @@
 # David R Thompson
-import os
+import os, os.path
 import numpy as np
 import pylab as plt
 from spectral.io import envi
@@ -19,25 +19,25 @@ ps -ef | grep ray | awk '{print $1}' | xargs kill
 '''
 
 templatefile = 'batch_run_delete.sh'
+exe = os.path.split(os.path.abspath(__file__))[0] + '/../utils/optimizeghost.py'
+
 if os.path.exists('/Users/'):
     basedir = '/Users/drt/data/21EMIT/20211210_ghosts/optimization/'
-    exe = '/Users/drt/src/emit-sds-l1b/utils/optimizeghost.py'
     cmd = 'bash '+templatefile
     datadir = '/Users/drt/src/emit-sds-l1b/data/'
 else:
     basedir = '/beegfs/scratch/drt/20211130_EMIT_Ghost/optimization/'
-    exe = '/home/drt/src/emit-sds-l1b/utils/optimizeghost.py'
     srun_flags = '-N 1 -n 1 -c 40 --mem=180G' 
     cmd = 'sbatch '+srun_flags+' '+templatefile
     datadir = '/home/drt/src/emit-sds-l1b/data/'
 
-test_frame2 = basedir+'test_frame2'
-test_frame3 = basedir+'test_frame3'
+test_frame_0 = basedir+'test_frame_0'
+test_frame_1 = basedir+'test_frame_1'
 
 if True:
     infile = datadir+'emit_ghost.json'
-    outfile = datadir+'../data/EMIT_GhostMap_20211231.json'
-    cmd = 'python %s %s %s %s %s'%(exe,infile,test_frame2,test_frame3,outfile)
+    outfile = datadir+'../data/EMIT_GhostMap_20220117.json'
+    cmd = 'python %s %s %s %s %s'%(exe,infile,test_frame_0,test_frame_1,outfile)
     template = batch_template % cmd
     with open(templatefile,'w') as fout:
        fout.write(template)

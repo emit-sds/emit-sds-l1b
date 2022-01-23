@@ -6,10 +6,17 @@ from glob import glob
 import pylab as plt
 from spectral.io import envi
 
+
+# First compile the smoother library, if needed.
+# Go to the ../utils directory and type:
+#
+# > python setup.py build
+#
+
 # Set this to true if we have already completed a full calibration solution
 # We can then apply the EMIT calibration process for testing our SRF/CRF 
 # correction matrices
-validate = True
+validate = False
 
 if False:
 
@@ -17,15 +24,15 @@ if False:
     # This requires running basic electronic corrections on all datasets first
     # Record the resulting Gaussian fits in some text files
 
-    files = glob('/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/*linear')
+    files = glob('/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/*clip*linear')
     files.sort()
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--target_row','40','--spatial']+files+['>>','spatial_params.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--target_row','40','--spatial']+files+['>>','spatial_params_clipped.txt']
     os.system(' '.join(cmds))
 
 
-    files = glob('/beegfs/scratch/drt/20211114_EMIT_Infield/20211115_InFieldScatter/*linear')
+    files = glob('/beegfs/scratch/drt/20211114_EMIT_Infield/20211115_InFieldScatter/*clip*linear')
     files.sort()
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--target_row','940']+files+['>>','spectral_params.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--target_row','940']+files+['>>','spectral_params_clipped.txt']
     os.system(' '.join(cmds))
 
 if True:
@@ -36,12 +43,12 @@ if True:
   # correction for comparison, and second for real.
   for magnitude in [0,1]: 
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/spatial_params.txt ../data/EMIT_SpatialScatter_20211226' 
+    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/spatial_params_clipped.txt ../data/EMIT_SpatialScatter_20220117' 
     print(cmd)
     os.system(cmd)
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/spectral_params.txt ../data/EMIT_SpectralScatter_20211226' 
-    print(cmd)t:
+    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/spectral_params_clipped.txt ../data/EMIT_SpectralScatter_20220117' 
+    print(cmd)
     os.system(cmd)
  
     # Evaluate the result by calibrating a test image
