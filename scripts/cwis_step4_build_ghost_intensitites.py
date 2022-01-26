@@ -8,8 +8,16 @@ from astropy.modeling.models import custom_model
 from astropy.modeling.fitting import LevMarLSQFitter
 
 basedir = '/beegfs/scratch/drt/20220112_CWIS2/hiss/'
-margin=10
+margin=20
 
+infiles = ['20220124t1530avg10_scan550to700nm_SAT_clip_darksub.hdr',
+           '20220124t1535avg10_scan700to850nm_SAT_clip_darksub.hdr',
+           '20220124t1535avg10_scan850to1200nm_SAT_clip_darksub.hdr',
+           '20220124t1455avg10_scan1200to1700nm_clip_darksub.hdr',
+           '20220124t1505avg10_scan1700to2000nm_clip_darksub.hdr',
+           '20220124t1510avg10_scan2000to2500nm_clip_darksub.hdr']
+
+infiles = [basedir + f for f in infiles]
 
 def find_peak(x):
     fitter = modeling.fitting.LevMarLSQFitter()
@@ -21,7 +29,7 @@ def find_peak(x):
 
 
 with open('../data/cwis_ghost_pointwise.txt','w') as fout:
-  for infile in sorted(glob(basedir+'*clip*darksub.hdr')):
+  for infile in infiles:
     print(infile)
     I = envi.open(infile).load()
 
@@ -38,6 +46,9 @@ with open('../data/cwis_ghost_pointwise.txt','w') as fout:
         if sum(source_series)<5:
             continue
 
+       #if sourceidx>199 and sourceidx<213:
+       #     continue
+
         done = False
 
         while True:
@@ -49,7 +60,7 @@ with open('../data/cwis_ghost_pointwise.txt','w') as fout:
             ghostidx = int(round(ghostchan))
             ghost_series = ghost[(ghostidx-margin):(ghostidx+margin+1)]
 
-            if len(ghost_series)<20 or max(ghost_series)<10:
+            if len(ghost_series)<20 or max(ghost_series)<20:
                 break
 
            #plt.plot(ghost_series)
@@ -78,5 +89,5 @@ with open('../data/cwis_ghost_pointwise.txt','w') as fout:
                 outstr = '%10.8f %10.8f %10.8f %10.8f'%entry
                 print(oi,outstr)
                 fout.write(outstr+'\n')
-            fout.write(outstr+'\n')
+            fout.write('\n')
 
