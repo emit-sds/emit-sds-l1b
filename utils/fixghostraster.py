@@ -31,9 +31,9 @@ def find_header(infile):
 
 
 @ray.remote
-def fix_ghost_parallel(frame, fpa, ghostmap, blur_spatial, blur_spectral):
+def fix_ghost_parallel(frame, fpa, ghostmap, blur_spatial, blur_spectral, center):
   return fix_ghost(frame, fpa, ghostmap, blur_spatial=blur_spatial, 
-          blur_spectral=blur_spectral)
+          blur_spectral=blur_spectral, center=center)
 
 
 
@@ -83,8 +83,8 @@ def build_ghost_matrix(ghost_config, fpa):
           i = x * islope + ioffset
           i = i * scaling
        
-   #plt.imshow(ghostmap)
-   #plt.show()
+    plt.imshow(ghostmap)
+    plt.show()
     return ghostmap 
 
 
@@ -125,6 +125,7 @@ def main():
     ghostmap = build_ghost_matrix(ghost_config, fpa)
     blur_spatial = ghost_config['blur_spatial']
     blur_spectral = ghost_config['blur_spectral']
+    center = ghost_config['center']
 
     with open(args.input,'rb') as fin:
       with open(args.output,'wb') as fout:
@@ -149,7 +150,7 @@ def main():
 
             if len(frames) == args.ncpus or line == (lines-1):
                 jobs = [fix_ghost_parallel.remote(f, fpa, ghostmap, blur_spatial,
-                                     blur_spectral) for f in frames]
+                                     blur_spectral, center=center) for f in frames]
                 fixed_all = ray.get(jobs)
                 for fixed in fixed_all:
 

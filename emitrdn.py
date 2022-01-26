@@ -100,6 +100,7 @@ class Config:
         self.ghost_matrix = build_ghost_matrix(ghost_config, fpa)
         self.ghost_blur_spectral = ghost_config['blur_spectral']
         self.ghost_blur_spatial = ghost_config['blur_spatial']
+        self.ghost_center = ghost_config['center']
              
         basis = envi.open(self.linearity_file+'.hdr').load()
         self.linearity_mu = np.squeeze(basis[0,:])
@@ -123,7 +124,8 @@ def calibrate_raw(frame, fpa, config):
     frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
     frame = fix_ghost(frame, fpa, config.ghost_matrix, 
          blur_spatial = config.ghost_blur_spatial, 
-         blur_spectral = config.ghost_blur_spectral)
+         blur_spectral = config.ghost_blur_spectral,
+         center = config.ghost_center)
 
     # Absolute radiometry
     frame = (frame.T * config.radiometric_calibration).T

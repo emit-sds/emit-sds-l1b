@@ -16,9 +16,10 @@ from scipy.ndimage import gaussian_filter
 from numba import jit
 from math import pow
 from numba import jit
+from pylab import plt
 
 
-def fix_ghost(frame, fpa, ghostmap, blur_spatial, blur_spectral, center=649.5):
+def fix_ghost(frame, fpa, ghostmap, blur_spatial, blur_spectral, center):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
@@ -34,9 +35,14 @@ def fix_ghost(frame, fpa, ghostmap, blur_spatial, blur_spectral, center=649.5):
      source = frame[:,col]
      target = source[np.newaxis,:] @ ghostmap
      ghost[:, tcol] = target 
-
   start = fpa.first_illuminated_row
   ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
   new = frame - ghost
+  plt.imshow(frame,vmin=-10,vmax=100)
+  plt.figure()
+  plt.imshow(ghost,vmin=-10,vmax=100)
+  plt.figure()
+  plt.imshow(new,vmin=-10,vmax=100)
+  plt.show()
   return new
 
