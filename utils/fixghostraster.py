@@ -19,6 +19,7 @@ from fpa import FPA
 from fixghost import fix_ghost
 import ray
 import pylab as plt
+from scipy.stats import norm
 
 
 def find_header(infile):
@@ -31,9 +32,8 @@ def find_header(infile):
 
 
 @ray.remote
-def fix_ghost_parallel(frame, fpa, ghostmap, blur_spatial, blur_spectral, center):
-  return fix_ghost(frame, fpa, ghostmap, blur_spatial=blur_spatial, 
-          blur_spectral=blur_spectral, center=center)
+def fix_ghost_parallel(frame, fpa, ghostmap, blur, center):
+  return fix_ghost(frame, fpa, ghostmap, blur=blur, center=center)
 
 
 
@@ -83,9 +83,53 @@ def build_ghost_matrix(ghost_config, fpa):
           i = x * islope + ioffset
           i = i * scaling
        
-    plt.imshow(ghostmap)
-    plt.show()
+   #plt.imshow(ghostmap)
+   #plt.show()
     return ghostmap 
+
+
+def build_ghost_blur(ghost_config, fpa):
+
+    blur_dictionary = {}
+    for area in ghost_config['psf_zones']:
+
+        indices = np.arange(area['extent'][0],area['extent'][1]+1)
+        spatial_blur = np.zeros((fpa.native_columns, fpa.native_columns))
+        spectral_blur = np.zeros((fpa.native_rows, fpa.native_rows))
+
+        for psf in area['psfs']:
+
+            sigma = psf['sigma']
+            peak = psf['peak']
+
+            # Spectral blur over specific range
+            for chan in indices:
+                lineshape = norm.pdf(indices,chan,sigma)
+                lineshape = lineshape/max(lineshape) * peak
+                spectral_blur[chan,indices] = spectral_blur[chan,indices] + lineshape 
+
+            # Spatial blur over entire range
+            cols = range(fpa.native_columns)
+            for col in cols:
+                lineshape = norm.pdf(cols,col,sigma)
+                lineshape = lineshape/max(lineshape) * peak
+                spatial_blur[col,:] = spatial_blur[col,:] + lineshape 
+
+        # Add the identity
+        spectral_blur = spectral_blur + np.eye(fpa.native_rows)
+        spatial_blur = spatial_blur + np.eye(fpa.native_columns)
+
+        # Should we normalize? Scaling is redundant with 
+        # Ghost intensity parameter.  
+        for chan in range(spectral_blur.shape[0]):
+             spectral_blur[chan,:] = spectral_blur[chan,:]/sum(spectral_blur[chan,:])
+        for col in range(spatial_blur.shape[0]):
+             spatial_blur[col,:] = spatial_blur[col,:]/sum(spatial_blur[col,:])
+                
+        blur_dictionary[(area['extent'][0], area['extent'][1])] = \
+                [spatial_blur, spectral_blur]
+
+    return blur_dictionary
 
 
 def main():
@@ -123,8 +167,7 @@ def main():
     with open(args.ghost_config,'r') as fin:
         ghost_config = json.load(fin)
     ghostmap = build_ghost_matrix(ghost_config, fpa)
-    blur_spatial = ghost_config['blur_spatial']
-    blur_spectral = ghost_config['blur_spectral']
+    blur = build_ghost_blur(ghost_config, fpa)
     center = ghost_config['center']
 
     with open(args.input,'rb') as fin:
@@ -149,8 +192,8 @@ def main():
             frames.append(frame)
 
             if len(frames) == args.ncpus or line == (lines-1):
-                jobs = [fix_ghost_parallel.remote(f, fpa, ghostmap, blur_spatial,
-                                     blur_spectral, center=center) for f in frames]
+                jobs = [fix_ghost_parallel.remote(f, fpa, ghostmap, 
+                                     blur, center=center) for f in frames]
                 fixed_all = ray.get(jobs)
                 for fixed in fixed_all:
 

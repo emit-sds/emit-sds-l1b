@@ -27,13 +27,11 @@ srun_flags = '-N 1 -n 1 -c 40 --mem=180G'
 cmd = 'sbatch '+srun_flags+' '+templatefile
 datadir = mydir+'../data/'
 
-test_frame_0 = basedir+'test_frame_0'
-test_frame_1 = basedir+'test_frame_1'
-
 infile = datadir+'cwis_ghost.json'
 outfile = datadir+'../data/CWIS_GhostMap_20220125.json'
 cmd = 'python %s %s '%(exe,infile)
-for i in range(10):
+
+for i in range(1):
    cmd = cmd +basedir+('test_frame_%i'%i)+' '
 cmd = cmd + outfile
 template = batch_template % cmd

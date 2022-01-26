@@ -21,9 +21,10 @@ for file_index, infile in enumerate(infiles):
   outfile = 'test_frame_%i.hdr' % (file_index)
   I = envi.open(indir + infile + '_darksub_pedestal.hdr')
   x = I.load()
+  lines, samples, bands = x.shape
   frame = np.squeeze(x.mean(axis=0))
-  frame = frame.T
-  frame = np.array(frame,dtype=np.float32)
-  envi.save_image(outdir+outfile,frame,ext='',force=True)
+  frame = frame.reshape((1,samples,bands))
+  #frame = np.array(frame,dtype=np.float32)
+  envi.save_image(outdir+outfile,frame,ext='',interleave='bil',force=True)
 
 

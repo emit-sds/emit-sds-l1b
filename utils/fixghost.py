@@ -19,14 +19,12 @@ from numba import jit
 from pylab import plt
 
 
-def fix_ghost(frame, fpa, ghostmap, blur_spatial, blur_spectral, center):
+def fix_ghost(frame, fpa, ghostmap, blur, center):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
   if rows>cols:
       raise IndexError('Misformed frame')
-  if blur_spatial>cols or blur_spectral>rows:
-      raise IndexError('Illegal blur')
 
   for col in range(cols):
      tcol = int(center*2 - col)
@@ -35,14 +33,20 @@ def fix_ghost(frame, fpa, ghostmap, blur_spatial, blur_spectral, center):
      source = frame[:,col]
      target = source[np.newaxis,:] @ ghostmap
      ghost[:, tcol] = target 
-  start = fpa.first_illuminated_row
-  ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
+
+  for extent, (blur_spatial, blur_spectral) in blur.items():
+      indices = np.arange(extent[0], extent[1]+1)
+      ghost = blur_spectral @ ghost
+      ghost[indices,:] = (blur_spatial @ ghost[indices,:].T).T
+
+ #start = fpa.first_illuminated_row
+ #ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
   new = frame - ghost
-  plt.imshow(frame,vmin=-10,vmax=100)
+  plt.imshow(frame,vmin=-10,vmax=50)
   plt.figure()
-  plt.imshow(ghost,vmin=-10,vmax=100)
+  plt.imshow(ghost,vmin=-10,vmax=50)
   plt.figure()
-  plt.imshow(new,vmin=-10,vmax=100)
+  plt.imshow(new,vmin=-10,vmax=50)
   plt.show()
   return new
 
