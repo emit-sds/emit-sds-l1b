@@ -25,11 +25,11 @@ def find_header(infile):
 
 def fix_pedestal(frame, fpa):
     if len(fpa.masked_cols)>0:
-        pedestal = np.mean(frame[:,fpa.masked_cols], axis=1)
+        pedestal = np.median(frame[:,fpa.masked_cols], axis=1)
         pedestal = pedestal * fpa.pedestal_multiplier
         frame = (frame.T-pedestal).T
     if len(fpa.masked_rows)>0:
-        pedestal = np.mean(frame[fpa.masked_rows,:], axis=0)
+        pedestal = np.median(frame[fpa.masked_rows,:], axis=0)
         pedestal = pedestal * fpa.pedestal_multiplier
         frame = frame-pedestal
     return frame
