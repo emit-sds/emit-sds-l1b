@@ -35,7 +35,7 @@ from emit2dark import dark_from_file
 
 
 header_template = """ENVI
-description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
+description = {{EMIT L1B calibrated spectral radiance (units: uW nm-1 cm-2 sr-1)}}
 samples = {ncolumns}
 lines = {lines}
 bands = {nchannels}
