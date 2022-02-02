@@ -19,7 +19,7 @@ from numba import jit
 from pylab import plt
 
 
-def fix_ghost(frame, fpa, ghostmap, blur, center):
+def fix_ghost(frame, fpa, ghostmap, blur, center, plot=False):
 
   ghost = np.zeros(frame.shape)
   rows, cols = frame.shape
@@ -38,15 +38,16 @@ def fix_ghost(frame, fpa, ghostmap, blur, center):
       indices = np.arange(extent[0], extent[1]+1)
       ghost = blur_spectral @ ghost
       ghost[indices,:] = (blur_spatial @ ghost[indices,:].T).T
-
- #start = fpa.first_illuminated_row
- #ghost[start:,:] = gaussian_filter(ghost[start:,:],[blur_spectral, blur_spatial])
+  
   new = frame - ghost
-  plt.imshow(frame,vmin=-10,vmax=50)
-  plt.figure()
-  plt.imshow(ghost,vmin=-10,vmax=50)
-  plt.figure()
-  plt.imshow(new,vmin=-10,vmax=50)
-  plt.show()
+
+  if plot:
+      plt.imshow(frame,vmin=-10,vmax=50)
+      plt.figure()
+      plt.imshow(ghost,vmin=-10,vmax=50)
+      plt.figure()
+      plt.imshow(new,vmin=-10,vmax=50)
+      plt.show()
+
   return new
 

@@ -4,21 +4,38 @@ import pylab as plt
 from spectral.io import envi
 
 
-indir = '/beegfs/scratch/drt/20220112_CWIS2/ghost_measurements/'
+indir = '/beegfs/scratch/drt/20220112_CWIS2/20220127_IntSph_Ghosts/'
 outdir = '/beegfs/scratch/drt/20220112_CWIS2/optimization/'
-infiles = ['20220119_Filter_BP1570_addSilicon',
-           '20220119_Filter_BP1570',
-           '20220119_Filter_GaAs',
-           '20220119_Filter_LP561_addKG2_9mm',
-           '20220119_Filter_MysteryCyan',
-           '20220119_Filter_SP785_addKG2_12mm',
-           '20220119_Filter_SP785',
-           '20220119_Filter_addKG2_4andhalfmm',
-           '20220119_Filter_addKG4_3mm',
-           '20220119_PD4000']
+
+infiles = ['20220127_IntSp10500_FilterRed14_1mmKG4',    
+          '20220127_IntSp10500_FilterRed260_1mmKG4',  
+          '20220127_IntSp10700_FilterBrown376',       
+          '20220127_IntSp10700_FilterRed36_1mmKG4',   
+          '20220127_IntSp12000_Filter1mmBG14_1mmKG4', 
+          '20220127_IntSp12000_Filter2mmBG26_1mmKG4', 
+          '20220127_IntSp12200_FilterLP514_1mmKG4',   
+          '20220127_IntSp12600_FilterLP1319_1mmKG4',  
+          '20220127_IntSp13000_Filter1mmBG34_1mmKG4',  
+          '20220127_IntSp16000_Filter2mmBG34_1mmKG4',  
+          '20220127_IntSp18000_FilterBrown376_1mmKG4', 
+          '20220127_IntSp19500_FilterGaAs_1mmKG4',     
+          '20220127_IntSp19500_FilterSilicon_1mmKG4',  
+          '20220127_IntSp6000_FilterRed260',           
+          '20220127_IntSp6700_FilterRed14',            
+          '20220127_IntSph19900_Filter2mmKG2',         
+          '20220127_IntSph19900_Filter3mmKG4',         
+          '20220127_IntSph19900_Filter59044',
+          '20220127_IntSph5300',
+          '20220127_IntSph6200_FilterRed36',
+          '20220127_IntSph6500_Filter1mmBG14',
+          '20220127_IntSph6500_Filter2mmBG26',
+          '20220127_IntSph7300_Filter1mmBG34',
+          '20220127_IntSph8700_Filter2mmBG34',
+          '20220127_IntSph9500_Filter1mmKG4']
+
 
 for file_index, infile in enumerate(infiles):
-  outfile = 'test_frame_%i.hdr' % (file_index)
+  outfile = 'test_frame_%s.hdr' % (infile)
   I = envi.open(indir + infile + '_darksub_pedestal.hdr')
   x = I.load()
   lines, samples, bands = x.shape

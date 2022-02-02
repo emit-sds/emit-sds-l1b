@@ -38,9 +38,9 @@ def serialize_ghost_config(config, coarse):
   x = []
   if coarse:
       for i in range(len(config['orders'])):
-         #x.append(np.log(config['orders'][i]['scaling']))
-          x.append(config['orders'][i]['intensity_slope'])
-          x.append(config['orders'][i]['intensity_offset'])
+          x.append(np.log(config['orders'][i]['scaling']))
+         #x.append(config['orders'][i]['intensity_slope'])
+         #x.append(config['orders'][i]['intensity_offset'])
   else:
       for zone in config['psf_zones']:
           for psf in zone['psfs']:
@@ -48,7 +48,7 @@ def serialize_ghost_config(config, coarse):
               x.append(np.log(psf['peak']))
      #x.append(np.log(config['blur_spectral']))
      #x.append(np.log(config['blur_spatial']))
-      print(config['psf_zones'])
+     #print(config['psf_zones'])
   return x    
 
 
@@ -56,9 +56,9 @@ def deserialize_ghost_config(x, config, coarse):
   ghost_config = deepcopy(config) 
   if coarse: 
       for i in range(len(ghost_config['orders'])):
-       #ghost_config['orders'][i]['scaling'] = np.exp(x[i])
-        ghost_config['orders'][i]['intensity_slope'] = x[i*2]
-        ghost_config['orders'][i]['intensity_offset'] = x[i*2+1]
+        ghost_config['orders'][i]['scaling'] = np.exp(x[i])
+       #ghost_config['orders'][i]['intensity_slope'] = x[i*2]
+       #ghost_config['orders'][i]['intensity_offset'] = x[i*2+1]
   else:
       ind = 0
       for zone in range(len(ghost_config['psf_zones'])):
@@ -68,13 +68,13 @@ def deserialize_ghost_config(x, config, coarse):
               ind = ind+2
      #ghost_config['blur_spectral'] = np.exp(x[-2])
      #ghost_config['blur_spatial'] = np.exp(x[-1])
-      print(ghost_config['psf_zones'])
+     #print(ghost_config['psf_zones'])
   return ghost_config   
 
 
 def frame_error(frame, fpa, ghostmap, blur, center):
     try:
-        fixed = fix_ghost(frame, fpa, ghostmap, blur=blur, center=center) 
+        fixed = fix_ghost(frame, fpa, ghostmap, blur=blur, center=center, plot=False) 
     except IndexError:
          # Something is out of bounds
          return 9e99
@@ -143,9 +143,10 @@ def main():
         ghost_config = json.load(fin)
  
 
-    if False:
+    if True:
 
         x0 = serialize_ghost_config(ghost_config, coarse=True)
+        #best = minimize(err, x0, args=(fpa, frames, ghost_config, True), jac=jac,method='Newton-CG')
         best = minimize(err, x0, args=(fpa, frames, ghost_config, True), jac=jac,method='TNC')
         best_config = deserialize_ghost_config(best.x, ghost_config, coarse=True)
         

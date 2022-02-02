@@ -32,8 +32,8 @@ def find_header(infile):
 
 
 @ray.remote
-def fix_ghost_parallel(frame, fpa, ghostmap, blur, center):
-  return fix_ghost(frame, fpa, ghostmap, blur=blur, center=center)
+def fix_ghost_parallel(frame, fpa, ghostmap, blur, center, plot):
+  return fix_ghost(frame, fpa, ghostmap, blur=blur, center=center, plot=plot)
 
 
 
@@ -139,6 +139,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
     parser.add_argument('--config')
+    parser.add_argument('--plot', action='store_true')
     parser.add_argument('--ncpus',default=30)
     parser.add_argument('ghost_config')
     parser.add_argument('output')
@@ -193,7 +194,7 @@ def main():
 
             if len(frames) == args.ncpus or line == (lines-1):
                 jobs = [fix_ghost_parallel.remote(f, fpa, ghostmap, 
-                                     blur, center=center) for f in frames]
+                                     blur, center=center, plot=args.plot) for f in frames]
                 fixed_all = ray.get(jobs)
                 for fixed in fixed_all:
 

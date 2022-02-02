@@ -5,11 +5,11 @@ import pylab as plt
 
 
 ghost_config = {'center':646.5,  'orders':[], 
-          'psf_zones':[{'extent':[0,188], 'psfs': [{'sigma':1, 'peak':0.1},
+          'psf_zones':[{'extent':[20,188], 'psfs': [{'sigma':1, 'peak':0.1},
                                                    {'sigma':50,'peak':0.01}]},
                        {'extent':[189,327], 'psfs': [{'sigma':1, 'peak':0.1},
                                                    {'sigma':50,'peak':0.01}]}]}
-plot = True
+plot = False
 write = True
 
 with open('../data/cwis_ghost_pointwise_edit.txt','r') as fin:
@@ -34,8 +34,8 @@ with open('../data/cwis_ghost_pointwise_edit.txt','r') as fin:
              plt.figure(0)
              plt.plot(x,x*slope+offset,'r')
              plt.plot(sources,targets,'k.')
-            #plt.figure()
-            #plt.plot(sources,intensities)
+             plt.figure()
+             plt.plot(sources,intensities)
          sources, targets, intensities = [],[],[]
 if plot:
     plt.show()
