@@ -69,7 +69,7 @@ DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
 channels = np.arange(len(wl),dtype=int)
 factors = rdn / DN
 
-plt.plot(factors)
+plt.plot(wl,factors)
 
 # Interpolate over water vapor absorption at 1.88 microns
 a = np.argmin(abs(wl-1780))
@@ -94,7 +94,7 @@ model = np.polyfit(channels[edges],factors[edges],2)
 factors[interior] = np.polyval(model, channels[interior])
 
 # Show the interpolated result
-plt.plot(factors)
+plt.plot(wl,factors)
 plt.ylim([0,0.001])
 plt.show()
 
@@ -104,7 +104,7 @@ SNR = DN/DN_std/np.sqrt(frame_averaging)
 
 if True:
     # These filenames are used for the automatic selection method
-    timestamp = '20220117'
+    timestamp = '20220204'
     np.savetxt('../data/EMIT_RadiometricCoeffs_'+timestamp+'.txt',
               np.c_[channels,factors,factors_uncert], fmt='%10.8f')
     np.savetxt('../data/EMIT_RadiometricUncertainty_'+timestamp+'.txt',

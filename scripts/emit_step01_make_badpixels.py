@@ -335,7 +335,9 @@ for column in range(bad_map.shape[1]):
             bads = bads + 1
         else:
             state_machine = 0
+
 print('total bads:',bads)
 bad_map = bad_map.reshape((rows,columns,1))
+
 envi.save_image(output_file+'.hdr',
     bad_map, interleave='bsq', ext='', force=True)
