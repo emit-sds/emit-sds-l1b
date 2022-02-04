@@ -36,11 +36,13 @@ def find_header(infile):
 
 def serialize_ghost_config(config, coarse):
   x = []
-  if coarse:
+  if coarse==1:
       for i in range(len(config['orders'])):
           x.append(np.log(config['orders'][i]['scaling']))
-         #x.append(config['orders'][i]['intensity_slope'])
-         #x.append(config['orders'][i]['intensity_offset'])
+  elif coarse==2:
+      for i in range(len(config['orders'])):
+          x.append(config['orders'][i]['intensity_slope'])
+          x.append(config['orders'][i]['intensity_offset'])
   else:
       for zone in config['psf_zones']:
           for psf in zone['psfs']:
@@ -54,11 +56,13 @@ def serialize_ghost_config(config, coarse):
 
 def deserialize_ghost_config(x, config, coarse):
   ghost_config = deepcopy(config) 
-  if coarse: 
+  if coarse==1: 
       for i in range(len(ghost_config['orders'])):
         ghost_config['orders'][i]['scaling'] = np.exp(x[i])
-       #ghost_config['orders'][i]['intensity_slope'] = x[i*2]
-       #ghost_config['orders'][i]['intensity_offset'] = x[i*2+1]
+  elif coarse==2: 
+      for i in range(len(ghost_config['orders'])):
+        ghost_config['orders'][i]['intensity_slope'] = x[i*2]
+        ghost_config['orders'][i]['intensity_offset'] = x[i*2+1]
   else:
       ind = 0
       for zone in range(len(ghost_config['psf_zones'])):
@@ -144,14 +148,13 @@ def main():
  
 
     if True:
-
-        x0 = serialize_ghost_config(ghost_config, coarse=True)
-        #best = minimize(err, x0, args=(fpa, frames, ghost_config, True), jac=jac,method='Newton-CG')
-        best = minimize(err, x0, args=(fpa, frames, ghost_config, True), jac=jac,method='TNC')
-        best_config = deserialize_ghost_config(best.x, ghost_config, coarse=True)
+        coarse = 2
+        x0 = serialize_ghost_config(ghost_config, coarse=coarse)
+        best = minimize(err, x0, args=(fpa, frames, ghost_config, coarse), jac=jac,method='TNC')
+        best_config = deserialize_ghost_config(best.x, ghost_config, coarse=coarse)
         
         print(best.nit,'iterations')
-        print('final error:',err(best.x, fpa, frames, ghost_config, coarse=True))
+        print('final error:',err(best.x, fpa, frames, ghost_config, coarse=coarse))
         print(best.message)
         
         with open(args.output,'w') as fout:
@@ -160,13 +163,13 @@ def main():
     else:
         best_config = ghost_config
 
-    x0 = serialize_ghost_config(best_config, coarse=False)
+    x0 = serialize_ghost_config(best_config, coarse=0)
     print('here we go!')
-    best = minimize(err, x0, args=(fpa, frames, best_config, False), jac=jac,method='TNC')
-    best_config = deserialize_ghost_config(best.x, best_config, coarse=False)
+    best = minimize(err, x0, args=(fpa, frames, best_config, 0), jac=jac,method='TNC')
+    best_config = deserialize_ghost_config(best.x, best_config, coarse=0)
 
     print(best.nit,'iterations')
-    print('final error:',err(best.x, fpa, frames, best_config, coarse=False))
+    print('final error:',err(best.x, fpa, frames, best_config, coarse=0))
     print(best.message)
     
     with open(args.output,'w') as fout:
