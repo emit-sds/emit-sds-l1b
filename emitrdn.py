@@ -32,6 +32,7 @@ from fixghostraster import build_ghost_matrix
 from fixghostraster import build_ghost_blur
 from pedestal import fix_pedestal
 from darksubtract import subtract_dark
+from leftshift import left_shift_twice
 from emit2dark import dark_from_file
 
 
@@ -201,23 +202,17 @@ def main():
                
             while len(raw)>0:
 
-                if dtype == np.int16:
-                   # left shift by 2 binary digits, 
-                   # returning to the 16 bit range.
-                   raw = raw * 4
-
                 # Read a frame of data
                 if lines_analyzed%10==0:
                     logging.info('Calibrating line '+str(lines_analyzed))
                 
                 raw = np.array(raw, dtype=sp.float32)
-
-                # All operations take place assuming 480 rows.
-                # EMIT avionics only downlink a subset of this data
-                # We embed the raw data in a larger frame for analysis.
                 frame = raw.reshape((rows,columns))
-                if raw.shape[0] < fpa.native_rows:
-                    frame = frame_embed(frame, fpa)               
+
+                if dtype == np.int16:
+                   # left shift by 2 binary digits, 
+                   # returning to the 16 bit range.
+                   frame = left_shift_twice(frame)
 
                 jobs.append(calibrate_raw.remote(frame, fpa, config))
                 lines_analyzed = lines_analyzed + 1
