@@ -29,8 +29,10 @@ from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
 from fixghostraster import build_ghost_matrix
+from fixghostraster import build_ghost_blur
 from pedestal import fix_pedestal
 from darksubtract import subtract_dark
+from leftshift import left_shift_twice
 from emit2dark import dark_from_file
 
 
@@ -98,8 +100,8 @@ class Config:
         with open(self.ghost_map_file,'r') as fin:
             ghost_config = json.load(fin)
         self.ghost_matrix = build_ghost_matrix(ghost_config, fpa)
-        self.ghost_blur_spectral = ghost_config['blur_spectral']
-        self.ghost_blur_spatial = ghost_config['blur_spatial']
+        self.ghost_blur = build_ghost_blur(ghost_config, fpa)
+        self.ghost_center = ghost_config['center']
              
         basis = envi.open(self.linearity_file+'.hdr').load()
         self.linearity_mu = np.squeeze(basis[0,:])
@@ -122,8 +124,7 @@ def calibrate_raw(frame, fpa, config):
     # Optical corrections
     frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
     frame = fix_ghost(frame, fpa, config.ghost_matrix, 
-         blur_spatial = config.ghost_blur_spatial, 
-         blur_spectral = config.ghost_blur_spectral)
+         blur = config.ghost_blur, center = config.ghost_center)
 
     # Absolute radiometry
     frame = (frame.T * config.radiometric_calibration).T
@@ -201,23 +202,17 @@ def main():
                
             while len(raw)>0:
 
-                if dtype == np.int16:
-                   # left shift by 2 binary digits, 
-                   # returning to the 16 bit range.
-                   raw = raw * 4
-
                 # Read a frame of data
                 if lines_analyzed%10==0:
                     logging.info('Calibrating line '+str(lines_analyzed))
                 
                 raw = np.array(raw, dtype=sp.float32)
-
-                # All operations take place assuming 480 rows.
-                # EMIT avionics only downlink a subset of this data
-                # We embed the raw data in a larger frame for analysis.
                 frame = raw.reshape((rows,columns))
-                if raw.shape[0] < fpa.native_rows:
-                    frame = frame_embed(frame, fpa)               
+
+                if dtype == np.int16:
+                   # left shift by 2 binary digits, 
+                   # returning to the 16 bit range.
+                   frame = left_shift_twice(frame)
 
                 jobs.append(calibrate_raw.remote(frame, fpa, config))
                 lines_analyzed = lines_analyzed + 1

@@ -1,18 +1,10 @@
-#! /usr/bin/env python
-#
-#  Copyright 2020 California Institute of Technology
-#
-# EMIT Radiometric Calibration code
-# Author: David R Thompson, david.r.thompson@jpl.nasa.gov
-
-import scipy.linalg
-import os, sys
+# David R Thompson
 import numpy as np
-from spectral.io import envi
+import os, os.path, sys
 import json
-import logging
 import argparse
-from fpa import FPA, frame_embed, frame_extract
+import logging
+from spectral.io import envi
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -23,29 +15,14 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def fix_pedestal(frame, fpa):
-    if len(fpa.masked_cols)>0:
-        pedestal = np.median(frame[:,fpa.masked_cols], axis=1)
-        pedestal = pedestal * fpa.pedestal_multiplier
-        frame = (frame.T-pedestal).T
-    if len(fpa.masked_rows)>0:
-        pedestal = np.median(frame[fpa.masked_rows,:], axis=0)
-        pedestal = pedestal * fpa.pedestal_multiplier
-        frame = frame-pedestal
-    return frame
-
-
 def main():
 
-    description = "Fix pedestal shift for a data cube"
+    description = "Remove bad lines from L1a data in TVAC4"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config',type=str)
     parser.add_argument('output')
     args = parser.parse_args()
-
-    fpa = FPA(args.config)
 
     infile = envi.open(find_header(args.input))
 
@@ -66,11 +43,7 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
-
-    metadata = infile.metadata.copy()
-    metadata['data type'] = 4
-    envi.write_envi_header(args.output+'.hdr', metadata)
-
+    lines_written = 0
     with open(args.input,'rb') as fin:
       with open(args.output,'wb') as fout:
 
@@ -81,11 +54,21 @@ def main():
                 logging.info('Line '+str(line))
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            fixed = fix_pedestal(frame, fpa)
-            np.array(fixed, dtype=np.float32).tofile(fout)
+            if np.any(frame[100,:]<0):
+                continue
+            np.array(frame, dtype=np.float32).tofile(fout)
+            lines_written = lines_written +1
+
+    metadata = infile.metadata.copy()
+    metadata['data type'] = 4
+    metadata['lines'] = int(lines_written)
+    envi.write_envi_header(args.output+'.hdr', metadata)
+
 
     print('done') 
 
 if __name__ == '__main__':
 
     main()
+ 
+

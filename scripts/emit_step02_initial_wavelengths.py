@@ -102,7 +102,8 @@ for c in range(ncols):
 
 envi.save_image('../data/EMIT_WavelengthCenters_20220117.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
 
-wvl = ctrs.mean(axis=1)
+wvl = np.squeeze(ctrs[:,:,0]).mean(axis=1)
+
 fwhm = np.zeros(nrows)
 chn = np.arange(328)
 
