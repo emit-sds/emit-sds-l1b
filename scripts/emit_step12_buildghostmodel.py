@@ -4,8 +4,12 @@ import numpy as np
 import pylab as plt
 
 
-ghost_config = {'center':649.5, 'blur_spatial':50, 'blur_spectral':1, 
-  'orders':[]}
+ghost_config = {'center':649.5, 'orders':[],
+          'psf_zones':[{'extent':[20,188], 'psfs': [{'sigma':1, 'peak':0.1},
+                                                   {'sigma':50,'peak':0.01}]},
+                       {'extent':[189,327], 'psfs': [{'sigma':1, 'peak':0.1},
+                                                   {'sigma':50,'peak':0.01}]}]}
+
 plot = True
 write = True
 

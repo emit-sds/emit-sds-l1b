@@ -48,9 +48,6 @@ def serialize_ghost_config(config, coarse):
           for psf in zone['psfs']:
               x.append(np.log(psf['sigma']))
               x.append(np.log(psf['peak']))
-     #x.append(np.log(config['blur_spectral']))
-     #x.append(np.log(config['blur_spatial']))
-     #print(config['psf_zones'])
   return x    
 
 
@@ -70,9 +67,6 @@ def deserialize_ghost_config(x, config, coarse):
               ghost_config['psf_zones'][zone]['psfs'][psf]['sigma'] = np.exp(x[ind])
               ghost_config['psf_zones'][zone]['psfs'][psf]['peak'] = np.exp(x[ind+1])
               ind = ind+2
-     #ghost_config['blur_spectral'] = np.exp(x[-2])
-     #ghost_config['blur_spatial'] = np.exp(x[-1])
-     #print(ghost_config['psf_zones'])
   return ghost_config   
 
 
@@ -146,9 +140,8 @@ def main():
     with open(args.ghost_config,'r') as fin:
         ghost_config = json.load(fin)
  
+    for coarse in [1,0,2,1,0,2]:
 
-    if True:
-        coarse = 2
         x0 = serialize_ghost_config(ghost_config, coarse=coarse)
         best = minimize(err, x0, args=(fpa, frames, ghost_config, coarse), jac=jac,method='TNC')
         best_config = deserialize_ghost_config(best.x, ghost_config, coarse=coarse)
@@ -160,20 +153,7 @@ def main():
         with open(args.output,'w') as fout:
             fout.write(json.dumps(best_config,indent=2))
 
-    else:
-        best_config = ghost_config
-
-    x0 = serialize_ghost_config(best_config, coarse=0)
-    print('here we go!')
-    best = minimize(err, x0, args=(fpa, frames, best_config, 0), jac=jac,method='TNC')
-    best_config = deserialize_ghost_config(best.x, best_config, coarse=0)
-
-    print(best.nit,'iterations')
-    print('final error:',err(best.x, fpa, frames, best_config, coarse=0))
-    print(best.message)
-    
-    with open(args.output,'w') as fout:
-        fout.write(json.dumps(best_config,indent=2))
+        ghost_config = best_config
 
 if __name__ == '__main__':
     main()
