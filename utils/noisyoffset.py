@@ -8,7 +8,6 @@
 import scipy.linalg
 import os, sys
 import numpy as np
-from spectral.io import envi
 import json
 import logging
 import argparse
@@ -61,11 +60,6 @@ def main():
         columns = int(infile.metadata['samples'])
         lines = int(infile.metadata['lines'])
         nframe = rows * columns
-       
-       
-        metadata = infile.metadata.copy()
-        metadata['data type'] = 4
-        envi.write_envi_header(args.output+'.hdr', metadata)
         stds = []
        
         with open(inpath,'rb') as fin:
