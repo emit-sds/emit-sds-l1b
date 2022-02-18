@@ -8,6 +8,7 @@
 import scipy.linalg
 import os, sys
 import numpy as np
+from spectral.io import envi
 import json
 import logging
 import argparse
