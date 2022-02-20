@@ -94,6 +94,8 @@ def err(x, fpa, frames, ghost_config, coarse):
           center) for frame in frames]
     errs = np.array(jobs)
     print(sum(errs))
+   #for i,err in enumerate(jobs):
+   #    print('frame %i error %10.2f'%(i,err))
     return sum(errs)
  
 @ray.remote
@@ -140,7 +142,7 @@ def main():
     with open(args.ghost_config,'r') as fin:
         ghost_config = json.load(fin)
  
-    for coarse in [1,0,2,1,0,2]:
+    for coarse in [1,0,2,1,0,2,1,0,2]:
 
         x0 = serialize_ghost_config(ghost_config, coarse=coarse)
         best = minimize(err, x0, args=(fpa, frames, ghost_config, coarse), jac=jac,method='TNC')
