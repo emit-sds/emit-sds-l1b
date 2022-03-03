@@ -47,7 +47,7 @@ def main():
     logging.debug('Creating global attributes')
     makeGlobalAttr(nc_ds, args.rdn_file, args.glt_file)
 
-    nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance and Geolocation Data Swath, 72km, V001"
+    nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance and Geolocation Data 60 m V001"
     nc_ds.summary = nc_ds.summary + \
         f"\\n\\nThis collection contains L1B at-sensor calibrated radiances \
         and geolocation data. The radiance calibration occurs in two basic stages: 1) transforming raw digital numbers \
