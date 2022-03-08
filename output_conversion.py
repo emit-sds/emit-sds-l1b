@@ -88,7 +88,7 @@ def main():
     add_variable(nc_ds, "sensor_band_parameters/observation_bands", str, "Observation Band Names", None,
                  obs_ds.metadata['band names'], {"dimensions": ("observation_bands",)})
 
-    add_variable(nc_ds, 'radiance', "f4", "Radiance Data", "uW/cm/SR/nm", rdn_ds.open_memmap(interleave='bip')[...].copy(),
+    add_variable(nc_ds, 'radiance', "f4", "Radiance Data", "uW/cm^2/SR/nm", rdn_ds.open_memmap(interleave='bip')[...].copy(),
                  {"dimensions":("number_of_scans", "pixels_per_scan", "number_of_bands")})
     nc_ds.sync()
     nc_ds.close()
