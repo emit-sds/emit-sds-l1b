@@ -34,28 +34,51 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
+def randomize_ghost_config(config, seed):
+  new_config = deepcopy(config)
+  if seed is None:
+      return config
+  rng = np.random.default_rng(int(seed))
+  slopes = np.array([f['intensity_slope'] for f in config['orders']])
+  offsets = np.array([f['intensity_offset'] for f in config['orders']])
+  scalings = np.array([f['scaling'] for f in config['orders']])
+  for i in range(len(config['orders'])):
+     new_config['orders'][i]['scaling'] = \
+       rng.random(None,float) * (scalings.max()-scalings.min()) + scalings.min()
+     new_config['orders'][i]['intensity_offset'] = \
+       rng.random(None,float) * (offsets.max()-offsets.min()) + offsets.min()
+     new_config['orders'][i]['intensity_slope'] = \
+       rng.random(None,float) * (slopes.max()-slopes.min()) + slopes.min()
+  return new_config
+
+
 def serialize_ghost_config(config, coarse):
-  x = []
+  x, bounds = [],[]
   if coarse==1:
       for i in range(len(config['orders'])):
-          x.append(np.log(config['orders'][i]['scaling']))
+          x.append(config['orders'][i]['scaling'])
+          bounds.append((0,9999))
   elif coarse==2:
       for i in range(len(config['orders'])):
           x.append(config['orders'][i]['intensity_slope'])
+          bounds.append((-0.001,0.001))
           x.append(config['orders'][i]['intensity_offset'])
+          bounds.append((-0.1,0.1))
   else:
       for zone in config['psf_zones']:
           for psf in zone['psfs']:
-              x.append(np.log(psf['sigma']))
-              x.append(np.log(psf['peak']))
-  return x    
+              x.append(psf['sigma'])
+              bounds.append((0,100))
+              x.append(psf['peak'])
+              bounds.append((0,5))
+  return x,bounds    
 
 
 def deserialize_ghost_config(x, config, coarse):
   ghost_config = deepcopy(config) 
   if coarse==1: 
       for i in range(len(ghost_config['orders'])):
-        ghost_config['orders'][i]['scaling'] = np.exp(x[i])
+        ghost_config['orders'][i]['scaling'] = x[i]
   elif coarse==2: 
       for i in range(len(ghost_config['orders'])):
         ghost_config['orders'][i]['intensity_slope'] = x[i*2]
@@ -64,8 +87,8 @@ def deserialize_ghost_config(x, config, coarse):
       ind = 0
       for zone in range(len(ghost_config['psf_zones'])):
           for psf in range(len(ghost_config['psf_zones'][zone]['psfs'])):
-              ghost_config['psf_zones'][zone]['psfs'][psf]['sigma'] = np.exp(x[ind])
-              ghost_config['psf_zones'][zone]['psfs'][psf]['peak'] = np.exp(x[ind+1])
+              ghost_config['psf_zones'][zone]['psfs'][psf]['sigma'] = x[ind]
+              ghost_config['psf_zones'][zone]['psfs'][psf]['peak'] = x[ind+1]
               ind = ind+2
   return ghost_config   
 
@@ -98,6 +121,7 @@ def err(x, fpa, frames, ghost_config, coarse):
    #    print('frame %i error %10.2f'%(i,err))
     return sum(errs)
  
+
 @ray.remote
 def partial(x, i, fpa, frames, ghost_config, base_cost, coarse):
     x_perturb = x.copy()
@@ -124,6 +148,8 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('ghost_config')
     parser.add_argument('--config', default=None)
+    parser.add_argument('--seed', default=None)
+    parser.add_argument('--method', default='TNC')
     parser.add_argument('input',nargs='+')
     parser.add_argument('output')
     args = parser.parse_args()
@@ -141,20 +167,33 @@ def main():
 
     with open(args.ghost_config,'r') as fin:
         ghost_config = json.load(fin)
- 
+
+    ghost_config = randomize_ghost_config(ghost_config, args.seed)
+
+    # We perform coordinate descent on different state vector subspaces
     for coarse in [1,0,2,1,0,2,1,0,2]:
 
-        x0 = serialize_ghost_config(ghost_config, coarse=coarse)
-        best = minimize(err, x0, args=(fpa, frames, ghost_config, coarse), jac=jac,method='TNC')
-        best_config = deserialize_ghost_config(best.x, ghost_config, coarse=coarse)
+        # nonlinear solution
+        x0, bounds = serialize_ghost_config(ghost_config, coarse=coarse)
+        best = minimize(err, x0, args=(fpa, frames, ghost_config, coarse), \
+            jac=jac, bounds=bounds, method=args.method)
+        best_config = deserialize_ghost_config(best.x, ghost_config, \
+            coarse=coarse)
         
+        # Print the result to screen
         print(best.nit,'iterations')
         print('final error:',err(best.x, fpa, frames, ghost_config, coarse=coarse))
         print(best.message)
+
+        # Record final error
+        xbest, bounds = serialize_ghost_config(best_config, coarse=2)
+        best_config['final_error'] = err(xbest, fpa, frames, ghost_config, coarse=2)
         
+        # Write provisional configuration to the output file
         with open(args.output,'w') as fout:
             fout.write(json.dumps(best_config,indent=2))
 
+        # Initialize for the next round
         ghost_config = best_config
 
 if __name__ == '__main__':

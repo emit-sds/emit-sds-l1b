@@ -13,7 +13,7 @@ directory = os.path.split(os.path.abspath(__file__))[0]
 c,wl,f = np.loadtxt('../data/CWIS_Wavelengths_20220203.txt').T
 x_all, y_all, x2_all = [],[],[]
 #for fieldpoint,color in [(77,[0.2,0.2,0.8]),(360,[0.8,0.2,0.2]),(637,[0.2,0.8,0.2]),(961,[0.8,0.8,0.2]),(1211,[0.8,0.2,0.8])]:
-for fieldpoint,color in [(77,[0.2,0.2,0.8]),(360,[0.8,0.2,0.2]),(637,[0.2,0.8,0.2]),(961,[0.8,0.8,0.2])]:
+for fieldpoint,color in [(77,[0.2,0.2,0.8]),(360,[0.8,0.2,0.2]),(637,[0.2,0.8,0.2]),(961,[0.8,0.8,0.2]),(1214,[0.8,0.2,0.8])]:
     xc,x,y = [],[],[]
     files = glob.glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/SRF_*darksub_pedestal_%i.txt'%fieldpoint)
     for fil in files:

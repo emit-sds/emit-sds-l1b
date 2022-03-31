@@ -61,6 +61,7 @@ def main():
     parser.add_argument('input')
     parser.add_argument('--cue_channel',default=50,type=int)
     parser.add_argument('--background',type=str)
+    parser.add_argument('--config',type=str)
     parser.add_argument('--mask_image',type=str,default=None)
     parser.add_argument('output')
     args = parser.parse_args()
@@ -82,8 +83,13 @@ def main():
     nframe = rows * columns
     margin=2
     meta = {'interleave':'bsq', 'data type':4}
+        
+    flat = np.ones((rows,columns)) * -9999
+    noise = np.ones((rows,columns)) * -9999
+    DN_average, DN_noise = [],[]
 
     if args.mask_image is not None:
+ 
         mask = np.asarray(Image.open(args.mask_image))
         print(mask.shape) 
         if len(mask.shape)>2:
@@ -91,54 +97,95 @@ def main():
         if mask.shape[0] != lines or mask.shape[1] != columns:
             raise IndexError('mask does not match image')
 
-    foreground = np.ones((lines,rows,columns))
-    background = np.ones((lines,rows,columns))
-    with open(args.input,'rb') as fin:
+        n = max(mask.sum(axis=0))
+        foreground = np.zeros((rows,columns))
+        foreground_counts = np.zeros((rows,columns))
+        foreground_sq = np.zeros((rows,columns))
+        background = np.zeros((rows,columns))
+        background_counts = np.zeros((rows,columns))
+        background_sq = np.zeros((rows,columns))
 
-        # Accumulate n brightest observations of the source
-        for line in range(lines):
-            frame = np.fromfile(fin, count=nframe, dtype=dtype)
-            frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            foreground[line,:,:] = frame
-           
-    if args.background is not None:
-        with open(args.background,'rb') as fin:
-
-            # Accumulate n brightest observations of the background
+        with open(args.input,'rb') as fin:
+        
+            # Accumulate n brightest observations of the source
             for line in range(lines):
-                bg = np.fromfile(fin, count=nframe, dtype=dtype)
-                bg = np.array(bg.reshape((rows, columns)), dtype=np.float32)
-                background[line,:,:] = bg
+                frame = np.fromfile(fin, count=nframe, dtype=dtype)
+                frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
+                use = np.where(mask[line,:]>0)
+                if len(use)<1:
+                    continue
+                foreground[:,use] = foreground[:,use] + frame[:,use]
+                foreground_sq[:,use] = foreground_sq[:,use] + pow(frame[:,use],2)
+                foreground_counts[:,use] = foreground_counts[:,use] + 1
+            foreground = foreground / foreground_counts   
+            foreground_sq = foreground_sq / foreground_counts   
 
-    flat = np.ones((rows,columns)) * -9999
-    noise = np.ones((rows,columns)) * -9999
+        if args.background is not None:
+            with open(args.background,'rb') as fin:
+                for line in range(lines):
+                    frame = np.fromfile(fin, count=nframe, dtype=dtype)
+                    frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
+                    use = np.where(mask[line,:]>0)
+                    if len(use)<1:
+                        continue
+                    background[:,use] = background[:,use] + frame[:,use]
+                    background_sq[:,use] = background_sq[:,use] + pow(frame[:,use],2)
+                    background_counts[:,use] = background_counts[:,use] + 1
+                background = background / background_counts   
+                background_sq = background_sq / background_counts   
 
+        foreground_sd = np.sqrt(foreground_sq + pow(foreground,2))
+        background_sd = np.sqrt(background_sq + pow(background,2))
 
-    DN_average, DN_noise = [],[]
-    for row in range(rows):
-       for col in range(columns):
+        for row in range(rows):
+        
+           flat[row,:] = foreground[row,:] - background[row,:]
+           noise[row,:] = np.sqrt(pow(foreground_sd[row,:],2)-pow(background_sd[row,:],2))
+        
+           ref = nanmedian(flat[row, reference_cols])
+           ref_noise = nanmedian(noise[row, reference_cols])
+           print('row',row,'reference average is',ref)
+           flat[row,:] = ref / flat[row,:] 
+           DN_average.append(ref)
+           DN_noise.append(ref_noise)
 
-           y = np.squeeze(foreground[:,row,col])
-           bg_y = np.squeeze(background[:,row,col])
-           if args.mask_image is None:
-               fg, resid_fg = polymax(y,plot=(row==150 and col==200))
-               bg, resid_bg = polymax(bg_y,plot=(row==150 and col==200))
-           else:
-               use_lines = np.where(mask[:,col])[0]
-               fg = foreground[use_lines,row,col].mean()
-               bg = background[use_lines,row,col].mean()
-               resid_fg = foreground[use_lines,row,col].std()
-               resid_bg = background[use_lines,row,col].std()
+    else:
 
-           flat[row,col] = fg - bg
-           noise[row,col] = resid_fg
-
-       ref = nanmedian(flat[row, reference_cols])
-       ref_noise = nanmedian(noise[row, reference_cols])
-       print('row',row,'reference average is',ref)
-       flat[row,:] = ref / flat[row,:] 
-       DN_average.append(ref)
-       DN_noise.append(ref_noise)
+        foreground = np.ones((lines,rows,columns))
+        background = np.ones((lines,rows,columns))
+        with open(args.input,'rb') as fin:
+        
+            # Accumulate n brightest observations of the source
+            for line in range(lines):
+                frame = np.fromfile(fin, count=nframe, dtype=dtype)
+                frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
+                foreground[line,:,:] = frame
+               
+        if args.background is not None:
+            with open(args.background,'rb') as fin:
+        
+                # Accumulate n brightest observations of the background
+                for line in range(lines):
+                    bg = np.fromfile(fin, count=nframe, dtype=dtype)
+                    bg = np.array(bg.reshape((rows, columns)), dtype=np.float32)
+                    background[line,:,:] = bg
+        
+        for row in range(rows):
+           for col in range(columns):
+        
+               y = np.squeeze(foreground[:,row,col])
+               bg_y = np.squeeze(background[:,row,col])
+               fg, resid_fg = polymax(y,plot=False)#(row==150 and col==200))
+               bg, resid_bg = polymax(bg_y,plot=False)#(row==150 and col==200))
+               flat[row,col] = fg - bg
+               noise[row,col] = resid_fg
+        
+           ref = nanmedian(flat[row, reference_cols])
+           ref_noise = nanmedian(noise[row, reference_cols])
+           print('row',row,'reference average is',ref)
+           flat[row,:] = ref / flat[row,:] 
+           DN_average.append(ref)
+           DN_noise.append(ref_noise)
 
     flat[np.logical_not(np.isfinite(flat))] = -9999
     meta['average_DNs'] = np.array(DN_average)
