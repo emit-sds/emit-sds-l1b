@@ -103,8 +103,9 @@ def main():
                  alllines.append(line)
                  #print(line,ctr,fwhm)
    
-    plt.plot(alllines,allctrs,'.')
-    plt.show()
+    if args.plot:
+        plt.plot(alllines,allctrs,'.')
+        plt.show()
 
     # Find monochromator "velocity" by fitting a line
     chans_per_frame, offset = np.polyfit(alllines,allctrs,1)
