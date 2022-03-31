@@ -44,6 +44,7 @@ def main():
     parser.add_argument('--wavelengths',type=str,default=None)
     parser.add_argument('--monochromator_bandwidth_nm',type=float,default=1.0)
     parser.add_argument('--deconvolve',action='store_true')
+    parser.add_argument('--piecewise_velocity',action='store_true')
     parser.add_argument('--top_margin',type=int,default=-1)
     parser.add_argument('--bottom',type=int,default=999999)
     parser.add_argument('--plot',action='store_true')
@@ -88,8 +89,8 @@ def main():
             if line<args.top_margin or line>args.bottom:
                 continue
 
-            if line%100==0:
-                print('read line',line)
+           #if line%100==0:
+           #    print('read line',line)
 
             if args.target_index < 0:
                 maxind = np.argmax(np.sum(frame[:330,:],axis=0))
@@ -102,14 +103,24 @@ def main():
                  alllines.append(line)
                  #print(line,ctr,fwhm)
    
+    plt.plot(alllines,allctrs,'.')
+    plt.show()
+
+    # Find monochromator "velocity" by fitting a line
     chans_per_frame, offset = np.polyfit(alllines,allctrs,1)
     robust_model = RANSACRegressor()
     robust_model.fit(np.array(alllines)[:,np.newaxis],np.array(allctrs))
     chans_per_frame_robust = robust_model.estimator_.coef_[0]
     chans_per_frame = abs(chans_per_frame)
     chans_per_frame_robust = abs(chans_per_frame_robust)
+ 
     print('monochromator velocity:',chans_per_frame,'channels per frame')
-    print('robust monochromator velocity:',chans_per_frame_robust,'channels per frame')
+    print('robust monochromator velocity:',chans_per_frame_robust,'channels per frame')  
+
+    # Find the monochromator "velocity" by the median slope
+    if args.piecewise_velocity:
+        chans_per_frame_robust = abs(np.median(np.diff(allctrs)/np.diff(alllines)))
+        print('robust piecewise monochromator velocity:',chans_per_frame_robust,'channels per frame')
 
     chans = np.unique([int(round(c)) for c in allctrs])
     sequences = {c:[] for c in chans}
@@ -125,8 +136,8 @@ def main():
             if line<args.top_margin or line>args.bottom:
                 continue
 
-            if line%100==0:
-                print('read line',line)
+           #if line%100==0:
+           #    print('read line',line)
 
             if args.target_index < 0:
                 maxind = np.argmax(np.sum(frame[:330,:],axis=0))
@@ -138,7 +149,7 @@ def main():
         
     for ctr, sequence in sequences.items():
          nm_per_channel = abs(wl[ctr] - wl[ctr+1])
-         print('Nanometers per channel',nm_per_channel)
+         
          if args.deconvolve:
              # resample to 0.01 nm and deconvolve monochromator
              spacing_frames = 0.01 / nm_per_channel / chans_per_frame_robust
@@ -163,7 +174,7 @@ def main():
              c,amp,std = find_peak(sequence)
              fwhm = std * 2.0 * np.sqrt(2.0*np.log(2))
              fwhm = fwhm * chans_per_frame_robust # FWHM in channels
-             print('std',std,'fwhm',fwhm)
+             
              if args.output_nm:
                  fwhm = fwhm * nm_per_channel # FWHM in nm
              v,y = np.arange(len(sequence)), sequence
