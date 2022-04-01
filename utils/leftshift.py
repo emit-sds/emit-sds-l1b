@@ -15,7 +15,12 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def left_shift_twice(frame):
+def remove_metadata(frame):
+  frame[0,:] = frame[1,:]
+  return frame
+
+
+def left_shift_twice(frame, remove_metadata=True):
   return frame * 4
 
 
@@ -25,6 +30,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
+    parser.add_argument('--add',type=int,default=0)
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -47,6 +53,8 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
+    addend = float(args.add)
+
     metadata = infile.metadata.copy()
     metadata['data type'] = 4
     envi.write_envi_header(args.output+'.hdr', metadata)
@@ -62,7 +70,9 @@ def main():
 
             frame = np.fromfile(fin, count=nframe, dtype=dtype)
             frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-            frame = left_shift_twice(frame)
+            frame = frame + addend
+            frame = left_shift_twice(frame) 
+            frame = remove_metadata(frame) 
             np.array(frame, dtype=np.float32).tofile(fout)
 
 

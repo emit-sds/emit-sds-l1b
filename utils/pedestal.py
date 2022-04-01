@@ -24,11 +24,25 @@ def find_header(infile):
 
 
 def fix_pedestal(frame, fpa):
-    if len(fpa.masked_cols)>0:
+    if fpa.pedestal_strategy == 'neither':
+       total, counts = [],[]
+       mask = np.zeros(frame.shape)>1
+       if len(fpa.masked_cols)>0:
+          mask[:,fpa.masked_cols] = True
+       if len(fpa.masked_rows)>0:
+          mask[fpa.masked_rows,:] = True
+       avg = frame[mask].mean() * fpa.pedestal_multiplier 
+       frame = frame - avg
+       return frame
+    if (fpa.pedestal_strategy == 'columns' or \
+          fpa.pedestal_strategy == 'both') and \
+          len(fpa.masked_cols)>0:
         pedestal = np.median(frame[:,fpa.masked_cols], axis=1)
         pedestal = pedestal * fpa.pedestal_multiplier
         frame = (frame.T-pedestal).T
-    if len(fpa.masked_rows)>0:
+    if (fpa.pedestal_strategy == 'rows' or \
+          fpa.pedestal_strategy == 'both') and \
+          len(fpa.masked_rows)>0:
         pedestal = np.median(frame[fpa.masked_rows,:], axis=0)
         pedestal = pedestal * fpa.pedestal_multiplier
         frame = frame-pedestal
