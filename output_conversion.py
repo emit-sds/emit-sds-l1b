@@ -66,11 +66,11 @@ def main():
 
     logging.debug('Creating and writing radiance metadata')
     daac_converter.add_variable(nc_ds, "sensor_band_parameters/radiance_wl", "f4", "Wavelength Centers", "nm",
-                 [float(d) for d in rdn_ds.metadata['wavelength']], {"dimensions": ("number_of_bands",)})
+                 [float(d) for d in rdn_ds.metadata['wavelength']], {"dimensions": ("bands",)})
     daac_converter.add_variable(nc_ds, "sensor_band_parameters/radiance_fwhm", "f4", "Full Width at Half Max", "nm",
-                 [float(d) for d in rdn_ds.metadata['fwhm']], {"dimensions": ("number_of_bands",)})
+                 [float(d) for d in rdn_ds.metadata['fwhm']], {"dimensions": ("bands",)})
     daac_converter.add_variable(nc_ds, 'radiance', "f4", "Radiance Data", "uW/cm^2/SR/nm", rdn_ds.open_memmap(interleave='bip')[...].copy(),
-                 {"dimensions":("number_of_scans", "pixels_per_scan", "number_of_bands")})
+                 {"dimensions":("downtrack", "crosstrack", "bands")})
 
     logging.debug('Creating and writing location data')
     daac_converter.add_loc(nc_ds, args.loc_file)
@@ -98,13 +98,14 @@ def main():
         Geolocation data (latitude, longitude, height) and a lookup table to project the data are also included."
     nc_ds.sync()
 
+    daac_converter.makeDims(nc_ds, args.obs_file, args.glt_file)
+
 
     logging.debug('Creating and writing obs data')
-    nc_ds.createDimension('observation_bands', int(obs_ds.metadata['bands']))
     daac_converter.add_variable(nc_ds, "obs", "f4", "Observation Data", None,
-                 obs_ds.open_memmap(interleave='bip')[...].copy(), {"dimensions": ("number_of_scans", "pixels_per_scan", "observation_bands")})
+                 obs_ds.open_memmap(interleave='bip')[...].copy(), {"dimensions": ("downtrack", "crosstrack", "bands")})
     daac_converter.add_variable(nc_ds, "sensor_band_parameters/observation_bands", str, "Observation Band Names", None,
-                 obs_ds.metadata['band names'], {"dimensions": ("observation_bands",)})
+                 obs_ds.metadata['band names'], {"dimensions": ("bands",)})
 
     logging.debug('Creating and writing location data')
     daac_converter.add_loc(nc_ds, args.loc_file)
