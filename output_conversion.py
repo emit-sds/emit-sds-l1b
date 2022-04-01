@@ -39,8 +39,10 @@ def main():
     loc_ds = envi.open(envi_header(args.loc_file))
     glt_ds = envi.open(envi_header(args.glt_file))
 
-    # make the netCDF4 files
     obs_output_filename = args.radiance_output_filename.replace('L1B_RAD', 'L1B_OBS')
+
+    # Setup complete - transition to making the radiance output file
+
     logging.info(f'Creating Radiance netCDF4 file: {args.radiance_output_filename}')
     nc_ds = Dataset(args.radiance_output_filename, 'w', clobber=True, format='NETCDF4')
 
@@ -81,9 +83,14 @@ def main():
     del nc_ds
     logging.debug(f'Successfully created {args.radiance_output_filename}')
 
+    # Transition to creating the Observation output
 
     logging.info(f'Creating Observation netCDF4 file: {obs_output_filename}')
     nc_ds = Dataset(obs_output_filename, 'w', clobber=True, format='NETCDF4')
+
+    logging.debug('Creating global attributes')
+    daac_converter.makeGlobalAttr(nc_ds, args.obs_file, args.glt_file)
+
     nc_ds.title = "EMIT L1B Observation Data 60 m V001"
     nc_ds.summary = nc_ds.summary + \
         f"\\n\\nThis file contains L1B geometric information (path length, view and solar angles, timing) associated with \
@@ -91,8 +98,6 @@ def main():
         Geolocation data (latitude, longitude, height) and a lookup table to project the data are also included."
     nc_ds.sync()
 
-    logging.debug('Creating global attributes')
-    daac_converter.makeGlobalAttr(nc_ds, args.obs_file, args.glt_file)
 
     logging.debug('Creating and writing obs data')
     nc_ds.createDimension('observation_bands', int(obs_ds.metadata['bands']))
