@@ -79,7 +79,7 @@ def main():
     nc_ds.sync()
     nc_ds.close()
     del nc_ds
-    logging.debug(f'Successfully created {args.output_filename}')
+    logging.debug(f'Successfully created {args.radiance_output_filename}')
 
 
     logging.info(f'Creating Observation netCDF4 file: {obs_output_filename}')
