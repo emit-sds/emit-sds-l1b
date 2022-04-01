@@ -19,7 +19,8 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description='''This script \
     converts L1B PGE outputs to DAAC compatable formats, with supporting metadata''', add_help=True)
 
-    parser.add_argument('radiance_output_filename', type=str, help="Radiance output netcdf filename")
+    parser.add_argument('rdn_output_filename', type=str, help="Radiance output netcdf filename")
+    parser.add_argument('obs_output_filename', type=str, help="Observation output netcdf filename")
     parser.add_argument('rdn_file', type=str, help="EMIT L1B radiance ENVI file")
     parser.add_argument('obs_file', type=str, help="EMIT L1B observation data ENVI file")
     parser.add_argument('loc_file', type=str, help="EMIT L1B location data ENVI file")
@@ -36,15 +37,11 @@ def main():
 
     rdn_ds = envi.open(envi_header(args.rdn_file))
     obs_ds = envi.open(envi_header(args.obs_file))
-    loc_ds = envi.open(envi_header(args.loc_file))
-    glt_ds = envi.open(envi_header(args.glt_file))
-
-    obs_output_filename = args.radiance_output_filename.replace('L1B_RAD', 'L1B_OBS')
 
     # Setup complete - transition to making the radiance output file
 
-    logging.info(f'Creating Radiance netCDF4 file: {args.radiance_output_filename}')
-    nc_ds = Dataset(args.radiance_output_filename, 'w', clobber=True, format='NETCDF4')
+    logging.info(f'Creating Radiance netCDF4 file: {args.rdn_output_filename}')
+    nc_ds = Dataset(args.rdn_output_filename, 'w', clobber=True, format='NETCDF4')
 
     # make global attributes
     logging.debug('Creating global attributes')
@@ -81,12 +78,12 @@ def main():
     nc_ds.sync()
     nc_ds.close()
     del nc_ds
-    logging.debug(f'Successfully created {args.radiance_output_filename}')
+    logging.debug(f'Successfully created {args.rdn_output_filename}')
 
     # Transition to creating the Observation output
 
-    logging.info(f'Creating Observation netCDF4 file: {obs_output_filename}')
-    nc_ds = Dataset(obs_output_filename, 'w', clobber=True, format='NETCDF4')
+    logging.info(f'Creating Observation netCDF4 file: {args.obs_output_filename}')
+    nc_ds = Dataset(args.obs_output_filename, 'w', clobber=True, format='NETCDF4')
 
     logging.debug('Creating global attributes')
     daac_converter.makeGlobalAttr(nc_ds, args.obs_file, args.glt_file)
@@ -116,7 +113,7 @@ def main():
     nc_ds.sync()
     nc_ds.close()
     del nc_ds
-    logging.debug(f'Successfully created {obs_output_filename}')
+    logging.debug(f'Successfully created {args.obs_output_filename}')
 
 
     return
