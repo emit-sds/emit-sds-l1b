@@ -18,30 +18,22 @@ from spectral.io import envi
 # correction matrices
 validate = False
 
-if True:
+if False:
 
     # First combine the data from all the point spread function measurements
     # This requires running basic electronic corrections on all datasets first
     # Record the resulting Gaussian fits in some text files
 
-   #files = glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/*clip*pedestal')
-   #files.sort()
-   #cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--plot','--target_row','362','--spatial']+files+['>>','cwis_spatial_params_clipped.txt']
-   #print(' '.join(cmds))
-   #os.system(' '.join(cmds))
-
-    #files = glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/*clip*pedestal')
     files = glob('/beegfs/scratch/drt/20220112_CWIS2/20211210_lasers/20211210_LaserSphere_clip_darksub_pedestal_avg')
     files.sort()
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','84','--target_row','362']+files+['>','cwis_spectral_params_clipped.txt']
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','153','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','219','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','276','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','290','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','290','--target_row','307']+files+['>>','cwis_spectral_params_clipped.txt']
-    os.system(' '.join(cmds))
+    for target_col in ['84','153','219','276','290','306']:
+        for trow in np.arange(40,1280,40):
+            target_row = str(trow)
+            cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col',target_col,'--target_row',target_row]+files+['>>','cwis_spectral_params_clipped.txt']
+            print(' '.join(cmds))
+            os.system(' '.join(cmds))
 
-if False:
+if True:
 
   spatial, spectral = [],[]
 
@@ -49,11 +41,11 @@ if False:
   # correction for comparison, and second for real.
   for magnitude in [0,1]: 
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/cwis_spatial_params_clipped.txt ../data/CWIS_SpatialScatter_20220329' 
+    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/cwis_spectral_params_clipped.txt ../data/CWIS_SpatialScatter_20220406' 
     print(cmd)
     os.system(cmd)
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/cwis_spectral_params_clipped.txt ../data/CWIS_SpectralScatter_20220329' 
+    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/cwis_spectral_params_clipped.txt ../data/CWIS_SpectralScatter_20220406' 
     print(cmd)
     os.system(cmd)
  
