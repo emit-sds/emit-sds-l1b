@@ -149,7 +149,7 @@ def main():
     description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
-    default_config = my_directory + '/config/tvac2_config.json'
+    default_config = my_directory + '/config/tvac4_config.json'
     parser.add_argument('--config_file', default = default_config)
     parser.add_argument('--dark_file', default = None)
     parser.add_argument('--level', default='DEBUG',

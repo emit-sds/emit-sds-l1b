@@ -1,5 +1,5 @@
 {
-   "srf_correction_file": "data/EMIT_SpatialScatter_20220406",
+   "srf_correction_file": "data/EMIT_SpectralScatter_20220406",
    "crf_correction_file": "data/EMIT_SpatialScatter_20220406",
    "bad_element_file": "data/EMIT_BadElements_20220117",
    "flat_field_file": "data/EMIT_FlatField_20220117",
