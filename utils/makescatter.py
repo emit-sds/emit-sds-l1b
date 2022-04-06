@@ -64,7 +64,8 @@ def find_scatter(obs, args):
     else:
         ctr = args.target_col
     use = np.logical_and(np.isfinite(obs),np.logical_and(v>(ctr-args.hwid),v<(ctr+args.hwid+1)))
-    x0 = np.array([ctr, 1, 0.7, 0.010, 1.7, 0.0017, 7])
+    x0 = np.array([ctr, 0.8, 0.42, 0.0020, 1.5, 0.0005, 7])
+    #x0 = np.array([ctr, 1, 0.7, 0.010, 1.7, 0.0017, 7])
     #x0 = np.array([ctr, 1, 0.7, 0.001, 10, 0.001, 10])
 
     mdl = sum_of_gaussians(v,x0[0],abs(x0[1]),abs(x0[2]),abs(x0[3]),abs(x0[4]),abs(x0[5]),abs(x0[6]))
@@ -118,7 +119,11 @@ def main():
         nframe = rows * columns
         
         X = infile.load()
-        c = np.argmax(np.sum(np.sum(X,axis=1),axis=0)) 
+   
+        if args.target_col is None:
+            c = np.argmax(np.sum(np.sum(X,axis=1),axis=0)) 
+        else:
+            c = int(args.target_col)
         
         if args.target_row>0:
             col = args.target_row
