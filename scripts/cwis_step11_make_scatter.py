@@ -24,15 +24,21 @@ if True:
     # This requires running basic electronic corrections on all datasets first
     # Record the resulting Gaussian fits in some text files
 
-    files = glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/*clip*pedestal')
-    files.sort()
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--plot','--target_row','-362','--spatial']+files+['>>','cwis_spatial_params_clipped.txt']
-    print(' '.join(cmds))
-    os.system(' '.join(cmds))
+   #files = glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/*clip*pedestal')
+   #files.sort()
+   #cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--plot','--target_row','362','--spatial']+files+['>>','cwis_spatial_params_clipped.txt']
+   #print(' '.join(cmds))
+   #os.system(' '.join(cmds))
 
-    files = glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/*clip*pedestal')
+    #files = glob('/beegfs/scratch/drt/20220112_CWIS2/20220110_SRF/*clip*pedestal')
+    files = glob('/beegfs/scratch/drt/20220112_CWIS2/20211210_lasers/20211210_LaserSphere_clip_darksub_pedestal_avg')
     files.sort()
-    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--target_row','-362']+files+['>>','cwis_spectral_params_clipped.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','84','--target_row','362']+files+['>','cwis_spectral_params_clipped.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','153','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','219','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','276','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','290','--target_row','362']+files+['>>','cwis_spectral_params_clipped.txt']
+    cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col','290','--target_row','307']+files+['>>','cwis_spectral_params_clipped.txt']
     os.system(' '.join(cmds))
 
 if False:
