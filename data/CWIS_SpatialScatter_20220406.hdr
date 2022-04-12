@@ -7,3 +7,4 @@ file type = ENVI Standard
 data type = 4
 interleave = bip
 byte order = 0
+scatter = { 0.0015860925055871525 , 1.6563169630174333 , 0.00034552328029530734 , 7.040572297301029 }

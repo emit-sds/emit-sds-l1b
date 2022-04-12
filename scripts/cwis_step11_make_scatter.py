@@ -16,7 +16,7 @@ from spectral.io import envi
 # Set this to true if we have already completed a full calibration solution
 # We can then apply the EMIT calibration process for testing our SRF/CRF 
 # correction matrices
-validate = False
+validate = True
 
 if False:
 
@@ -53,49 +53,33 @@ if True:
     if validate:
 
         # Test image for spatial scatter validation 
-        testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/'
-        darkfile = testdir + '20211114_051100_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir + '20211114_051117_UTC_InFieldScatter_2058p14nm.raw'
-        rdnfile = dnfile.replace('.raw','_rdn')
-        cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
+        dnfile = '/beegfs/scratch/drt/20220112_CWIS2/hiss/20220124t1436avg10_scan500to700nm_clip'
+        darkfile = dnfile.replace('_clip','_dark_clip')
+        rdnfile = dnfile.replace('_clip','_rdn')
+        configfile = '/home/drt/src/emit-sds-l1b/config/cwis2.json'
+        cmd = 'python ../emitrdn.py --config %s --dark_file %s %s %s' % (configfile,darkfile,dnfile,rdnfile)
         print(cmd)
         os.system(cmd)
         
         # Extract the point spread function in the spatial dimension
         I = envi.open(rdnfile+'.hdr').load()
-        I = np.squeeze(np.mean(I,axis=0)).T
-        band = np.argmax(np.mean(I,axis=1))
-        I = np.squeeze(I[band,:])
-        
-        # Plot the result to the screen
-        spatial.append(I)
-        plt.semilogy(I)
-        plt.show()
 
-        # Test image for spectral scatter validation 
-        testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211115_InFieldScatter/'
-        darkfile = testdir+'20211115_225554_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir+'20211115_225605_UTC_InFieldScatter_2060p12nm.raw'
-        rdnfile = dnfile.replace('.raw','_rdn')
-        cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
-        print(cmd)
-        os.system(cmd)
- 
-        # Extract the point spread function in the spectral dimension
-        I = envi.open(rdnfile+'.hdr').load()
-        I = np.squeeze(np.mean(I,axis=0)).T
-        position = np.argmax(np.mean(I,axis=0))
-        I = np.squeeze(I[:,position])
-        
         # Plot the result to the screen
-        spectral.append(I)
-        plt.semilogy(I)
-        plt.show()
+        x = np.squeeze(I[69,341,15:])
+        spectral.append(x)
+        plt.figure(0)
+        plt.semilogy(x)
+        x = np.squeeze(I[69,:,30])
+        spatial.append(x)
+        plt.figure(1)
+        plt.semilogy(x)
+
+  plt.show()
 
   # Save pretty plots
   if validate:
-      np.savetxt('EMIT_l1bplots_Spatial.txt', np.array(spatial).T)
-      np.savetxt('EMIT_l1bplots_Spectral.txt', np.array(spectral).T)
+      np.savetxt('CWIS_l1bplots_Spatial.txt', np.array(spatial).T)
+      np.savetxt('CWIS_l1bplots_Spectral.txt', np.array(spectral).T)
  
  
  
