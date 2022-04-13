@@ -181,6 +181,8 @@ def main():
 
     if int(infile.metadata['data type']) == 2:
         dtype = np.int16
+    elif int(infile.metadata['data type']) == 12:
+        dtype = np.uint16
     elif int(infile.metadata['data type']) == 4:
         dtype = np.float32
     else:
