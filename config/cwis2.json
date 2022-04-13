@@ -26,5 +26,6 @@
    "last_distributed_row": 322,
    "native_rows":328, 
    "native_columns":1280,
+   "reference_cols": [[200,400],[880,1080]],
    "pedestal_strategy":"rows"
 }
