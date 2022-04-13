@@ -127,10 +127,10 @@ def calibrate_raw(frame, fpa, config):
          blur = config.ghost_blur, center = config.ghost_center)
 
     # Absolute radiometry
-    frame = (frame.T * config.radiometric_calibration).T
+   #frame = (frame.T * config.radiometric_calibration).T
    
     # Fix OSF
-    frame = fix_osf(frame, fpa)
+   #frame = fix_osf(frame, fpa)
 
     # Catch NaNs
     frame[sp.logical_not(sp.isfinite(frame))]=0
@@ -204,10 +204,7 @@ def main():
                
             while len(raw)>0:
 
-                # Read a frame of data
-                if lines_analyzed%10==0:
-                    logging.info('Calibrating line '+str(lines_analyzed))
-                
+                # Read a frame of data 
                 raw = np.array(raw, dtype=sp.float32)
                 frame = raw.reshape((rows,columns))
 
@@ -215,6 +212,9 @@ def main():
                    # left shift by 2 binary digits, 
                    # returning to the 16 bit range.
                    frame = left_shift_twice(frame)
+
+                if lines_analyzed%10==0:
+                    logging.info('Calibrating line '+str(lines_analyzed))
 
                 jobs.append(calibrate_raw.remote(frame, fpa, config))
                 lines_analyzed = lines_analyzed + 1
@@ -224,7 +224,7 @@ def main():
                     # Write to file
                     result = ray.get(jobs)
                     for frame in result:
-                        sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                        np.asarray(frame, dtype=sp.float32).tofile(fout)
                     jobs = []
             
                 # Read next chunk
