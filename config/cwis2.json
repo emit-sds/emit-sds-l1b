@@ -1,7 +1,7 @@
 {
    "srf_correction_file": "data/CWIS_SpectralScatter_20220406",
    "crf_correction_file": "data/CWIS_SpatialScatter_20220406",
-   "bad_element_file": "data/CWIS_BadElements_20220217",
+   "bad_element_file": "data/CWIS_BadElements_20220413",
    "flat_field_file": "data/CWIS_FlatField_20220413",
    "radiometric_coefficient_file": "data/CWIS_RadiometricCoeffs_20220413.txt",
    "spectral_calibration_file": "data/CWIS_Wavelengths_20220331.txt",
