@@ -127,10 +127,10 @@ def calibrate_raw(frame, fpa, config):
          blur = config.ghost_blur, center = config.ghost_center)
 
     # Absolute radiometry
-   #frame = (frame.T * config.radiometric_calibration).T
+    frame = (frame.T * config.radiometric_calibration).T
    
     # Fix OSF
-   #frame = fix_osf(frame, fpa)
+    frame = fix_osf(frame, fpa)
 
     # Catch NaNs
     frame[sp.logical_not(sp.isfinite(frame))]=0
