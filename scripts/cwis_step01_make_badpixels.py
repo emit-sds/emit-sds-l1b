@@ -24,6 +24,7 @@ def find_header(infile):
 # bad row, column ranges (inclusive, zero indexed, 480x1280 format]
 manual_bads=[(60,164),
              (180,140), 
+             (181,(140,141)), 
              (204,141),
              (351,73),
              (433,253), 
