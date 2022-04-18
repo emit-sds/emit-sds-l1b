@@ -8,6 +8,7 @@ plot = True
 
 q,wl,fwhm = np.loadtxt('../data/CWIS_Wavelengths_20220331.txt').T * 1000.0
 
+# This helper function resamples a spectrum to our new wavelengths
 def resample(wl_old, spectrum, method='linear'):
   p = interp1d(wl_old, spectrum, kind=method, fill_value='extrapolate', bounds_error=False)
   return p(wl)
@@ -23,39 +24,65 @@ wl_spec, spec_rfl = \
      np.loadtxt('../data/ogse/cwis2/panel_srt-99-120-0715_reflectance.txt',skiprows=1).T  
 spectralon_rfl = resample(wl_spec, spec_rfl)
 
-# BRDF
+# Spectralon panel BRDF
 brdf_factor = np.ones(len(wl)) * 1.015
 
-# Radiance 
+# Radiance predicted at sensor
 rdn = irradiance * spectralon_rfl / np.pi * brdf_factor 
 
+# Wavelengths used for uncertainty data
 wl_uncert = np.array([350.0, 450.0, 555.0, 654.6, 900.0, 1000.0, 2000.0, 2300.0, 2400.0])
-nist_uncert_pct = resample(wl_uncert, np.array([1.27, 0.91, 0.77, 0.69, 0.57, 0.47, 0.50, 0.49, 1.11]))
-nist_uncert = nist_uncert_pct / 100.0 * rdn
-setup_uncert_pct = resample(wl_uncert, np.array([2.00, 2.00, 2.00, 2.00, 2.00, 2.00, 2.00, 2.00, 2.00 ]))
-setup_uncert = setup_uncert_pct / 100.0 * rdn
-xfer_uncert_pct = resample(wl_uncert, np.array([1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00 ]))
-xfer_uncert = setup_uncert_pct / 100.0 * rdn
-current_uncert_pct = resample(wl_uncert, np.array([0.71, 0.56, 0.46, 0.40, 0.30, 0.27, 0.14, 0.13, 0.12]))
-current_uncert = current_uncert_pct / 100.0 * rdn
-spectral_uncert_pct = resample(wl_uncert, np.array([0.55, 0.22, 0.10, 0.06, 0.02, 0.01, 0.00, 0.00, 0.00]))
-spectral_uncert = spectral_uncert_pct / 100.0 * rdn
-spectralon_uncert_frac = resample(wl_uncert, np.array([0.0055, 0.0055, 0.0055, 0.0049, 0.0049, 0.0049, 0.0088, 0.032, 0.032])) 
-spectralon_uncert = spectralon_uncert_frac * rdn
-brdf_uncert_pct = resample(wl_uncert, np.array([1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5]))
-brdf_uncert = brdf_uncert_pct / 100.0 * rdn
 
+# The NIST lamp uncertainty, courtesy Mark Helmlinger
+nist_uncert_pct = resample(wl_uncert, np.array([1.27, 0.91, 0.77, 0.69, 0.57, 0.47, 0.50, 0.49, 1.11]))
+nist_uncert_frac = nist_uncert_pct / 100.0 
+nist_uncert = nist_uncert_frac * rdn # radiance units
+
+# OGSE Geometry (conservative)
+setup_uncert_pct = resample(wl_uncert, np.array([2.00, 2.00, 2.00, 2.00, 2.00, 2.00, 2.00, 2.00, 2.00 ]))
+setup_uncert_frac = setup_uncert_pct / 100.0 
+setup_uncert = setup_uncert_frac * rdn # radiance units
+
+# Manufacturer transfer uncertainty (conservative)
+xfer_uncert_pct = resample(wl_uncert, np.array([1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00 ]))
+xfer_uncert_frac = setup_uncert / 100.0
+xfer_uncert = setup_uncert_frac * rdn # radiance units
+
+# Lamp current uncertainty, from MH 
+current_uncert_pct = resample(wl_uncert, np.array([0.71, 0.56, 0.46, 0.40, 0.30, 0.27, 0.14, 0.13, 0.12]))
+current_uncert_frac = current_uncert_pct / 100.0
+current_uncert = current_uncert_frac * rdn
+
+# Spectral calibration-related uncertainy, from MH
+spectral_uncert_pct = resample(wl_uncert, np.array([0.55, 0.22, 0.10, 0.06, 0.02, 0.01, 0.00, 0.00, 0.00]))
+spectral_uncert_frac = spectral_uncert_pct / 100.0 
+spectral_uncert = spectral_uncert_frac * rdn
+
+# Spectralon reflectance uncertainty from manufaturer, reported as two standard deviations
+spectralon_uncert_k2_frac = resample(wl_uncert, np.array([0.0055, 0.0055, 0.0055, 0.0049, 0.0049, 0.0049, 0.0088, 0.032, 0.032])) 
+spectralon_uncert_frac = spectralon_uncert_k2_frac / 2.0 
+spectralon_uncert = spectralon_uncert_frac * rdn
+
+# BRDF uncertainty, conservative
+brdf_uncert_pct = resample(wl_uncert, np.array([1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5]))
+brdf_uncert_frac = brdf_uncert_pct / 100.0
+brdf_uncert = brdf_uncert_frac  * rdn
+
+# Radiance uncertainty is Root Sum Square of independent sources
 rdn_uncert = np.sqrt(nist_uncert**2 + setup_uncert**2 + \
         xfer_uncert**2 + spectral_uncert**2 + brdf_uncert**2 +\
         current_uncert**2 + spectralon_uncert**2)
+rdn_uncert_frac = rdn_uncert / rdn
 
+# Get the average DNs from each channel of the observation
 basedir = '../data/'
 input_file = basedir+'CWIS_FlatField_20220413'
 I = envi.open(input_file+'.hdr')
 DN = np.array([float(d) for d in I.metadata['average_dns']])
 DN_std = np.array([float(d) for d in I.metadata['stdev_dns']])
-
 channels = np.arange(len(wl),dtype=int)
+
+# Calibration factors and their uncertainties
 factors = rdn / DN
 factors_uncert = rdn_uncert / DN
 
@@ -98,9 +125,16 @@ if True:
     timestamp = '20220413'
     np.savetxt('../data/CWIS_RadiometricCoeffs_'+timestamp+'.txt',
               np.c_[channels,factors,factors_uncert], fmt='%10.8f')
-    np.savetxt('../data/CWIS_RadiometricUncertainty_'+timestamp+'.txt',
-              np.c_[channels,factors_uncert/factors], fmt='%10.8f',
-              header='Uncertainty, fractional')
+rdn_uncert = np.sqrt(nist_uncert**2 + setup_uncert**2 + \
+        xfer_uncert**2 + spectral_uncert**2 + brdf_uncert**2 +\
+        current_uncert**2 + spectralon_uncert**2)
+
+
+    np.savetxt('../data/CWIS_RadiometricUncertainty_'+timestamp+'.csv',
+              np.c_[wl,nist_uncert_frac,setup_uncert_frac,xfer_uncert_frac,
+                      spectral_uncert_frac,brdf_uncert_frac,current_uncert_frac,
+                      spectralon_uncert_frac,rdn_uncert_frac], fmt='%10.8f', delimiter=',',
+              header='Wavelength, NIST calibration uncertainty, OGSE geometry uncertainty, Manufacturer transfer uncertainty, Spectral calibration uncertainty, BRDF uncertainty, Lamp current uncertainty, Spectralon reflectance uncertainty, Total uncertainty')
     np.savetxt('../data/CWIS_RadiometricReference_'+timestamp+'.txt',
               np.c_[wl,rdn], fmt='%10.8f')
     np.savetxt('../data/CWIS_RadiometricReferenceDN_'+timestamp+'.txt',
