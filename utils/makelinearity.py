@@ -85,6 +85,8 @@ def main():
     parser.add_argument('input',nargs='+')
     parser.add_argument('--plot',action='store_true')
     parser.add_argument('--margin',default=37)
+    parser.add_argument('--top',type=int,default=-1)
+    parser.add_argument('--bottom',type=int,default=-1)
     parser.add_argument('--config')
     parser.add_argument('output')
     args = parser.parse_args()
@@ -93,8 +95,14 @@ def main():
     fpa = FPA(args.config)
     left = fpa.first_illuminated_column
     right = fpa.last_illuminated_column
-    top = fpa.first_illuminated_row
-    bottom = fpa.last_illuminated_row
+    if args.top >= 0:
+        top = args.top
+    else:
+        top = fpa.first_illuminated_row
+    if args.bottom >= 0:
+        bottom = args.bottom
+    else:
+        bottom = fpa.last_illuminated_row
 
     xs,ys = [],[]
     nfiles = len(args.input) 
@@ -133,7 +141,7 @@ def main():
         nframe = rows * columns
         
         x,y = [],[]
-        image_data = (infile.load())[:,active_rows,:].mean(axis=1).mean(axis=0)
+        image_data = np.median(np.median((infile.load())[:,active_rows,:],axis=1),axis=0)
         print(image_data.shape)
         data.append(image_data)
 
@@ -146,10 +154,11 @@ def main():
         DN = data[:,wl]
         L = np.array(illums) 
         resamp = linearize(DN, L, plot=(args.plot and wl==100))
-        if all(np.logical_and(resamp>0.98,resamp<1.02)):
-            curves.append(resamp)
+        #if all(np.logical_and(resamp>0.98,resamp<1.02)):
+        curves.append(resamp)
   
     curves = np.array(curves,dtype=np.float32)
+    print(curves.shape)
     envi.save_image(args.output+'.hdr',curves,ext='',force=True)
 
     
