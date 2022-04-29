@@ -76,7 +76,7 @@ def find_scatter(obs, args):
     if args.plot:
         #plt.semilogy(v[use],mdl[use],'b')
         plt.semilogy(v[use],obs[use],'ko')
-        plt.semilogy(v[use],mdl2[use],'r')
+        #plt.semilogy(v[use],mdl2[use],'r')
         plt.box(False)
         plt.xlabel('channel')
         plt.grid(True)

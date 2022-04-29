@@ -177,7 +177,7 @@ def main():
     ghost_config = randomize_ghost_config(ghost_config, args.seed)
 
     # We perform coordinate descent on different state vector subspaces
-    for coarse in [1,0,2,1,0,2,1,0,2]:
+    for coarse in [2,0,2]:#,1,0,2,1,0,2]:
 
         # nonlinear solution
         x0, bounds = serialize_ghost_config(ghost_config, coarse=coarse)
@@ -196,8 +196,8 @@ def main():
             coarse=coarse)
         
         # Record final error
-        xbest, bounds = serialize_ghost_config(best_config, coarse=2)
-        best_config['final_error'] = err_npy(xbest, fpa, frames, ghost_config, coarse=2)
+       #xbest, bounds = serialize_ghost_config(best_config, coarse=2)
+       #best_config['final_error'] = err_npy(xbest, fpa, frames, ghost_config, coarse=2)
         
         # Write provisional configuration to the output file
         with open(args.output,'w') as fout:

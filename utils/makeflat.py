@@ -30,10 +30,9 @@ def moving_average(x, w=5):
       return np.convolve(x, np.ones(w), 'same') / w
 
 
-def polymax(y, plot=False):
+def polymax(y, plot=False, halfwid=16):
     series = moving_average(y)
     ctr = np.argmax(series)
-    halfwid = 16
     segment = y[max(0,ctr-halfwid):min(ctr+halfwid+1,len(y)-1)]
     x = np.arange(len(segment))
     p = np.polyfit(x,segment,6)
@@ -59,6 +58,7 @@ def main():
     parser.add_argument('--cue_channel',default=50,type=int)
     parser.add_argument('--background',type=str)
     parser.add_argument('--config',type=str)
+    parser.add_argument('--halfwid',type=int, default=16)
     parser.add_argument('--mask_image',type=str,default=None)
     parser.add_argument('output')
     args = parser.parse_args()
@@ -67,7 +67,8 @@ def main():
     reference_cols = []
     print(dir(fpa))
     for extrema in fpa.reference_cols:
-      reference_cols.append(np.arange(extrema[0],extrema[1]))
+      reference_cols.extend(np.arange(extrema[0],extrema[1]))
+    reference_cols = np.array(reference_cols, dtype=int)
 
     infile = envi.open(find_header(args.input))
  
@@ -178,11 +179,13 @@ def main():
            for col in range(columns):
         
                y = np.squeeze(foreground[:,row,col])
-               fg, resid_fg = polymax(y,plot=False)#(row==150 and col==200))
+               fg, resid_fg = polymax(y,plot=(row==150 and col==200), 
+                   halfwid=int(args.halfwid))
 
                if args.background is not None:
                    bg_y = np.squeeze(background[:,row,col])
-                   bg, resid_bg = polymax(bg_y,plot=False)#(row==150 and col==200))
+                   bg, resid_bg = polymax(bg_y,plot=(row==150 and col==200),
+                       halfwid=int(args.halfwid))
                    fg = fg - bg
 
                flat[row,col] = fg 

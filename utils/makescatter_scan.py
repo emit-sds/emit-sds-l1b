@@ -135,7 +135,7 @@ def main():
                #plt.plot(X[loc,:],'r')
                #plt.show()
                 print(i,loc,chan)
-                margin = 20
+                margin = 40
                 X = X[(loc-margin):(loc+margin+1),:]
                 X = X[:,(chan-margin):(chan+margin+1)]
             

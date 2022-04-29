@@ -4,19 +4,21 @@ import numpy as np
 import pylab as plt
 
 
-ghost_config = {'center':649.5, 'orders':[],
-          'psf_zones':[{'extent':[20,188], 'psfs': [{'sigma':1, 'peak':0.1},
+ghost_config = {'center':649.0, 'orders':[],
+          'psf_zones':[{'extent':[20,182], 'psfs': [{'sigma':1, 'peak':0.000001},
                                                    {'sigma':50,'peak':0.01}]},
-                       {'extent':[189,327], 'psfs': [{'sigma':1, 'peak':0.1},
+                       {'extent':[182,327], 'psfs': [{'sigma':1, 'peak':0.000001},
                                                    {'sigma':50,'peak':0.01}]}]}
 
 plot = True
-write = True
+write = True 
 
-with open('../data/ghost_pointwise_edit.txt','r') as fin:
+with open('../data/ghost_pointwise_subframed_edit.txt','r') as fin:
    sources, targets, intensities = [],[],[]
    for line in fin.readlines():
-     if len(line)>3:
+     if line[0] == '#':
+         continue
+     elif len(line)>3:
          toks = line.split()
          sources.append(float(toks[0]))
          targets.append(float(toks[1]))

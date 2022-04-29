@@ -14,6 +14,7 @@ import logging
 import argparse
 from fpa import FPA, frame_embed, frame_extract
 
+
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
     return infile+'.hdr'

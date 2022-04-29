@@ -98,8 +98,8 @@ if True:
 
   # Save pretty plots
   if validate:
-      np.savetxt('EMIT_l1bplots_Spatial.txt', np.array(spatial).T)
-      np.savetxt('EMIT_l1bplots_Spectral.txt', np.array(spectral).T)
+      np.savetxt('../data/plots/EMIT_l1bplots_Spatial.txt', np.array(spatial).T)
+      np.savetxt('../data/plots/EMIT_l1bplots_Spectral.txt', np.array(spectral).T)
  
  
  
