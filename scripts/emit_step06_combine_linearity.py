@@ -4,9 +4,26 @@ import numpy as np
 import pylab as plt
 from spectral.io import envi
 
-# This is the new expedient approach in which we apply a single lnearity
-# curve as a global correction to all FPA elements.
+
+# This is the conservative approach in which the linearity
+# correction is a no-op.
 if True:
+
+    grid = np.arange(2**16)
+    mu = np.ones((1,len(grid)))
+    D = np.concatenate((mu,np.zeros((2,len(grid)))),axis=0)
+
+    envi.save_image('../data/EMIT_LinearityBasis_20220504.hdr',
+        np.asarray(D,dtype=np.float32),ext='',force=True)
+
+    envi.save_image('../data/EMIT_LinearityMap_20220504.hdr',
+        np.zeros((328,1280,2),dtype=np.float32),ext='',force=True)
+
+
+
+# This is the expedient approach in which we apply a single lnearity
+# curve as a global correction to all FPA elements.
+if False:
 
     curves = []
     for fieldpoint in [280]: 

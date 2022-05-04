@@ -88,6 +88,10 @@ def main():
     margin=2
     meta = {'interleave':'bsq', 'data type':4}
         
+    if args.background is not None:
+       bgfile = envi.open(find_header(args.background))
+       bglines = int(bgfile.metadata['lines'])
+
     flat = np.ones((rows,columns)) * -9999
     noise = np.ones((rows,columns)) * -9999
     DN_average, DN_noise = [],[]
@@ -126,7 +130,7 @@ def main():
 
         if args.background is not None:
             with open(args.background,'rb') as fin:
-                for line in range(lines):
+                for line in range(bglines):
                     frame = np.fromfile(fin, count=nframe, dtype=dtype)
                     frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
                     use = np.where(mask[line,:]>0)
@@ -170,7 +174,7 @@ def main():
             with open(args.background,'rb') as fin:
         
                 # Accumulate n brightest observations of the background
-                for line in range(lines):
+                for line in range(bglines):
                     bg = np.fromfile(fin, count=nframe, dtype=dtype)
                     bg = np.array(bg.reshape((rows, columns)), dtype=np.float32)
                     background[line,:,:] = bg
@@ -179,12 +183,12 @@ def main():
            for col in range(columns):
         
                y = np.squeeze(foreground[:,row,col])
-               fg, resid_fg = polymax(y,plot=(row==150 and col==200), 
+               fg, resid_fg = polymax(y,plot=False,#plot=(row==150 and col==200), 
                    halfwid=int(args.halfwid))
 
                if args.background is not None:
                    bg_y = np.squeeze(background[:,row,col])
-                   bg, resid_bg = polymax(bg_y,plot=(row==150 and col==200),
+                   bg, resid_bg = polymax(bg_y,plot=False,#(row==150 and col==200),
                        halfwid=int(args.halfwid))
                    fg = fg - bg
 
