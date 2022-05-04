@@ -11,6 +11,7 @@ import scipy as sp
 from spectral.io import envi
 import json
 import logging
+import numpy as np
 import argparse
 
 
@@ -24,6 +25,8 @@ file type = ENVI Standard
 data type = 4
 interleave = bsq
 byte order = 0"""
+
+bad_flag = -9990
 
 
 def find_header(infile):
@@ -55,7 +58,9 @@ def dark_from_file(filepath):
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
-    darkframes = []
+    total = np.zeros((rows,columns))
+    total_sq = np.zeros((rows,columns))
+    counts = np.zeros((rows,columns))
     with open(filepath, 'rb') as fin:
         for line in range(lines):
         
@@ -67,16 +72,17 @@ def dark_from_file(filepath):
                 print('exiting early')
                 break
             frame = frame.reshape((rows, columns))
-            darkframes.append(frame)
+            use = frame>bad_flag
+            counts[use] = counts[use]+1
+            total[use] = total[use] + frame[use]
+            total_sq[use] = total_sq[use] + pow(frame[use],2)
 
-    ndark = len(darkframes)
-    dark_avg = sp.array(darkframes).mean(axis=0)
-
-    if ndark>1:
-        dark_std = sp.array(darkframes).std(axis=0)/sp.sqrt(ndark)
-    else:
-        dark_std = np.ones((dark_avg.shape)) * -9999
-    return dark_avg, dark_std
+    avg = total / counts 
+    avg_sq = total_sq / counts 
+    std = avg_sq - pow(avg,2) 
+    avg[np.logical_not(np.isfinite(avg))] = -9999
+    std[np.logical_not(np.isfinite(std))] = -9999
+    return avg, std
 
 
   

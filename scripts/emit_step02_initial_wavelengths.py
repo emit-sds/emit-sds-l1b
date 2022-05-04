@@ -8,10 +8,11 @@ import astropy.modeling as modeling
 from astropy.modeling.models import custom_model
 from astropy.modeling.fitting import LevMarLSQFitter
 from scipy.optimize import minimize
+from scipy.signal import medfilt
 from numpy.random import randn
 import json
 
-
+# Fit a gaussian to a single peak in an ordered series of data
 def find_peak(x, plot=False):
     fitter = modeling.fitting.LevMarLSQFitter()
     model = modeling.models.Gaussian1D(amplitude=np.max(x),
@@ -26,8 +27,11 @@ def find_peak(x, plot=False):
     return fitted_model.mean[0], fitted_model.amplitude[0], fitted_model.stddev[0]
 
 
+# We will analyze the laser sphere data from TVAC2.  It has already
+# been clipped to the standard subframe, dark-subtracted, and 
+# pedestal-shift corrected
 basedir = '/beegfs/scratch/drt/20220124_EMIT_LaserSphere/'
-I = envi.open(basedir+'20211112_211905_UTC_LaS_Fields-40-1319_clip_darksub_pedestal_badfix_osffix_linear_scatterfix_ghostfix.hdr')
+I = envi.open(basedir+'20211112_211905_UTC_LaS_Fields-40-1319_subframe_darksub_pedestal.hdr')
 I = I.load()
 
 # Laser info from 20211112_211905_UTC_LaS_Fields-40-1319
@@ -43,17 +47,21 @@ nlasers = len(channels)
 index_of_refraction = np.array([1.000268,1.000269,1.000271,1.000273,1.000277])
 wavelengths = wavelengths * index_of_refraction
  
-# These channels are reported in whole-FPA format, but the EMIT FPA begins reading at row 6
-row_offset = 6
+# These channels are reported in whole-FPA format, but the EMIT FPA begins reading at row 7
+row_offset = 7
 nrows, ncols = 328, 1280
 channels = channels - row_offset 
 
 margin = 5
+
+# our list of laser fits, one sublist per laser
 observed = [[] for c in channels]
 
+# Find a the spatial location of the lasers, and fit each laser peak
+# put them as column, row, wavelength triplets into the "observed" list
 for line in range(I.shape[0]):
    frame = np.squeeze(I[line,:,:]).T 
-   col,amp,_ = find_peak(frame.mean(axis=0))
+   col,amp,_ = find_peak(medfilt(frame.mean(axis=0),5))
    print(col,amp)
    if amp<100:
        continue
@@ -63,22 +71,23 @@ for line in range(I.shape[0]):
        row = row+idx[0] 
        observed[i].append([col,row,w])
 
+# Now plot the result, and save the laser fits to a file for later plotting
 x = np.zeros((nlasers,ncols))
 y = np.zeros((nlasers,ncols))
 for i in range(len(observed)):
     D = np.array(observed[i])
-    p = np.polyfit(D[:,0],D[:,1],2)
+    p = np.polyfit(D[:,0],D[:,1],1)
     x[i,:] = np.polyval(p,np.arange(ncols))
     y[i,:] = wavelengths[i]
     plt.plot(D[:,0],D[:,1]-p[-1],'.')
     plt.plot(np.arange(ncols),x[i,:]-p[-1],'k')
+    np.savetxt('../data/plots/EMIT_Laser_%i_ColRow.txt'%wavelengths[i],D,fmt='%8.6f')
 plt.show()
 
 
 # Perform the fit for each column
 ctrs = np.zeros((nrows, ncols, 2))
 for i in range(ncols):
-
   p = np.polyfit(x[:,i],y[:,i],1)
   ctrs[:,i,0] = np.polyval(p,np.arange(nrows))
 
@@ -99,11 +108,11 @@ plt.show()
 for c in range(ncols):
     ctrs[:,c,1] = errs
 
+# save out wavelength center matrix
+envi.save_image('../data/EMIT_WavelengthCenters_20220421.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
 
-envi.save_image('../data/EMIT_WavelengthCenters_20220117.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
-
-wvl = ctrs.mean(axis=1)
+# save out ascii text file, no FWHMs, in microns
+wvl = np.squeeze(ctrs[:,:,0]).mean(axis=1)
 fwhm = np.zeros(nrows)
 chn = np.arange(328)
-
-np.savetxt('../data/EMIT_Wavelengths_20220117.txt',np.c_[chn,wvl/1000.0,fwhm], fmt='%10.8f')
+np.savetxt('../data/EMIT_Wavelengths_20220421.txt',np.c_[chn,wvl/1000.0,fwhm], fmt='%10.8f')

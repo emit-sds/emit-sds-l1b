@@ -1,6 +1,9 @@
 # David R Thompson
 import os, sys, glob
 
+# This script was used when we were fitting linearity measurements to each FPA
+# element.  It is no longer used.
+
 fieldpoints = [15,90,165,240,315,390,465,540,615,690,765,840,915,990,1065,1140,1215]
 for fieldpoint in fieldpoints:
     cmd = 'python ../utils/fitlinearity.py ' 

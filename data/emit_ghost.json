@@ -1,7 +1,5 @@
 {
     "center": 649.5,
-    "blur_spatial": 50,
-    "blur_spectral": 1,
     "orders": [
         {
             "slope": -9.10870143860643,
@@ -178,6 +176,40 @@
             "scaling": 1.0,
             "intensity_slope": 0.00021107171745128817,
             "intensity_offset": -0.007110542576680666
+        }
+    ],
+    "psf_zones": [
+        {
+            "extent": [
+                20,
+                188
+            ],
+            "psfs": [
+                {
+                    "sigma": 1,
+                    "peak": 0.1
+                },
+                {
+                    "sigma": 50,
+                    "peak": 0.01
+                }
+            ]
+        },
+        {
+            "extent": [
+                189,
+                327
+            ],
+            "psfs": [
+                {
+                    "sigma": 1,
+                    "peak": 0.1
+                },
+                {
+                    "sigma": 50,
+                    "peak": 0.01
+                }
+            ]
         }
     ]
 }

@@ -11,7 +11,7 @@ class FPA:
       if filepath is None:
 
           basedir = os.path.abspath(os.path.split(__file__)[0])+'/../'
-          filepath = basedir+'config/tvac2_config.json'
+          filepath = basedir+'config/tvac4_config.json'
 
       with open(filepath,'r') as fin:
           config_dict = json.load(fin)

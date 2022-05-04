@@ -20,8 +20,8 @@ def find_peak(x):
     return fitted_model.mean[0]#, fitted_model.amplitude[0], fitted_model.stddev[0]
 
 
-with open('../data/ghost_pointwise.txt','w') as fout:
-  for infile in sorted(glob(basedir+'*clip*linear.hdr')):
+with open('../data/ghost_pointwise_subframed.txt','w') as fout:
+  for infile in sorted(glob(basedir+'*subframe*pedestal.hdr')):
     I = envi.open(infile).load()
     ghost = np.squeeze(I[:,358,:])
     source = np.squeeze(I[:,940,:])

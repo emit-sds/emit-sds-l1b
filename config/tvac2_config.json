@@ -25,6 +25,7 @@
    "first_distributed_row": 20, 
    "last_distributed_row": 307,
    "native_rows":328, 
-   "native_columns":1280
-
+   "native_columns":1280,
+   "reference_cols":[[140,340],[940,1015],[1035,1140]],
+   "pedestal_strategy": "both"
 }

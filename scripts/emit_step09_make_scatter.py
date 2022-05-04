@@ -16,7 +16,7 @@ from spectral.io import envi
 # Set this to true if we have already completed a full calibration solution
 # We can then apply the EMIT calibration process for testing our SRF/CRF 
 # correction matrices
-validate = False
+validate = True
 
 if False:
 
@@ -43,11 +43,11 @@ if True:
   # correction for comparison, and second for real.
   for magnitude in [0,1]: 
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/spatial_params_clipped.txt ../data/EMIT_SpatialScatter_20220117' 
+    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/spatial_params_clipped.txt ../data/EMIT_SpatialScatter_20220406' 
     print(cmd)
     os.system(cmd)
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/spectral_params_clipped.txt ../data/EMIT_SpectralScatter_20220117' 
+    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/spectral_params_clipped.txt ../data/EMIT_SpectralScatter_20220406' 
     print(cmd)
     os.system(cmd)
  
@@ -56,9 +56,9 @@ if True:
 
         # Test image for spatial scatter validation 
         testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/'
-        darkfile = testdir + '20211114_051100_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir + '20211114_051117_UTC_InFieldScatter_2058p14nm.raw'
-        rdnfile = dnfile.replace('.raw','_rdn')
+        darkfile = testdir + '20211114_051100_UTC_InFieldScatter_dark_clip'
+        dnfile = testdir + '20211114_051117_UTC_InFieldScatter_2058p14nm_clip'
+        rdnfile = dnfile + '_rdn' #dnfile.replace('.raw','_rdn')
         cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
         print(cmd)
         os.system(cmd)
@@ -70,15 +70,15 @@ if True:
         I = np.squeeze(I[band,:])
         
         # Plot the result to the screen
+        plt.figure(0)
         spatial.append(I)
         plt.semilogy(I)
-        plt.show()
 
         # Test image for spectral scatter validation 
         testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211115_InFieldScatter/'
-        darkfile = testdir+'20211115_225554_UTC_InFieldScatter_dark.raw'
-        dnfile = testdir+'20211115_225605_UTC_InFieldScatter_2060p12nm.raw'
-        rdnfile = dnfile.replace('.raw','_rdn')
+        darkfile = testdir+'20211115_225554_UTC_InFieldScatter_dark_clip'
+        dnfile = testdir+'20211115_225605_UTC_InFieldScatter_2060p12nm_clip'
+        rdnfile = dnfile + '_rdn'#.replace('.raw','_rdn')
         cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
         print(cmd)
         os.system(cmd)
@@ -90,14 +90,16 @@ if True:
         I = np.squeeze(I[:,position])
         
         # Plot the result to the screen
+        plt.figure(1)
         spectral.append(I)
         plt.semilogy(I)
-        plt.show()
+
+  plt.show()
 
   # Save pretty plots
   if validate:
-      np.savetxt('EMIT_l1bplots_Spatial.txt', np.array(spatial).T)
-      np.savetxt('EMIT_l1bplots_Spectral.txt', np.array(spectral).T)
+      np.savetxt('../data/plots/EMIT_l1bplots_Spatial.txt', np.array(spatial).T)
+      np.savetxt('../data/plots/EMIT_l1bplots_Spectral.txt', np.array(spectral).T)
  
  
  
