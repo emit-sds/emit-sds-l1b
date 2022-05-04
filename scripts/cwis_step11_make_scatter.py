@@ -29,11 +29,11 @@ if False:
     for target_col in ['84','153','219','276','290','306']:
         for trow in np.arange(40,1280,40):
             target_row = str(trow)
-            cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--top_margin','0','--target_col',target_col,'--target_row',target_row]+files+['>>','cwis_spectral_params_clipped.txt']
+            cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--plot','--top_margin','0','--target_col',target_col,'--target_row',target_row]+files+['>>','cwis_spectral_params_clipped_test.txt']
             print(' '.join(cmds))
             os.system(' '.join(cmds))
 
-if False:
+if True:
 
     # First combine the data from all the point spread function measurements
     # This requires running basic electronic corrections on all datasets first
@@ -41,13 +41,12 @@ if False:
 
     infile = ' /beegfs/scratch/drt/20220112_CWIS2/20211213_crf/20211213_CRF_Test_darksub_pedestal'
     for target_row in ['83']:
-      #for target_col in ['84','153','219','276','290','306']:
-        cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--spatial','--plot','--top_margin','0','--target_row',target_row,infile,'>>','cwis_spatial_params_clipped.txt']
+        cmds = ['python','/home/drt/src/emit-sds-l1b/utils/makescatter.py','--hwid','60','--spatial','--plot','--top_margin','0','--target_row',target_row,infile,'>>','cwis_spatial_params_clipped_test.txt']
         print(' '.join(cmds))
         os.system(' '.join(cmds))
 
 
-if True:
+if False:
 
   spatial, spectral = [],[]
 

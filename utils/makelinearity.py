@@ -86,6 +86,7 @@ def main():
     parser.add_argument('--plot',action='store_true')
     parser.add_argument('--margin',default=37)
     parser.add_argument('--top',type=int,default=-1)
+    parser.add_argument('--minimum_cdm2',type=float,default=-1)
     parser.add_argument('--bottom',type=int,default=-1)
     parser.add_argument('--config')
     parser.add_argument('output')
@@ -112,6 +113,7 @@ def main():
     for fi,infilepath in enumerate(args.input):
 
         toks = infilepath.split('_')
+        illum = None
         for tok in toks:
             if 'Field' in tok:
                simple = tok.replace('Field','')
@@ -123,7 +125,13 @@ def main():
                simple = simple.replace('PD','')
                simple = simple.replace('candelam2','')
                simple = simple.replace('p','.')
-               illums.append(float(simple))
+               illum = float(simple)
+        
+        # only use avlues larger than the minimum
+        if illum < args.minimum_cdm2:
+            continue
+
+        illums.append(illum)
         infile = envi.open(find_header(infilepath))
         
         if int(infile.metadata['data type']) == 2:

@@ -33,7 +33,7 @@ infiles = ['20220127_IntSp10500_FilterRed14_1mmKG4',
           '20220127_IntSph8700_Filter2mmBG34',
           '20220127_IntSph9500_Filter1mmKG4']
 
-
+infiles = []
 for file_index, infile in enumerate(infiles):
   outfile = 'test_frame_%s.hdr' % (infile)
   I = envi.open(indir + infile + '_darksub_pedestal.hdr')
@@ -41,7 +41,18 @@ for file_index, infile in enumerate(infiles):
   lines, samples, bands = x.shape
   frame = np.squeeze(x.mean(axis=0))
   frame = frame.reshape((1,samples,bands))
-  #frame = np.array(frame,dtype=np.float32)
   envi.save_image(outdir+outfile,frame,ext='',interleave='bil',force=True)
 
+indir = '/beegfs/scratch/drt/20220112_CWIS2/20211213_crf/'
+infile = '20211213_CRF_Test'
 
+outfile = 'test_frame_%s.hdr' % (infile)
+I = envi.open(indir + infile + '_darksub_pedestal.hdr')
+x = I.load()
+lines, samples, bands = x.shape
+frame = np.squeeze(x.mean(axis=0))
+frame = frame.reshape((1,samples,bands))
+frame[:,78:1217] = 0
+envi.save_image(outdir+outfile,frame,ext='',interleave='bil',force=True)
+
+ 

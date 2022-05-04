@@ -5,12 +5,12 @@ import pylab as plt
 
 
 ghost_config = {'center':646.5,  'orders':[], 
-          'psf_zones':[{'extent':[20,188], 'psfs': [{'sigma':1, 'peak':0.1},
+          'psf_zones':[{'extent':[20,188], 'psfs': [{'sigma':1, 'peak':0.000001},
                                                    {'sigma':50,'peak':0.01}]},
-                       {'extent':[189,327], 'psfs': [{'sigma':1, 'peak':0.1},
+                       {'extent':[189,327], 'psfs': [{'sigma':1, 'peak':0.000001},
                                                    {'sigma':50,'peak':0.01}]}]}
 plot = True 
-write = False
+write = True
 
 c, wl, fwhm = np.loadtxt('../data/CWIS_Wavelengths_20220203.txt').T 
 p = np.polyfit(c,wl*1000,1)
