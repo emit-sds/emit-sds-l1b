@@ -14,7 +14,7 @@ from emit_fpa import first_valid_row, last_valid_row
 # smooth functions to this relationship.
 
 directory = os.path.split(os.path.abspath(__file__))[0]
-c,wl,f = np.loadtxt('../data/EMIT_Wavelengths_20220421.txt').T 
+c,wl,f = np.loadtxt('../../data/EMIT_Wavelengths_20220421.txt').T 
 x_all, y_all, x2_all = [],[],[]
 
 for fieldpoint,color in [(40,[0.2,0.2,0.8]),(340,[0.8,0.2,0.2]),(640,[0.2,0.8,0.2]),(940,[0.8,0.8,0.2]),(1240,[0.8,0.2,0.8])]:
@@ -57,13 +57,13 @@ with open('../data/plots/EMIT_SRF_fits.txt','w') as fout:
 p  = bisplrep(x_all,x2_all,y_all,kx=1,ky=1,s=10)
 znew = bisplev(np.arange(328),np.arange(1280),p)
 
-envi.save_image('../data/EMIT_SRF_20220422.hdr',np.array(znew,dtype=np.float32),ext='',force=True)
+envi.save_image('../data/../EMIT_SRF_20220422.hdr',np.array(znew,dtype=np.float32),ext='',force=True)
 
 channel_widths = abs(np.diff(wl))
 channel_widths = np.concatenate((channel_widths,
                                 np.array([channel_widths[-1]])),axis=0)
 fwhm = np.mean(znew, axis=1) * channel_widths
-np.savetxt('../data/EMIT_Wavelengths_20220422.txt',
+np.savetxt('../../data/EMIT_Wavelengths_20220422.txt',
           np.c_[np.arange(len(wl)), wl, fwhm],fmt='%10.8f')
 
 plt.ylim([0,20])   

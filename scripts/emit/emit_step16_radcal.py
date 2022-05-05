@@ -8,19 +8,19 @@ from scipy.interpolate import interp1d
 plot = True
 frame_averaging = 15
 
-q,wl,fwhm = np.loadtxt('../data/EMIT_Wavelengths_20220421.txt').T * 1000.0
+q,wl,fwhm = np.loadtxt('../../data/EMIT_Wavelengths_20220421.txt').T * 1000.0
 
 def resample(wl_old, spectrum, method='linear'):
   p = interp1d(wl_old, spectrum, kind=method, fill_value='extrapolate', bounds_error=False)
   return p(wl)
 
 # Mirror transmittance
-wl_mirror, mirror_rfl = np.loadtxt('../data/ogse/tvac2/mirror_coating_reflectance.txt').T
+wl_mirror, mirror_rfl = np.loadtxt('../../data/ogse/tvac2/mirror_coating_reflectance.txt').T
 mirror_rfl = resample(wl_mirror, mirror_rfl)
 mirror_uncert = np.ones(len(mirror_rfl)) * 0.01
 
 # Window transmittance
-wl_window, window_trans = np.loadtxt('../data/ogse/tvac2/window_infrasil301-302_transmittance.txt',skiprows=1).T
+wl_window, window_trans = np.loadtxt('../../data/ogse/tvac2/window_infrasil301-302_transmittance.txt',skiprows=1).T
 window_trans = resample(wl_window, window_trans)
 window_uncert = np.ones(len(window_trans)) * 0.01
 
@@ -28,14 +28,14 @@ window_uncert = np.ones(len(window_trans)) * 0.01
 # -------------------------------------------------- NIST lamp and panel calibration
 
 # Load irradiance, translate uncertainty from percenmt to one sigma irradiance
-wl_irr, irr, irradiance_uncert = np.loadtxt('../data/ogse/tvac4/lamp_s1352_irradiance.txt', skiprows=2).T 
+wl_irr, irr, irradiance_uncert = np.loadtxt('../../data/ogse/tvac4/lamp_s1352_irradiance.txt', skiprows=2).T 
 irradiance = resample(wl_irr, irr, method='cubic')
 irradiance_uncert = resample(wl_irr, irradiance_uncert)
 irradiance_uncert = irradiance_uncert / 100.0 * irradiance
 
 # Spectralon reflectance
 wl_spec, spec_rfl, spec_uncert =\
-     np.loadtxt('../data/ogse/tvac2/panel_srt-99-120_reflectance.txt',skiprows=2).T  
+     np.loadtxt('../../data/ogse/tvac2/panel_srt-99-120_reflectance.txt',skiprows=2).T  
 spectralon_rfl = resample(wl_spec, spec_rfl)
 spectralon_uncert = resample(wl_spec, spec_uncert)
 
@@ -127,8 +127,7 @@ for input_file, outfile in zip(input_files, output_files):
     if True:
         # These filenames are used for the automatic selection method
         timestamp = '20220426'
-        np.savetxt(outfile,#'../data/EMIT_RadiometricCoeffs_'+timestamp+'.txt',
-                  np.c_[channels,factors,factors_uncert], fmt='%10.8f')
+        np.savetxt(outfile,np.c_[channels,factors,factors_uncert], fmt='%10.8f')
        #np.savetxt('../data/EMIT_RadiometricUncertainty_'+timestamp+'.txt',
        #          np.c_[channels,factors_uncert/factors], fmt='%10.8f',
        #          header='Uncertainty, fractional')
@@ -168,13 +167,13 @@ for input_file, outfile in zip(input_files, output_files):
 
 cmd = 'cp ' 
 cmd = cmd+basedir+'/radcal_half/emit20220305t161821_o00000_s000_l1a_raw_b0100_v01_strip_shift_darksub_pedestal_badfix_osffix_scatterfix_ghostfix_rcc.txt'
-cmd = cmd + ' ' + '../data/EMIT_RadiometricCoeffsHalf_20220504.txt'
+cmd = cmd + ' ' + '../../data/EMIT_RadiometricCoeffsHalf_20220504.txt'
 print(cmd)
 os.system(cmd)
 
 cmd = 'cp ' 
 cmd = cmd+basedir+'/radcal/emit20220305t002601_o00000_s000_l1a_raw_b0100_v01_strip_shift_darksub_pedestal_badfix_osffix_scatterfix_ghostfix_rcc.txt'
-cmd = cmd + ' ' + '../data/EMIT_RadiometricCoeffs_20220504.txt'
+cmd = cmd + ' ' + '../../data/EMIT_RadiometricCoeffs_20220504.txt'
 print(cmd)
 os.system(cmd)
 

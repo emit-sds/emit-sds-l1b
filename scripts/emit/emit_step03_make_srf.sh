@@ -6,7 +6,7 @@
 
 # Make bad pixels
 for fin in `ls /beegfs/scratch/drt/20211113_EMIT_SRF/all/*subframe_darksub_pedestal`; do
-   python ../utils/makesrf.py $fin > ${fin}.txt
+   python ../../utils/makesrf.py $fin > ${fin}.txt
 done
 
 

@@ -115,5 +115,5 @@ for c in range(ncols):
     ctrs[:,c,1] = errs
 
 
-envi.save_image('../data/CWIS_WavelengthCenters_20220331.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
+envi.save_image('../../data/cwis/CWIS_WavelengthCenters_20220331.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
 

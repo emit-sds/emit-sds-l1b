@@ -12,12 +12,12 @@ ghost_config = {'center':646.5,  'orders':[],
 plot = True 
 write = True
 
-c, wl, fwhm = np.loadtxt('../data/CWIS_Wavelengths_20220203.txt').T 
+c, wl, fwhm = np.loadtxt('../../data/cwis/CWIS_Wavelengths_20220203.txt').T 
 p = np.polyfit(c,wl*1000,1)
 def chan2wl(x):
   return np.polyval(p,x)
 
-with open('../data/cwis_ghost_pointwise_edit.txt','r') as fin:
+with open('../../data/cwis/cwis_ghost_pointwise_edit.txt','r') as fin:
    sources, targets, intensities = [],[],[]
    for line in fin.readlines():
      if len(line)>3:
@@ -51,7 +51,7 @@ if plot:
     plt.savefig('ghost_image')
 
 if write:
-    with open('../data/cwis_ghost.json','w') as fout:
+    with open('../../data/cwis/cwis_ghost.json','w') as fout:
         fout.write(json.dumps(ghost_config, indent=4))
          
    

@@ -10,7 +10,7 @@ from lowess import lowess
 from emit_fpa import first_valid_row, last_valid_row 
 
 directory = os.path.split(os.path.abspath(__file__))[0]
-c,wl,f = np.loadtxt('../data/CWIS_Wavelengths_20220203.txt').T
+c,wl,f = np.loadtxt('../../data/cwis/CWIS_Wavelengths_20220203.txt').T
 x_all, y_all, x2_all = [],[],[]
 #for fieldpoint,color in [(77,[0.2,0.2,0.8]),(360,[0.8,0.2,0.2]),(637,[0.2,0.8,0.2]),(961,[0.8,0.8,0.2]),(1211,[0.8,0.2,0.8])]:
 for fieldpoint,color in [(77,[0.2,0.2,0.8]),(360,[0.8,0.2,0.2]),(637,[0.2,0.8,0.2]),(961,[0.8,0.8,0.2]),(1214,[0.8,0.2,0.8])]:
@@ -57,13 +57,13 @@ for x,x2,y in zip(x_all,x2_all,y_all):
 p  = bisplrep(x_all,x2_all,y_all,kx=1,ky=1,s=10)
 znew = bisplev(np.arange(328),np.arange(1280),p)
 
-envi.save_image('../data/CWIS_SRF_20220331.hdr',np.array(znew,dtype=np.float32),ext='',force=True)
+envi.save_image('../../data/cwis/CWIS_SRF_20220331.hdr',np.array(znew,dtype=np.float32),ext='',force=True)
 
 channel_widths = abs(np.diff(wl))
 channel_widths = np.concatenate((channel_widths,
                                 np.array([channel_widths[-1]])),axis=0)
 fwhm = np.mean(znew, axis=1) * channel_widths
-np.savetxt('../data/CWIS_Wavelengths_20220331.txt',
+np.savetxt('../../data/cwis/CWIS_Wavelengths_20220331.txt',
           np.c_[np.arange(len(wl)), wl, fwhm],fmt='%10.8f')
 
 plt.ylim([0,20])   

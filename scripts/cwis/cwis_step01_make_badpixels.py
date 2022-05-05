@@ -47,7 +47,7 @@ manual_bads=[(60,164),
 
 input_file = '/beegfs/scratch/drt/20220112_CWIS2/20220107_flatfield/light_80pc_darksub_pedestal'
 mask_image = '/beegfs/scratch/drt/20220112_CWIS2/20220107_flatfield/light_80pc_mask.png'
-output_file = '../data/CWIS_BadElements_20220413'
+output_file = '../../data/cwis/CWIS_BadElements_20220413'
 cue_channel=148
 
 

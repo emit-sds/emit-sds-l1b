@@ -13,10 +13,10 @@ if True:
     mu = np.ones((1,len(grid)))
     D = np.concatenate((mu,np.zeros((2,len(grid)))),axis=0)
 
-    envi.save_image('../data/EMIT_LinearityBasis_20220504.hdr',
+    envi.save_image('../../data/EMIT_LinearityBasis_20220504.hdr',
         np.asarray(D,dtype=np.float32),ext='',force=True)
 
-    envi.save_image('../data/EMIT_LinearityMap_20220504.hdr',
+    envi.save_image('../../data/EMIT_LinearityMap_20220504.hdr',
         np.zeros((328,1280,2),dtype=np.float32),ext='',force=True)
 
 
@@ -44,10 +44,10 @@ if False:
 
     D = np.concatenate((mu,np.zeros((2,len(grid)))),axis=0)
 
-    envi.save_image('../data/EMIT_LinearityBasis_20220423.hdr',
+    envi.save_image('../../data/EMIT_LinearityBasis_20220423.hdr',
         np.asarray(D,dtype=np.float32),ext='',force=True)
 
-    envi.save_image('../data/EMIT_LinearityMap_20220423.hdr',
+    envi.save_image('../../data/EMIT_LinearityMap_20220423.hdr',
         np.zeros((328,1280,2),dtype=np.float32),ext='',force=True)
 
 # This is the old approach in which we create basis vectors
@@ -60,7 +60,7 @@ if False:
     for fieldpoint in [165,240,315,390,840,915,990,1065,1140]:
       fp = str(fieldpoint)
       cmd = cmd + '/beegfs/scratch/drt/20211115_EMIT_Linearity/Field_'+fp+'_clipped '
-    cmd = cmd + '../data/EMIT_LinearityBasis_20220117'
+    cmd = cmd + '../../data/EMIT_LinearityBasis_20220117'
     print(cmd)
     os.system(cmd)
 

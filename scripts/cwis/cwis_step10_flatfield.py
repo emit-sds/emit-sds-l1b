@@ -31,6 +31,6 @@ if False:
 for scan in range(1,6):
     infile = '/beegfs/scratch/drt/20220112_CWIS2/20220427_RadCal/20220427_ApoBoxScan_'+str(scan)+'_darksub_pedestal_badfix_osffix_scatterfix_ghostfix'
     outfile = infile+'_flat'#'../data/CWIS_FlatField_20220428'
-    cmd = 'python ../utils/makeflat.py --halfwid 30 --config ../config/cwis2.json %s %s' %(infile, outfile)
+    cmd = 'python ../../utils/makeflat.py --halfwid 30 --config ../../config/cwis2.json %s %s' %(infile, outfile)
     print(cmd)
     os.system(cmd)

@@ -43,11 +43,11 @@ if True:
   # correction for comparison, and second for real.
   for magnitude in [0,1]: 
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/spatial_params_clipped.txt ../data/EMIT_SpatialScatter_20220406' 
+    cmd = 'python ../../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../../scripts/spatial_params_clipped.txt ../../data/EMIT_SpatialScatter_20220406' 
     print(cmd)
     os.system(cmd)
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/spectral_params_clipped.txt ../data/EMIT_SpectralScatter_20220406' 
+    cmd = 'python ../../utils/combinescatter.py --manual '+str(magnitude)+' ../../scripts/spectral_params_clipped.txt ../../data/EMIT_SpectralScatter_20220406' 
     print(cmd)
     os.system(cmd)
  
@@ -58,8 +58,9 @@ if True:
         testdir = '/beegfs/scratch/drt/20211114_EMIT_Infield/20211114_InFieldScatter/'
         darkfile = testdir + '20211114_051100_UTC_InFieldScatter_dark_clip'
         dnfile = testdir + '20211114_051117_UTC_InFieldScatter_2058p14nm_clip'
+        config = '../../config/EMIT_20220504.json'
         rdnfile = dnfile + '_rdn' #dnfile.replace('.raw','_rdn')
-        cmd = 'python ../emitrdn.py --dark_file %s %s %s' % (darkfile,dnfile,rdnfile)
+        cmd = 'python ../../emitrdn.py %s %s %s %s' % (dnfile,config,darkfile,rdnfile)
         print(cmd)
         os.system(cmd)
         

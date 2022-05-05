@@ -54,11 +54,11 @@ if False:
   # correction for comparison, and second for real.
   for magnitude in [0,1]: 
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/cwis_spatial_params_clipped.txt ../data/CWIS_SpatialScatter_20220406' 
+    cmd = 'python ../../utils/combinescatter.py --manual '+str(magnitude)+' --spatial  ../scripts/cwis_spatial_params_clipped.txt ../data/CWIS_SpatialScatter_20220406' 
     print(cmd)
     os.system(cmd)
 
-    cmd = 'python ../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/cwis_spectral_params_clipped.txt ../data/CWIS_SpectralScatter_20220406' 
+    cmd = 'python ../../utils/combinescatter.py --manual '+str(magnitude)+' ../scripts/cwis_spectral_params_clipped.txt ../data/CWIS_SpectralScatter_20220406' 
     print(cmd)
     os.system(cmd)
  

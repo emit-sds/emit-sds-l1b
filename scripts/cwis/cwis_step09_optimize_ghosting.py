@@ -53,12 +53,12 @@ infiles = ['20220127_IntSp10500_FilterRed14_1mmKG4',
 
 
 mydir = os.path.split(os.path.abspath(__file__))[0]+'/'
-exe = mydir + '/../utils/optimizeghost.py'
+exe = mydir + '../../utils/optimizeghost.py'
 
 basedir = '/beegfs/scratch/drt/20220112_CWIS2/optimization/'
-datadir = mydir+'../data/'
+datadir = mydir+'../../data/cwis/'
 
-outfile = datadir+('../data/CWIS_GhostMap_20220413.json')
+outfile = datadir+('CWIS_GhostMap_20220413.json')
 infile = datadir+'cwis_ghost.json'
 cmd = 'python %s %s '%(exe,infile)
 

@@ -81,7 +81,7 @@ for i in range(len(observed)):
     y[i,:] = wavelengths[i]
     plt.plot(D[:,0],D[:,1]-p[-1],'.')
     plt.plot(np.arange(ncols),x[i,:]-p[-1],'k')
-    np.savetxt('../data/plots/EMIT_Laser_%i_ColRow.txt'%wavelengths[i],D,fmt='%8.6f')
+    np.savetxt('../../data/plots/EMIT_Laser_%i_ColRow.txt'%wavelengths[i],D,fmt='%8.6f')
 plt.show()
 
 
@@ -109,10 +109,10 @@ for c in range(ncols):
     ctrs[:,c,1] = errs
 
 # save out wavelength center matrix
-envi.save_image('../data/EMIT_WavelengthCenters_20220421.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
+envi.save_image('../../data/EMIT_WavelengthCenters_20220421.hdr',np.array(ctrs,dtype=np.float32),ext='',force=True)
 
 # save out ascii text file, no FWHMs, in microns
 wvl = np.squeeze(ctrs[:,:,0]).mean(axis=1)
 fwhm = np.zeros(nrows)
 chn = np.arange(328)
-np.savetxt('../data/EMIT_Wavelengths_20220421.txt',np.c_[chn,wvl/1000.0,fwhm], fmt='%10.8f')
+np.savetxt('../../data/EMIT_Wavelengths_20220421.txt',np.c_[chn,wvl/1000.0,fwhm], fmt='%10.8f')

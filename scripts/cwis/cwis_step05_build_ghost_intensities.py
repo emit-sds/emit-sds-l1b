@@ -28,7 +28,7 @@ def find_peak(x):
     return fitted_model.mean[0]#, fitted_model.amplitude[0], fitted_model.stddev[0]
 
 
-with open('../data/cwis_ghost_pointwise.txt','w') as fout:
+with open('../../data/cwis/cwis_ghost_pointwise.txt','w') as fout:
   for infile in infiles:
     print(infile)
     I = envi.open(infile).load()
