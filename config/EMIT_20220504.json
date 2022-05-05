@@ -1,15 +1,23 @@
 {
+   "modes":{
+     "default":{
+       "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
+       "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
+       "flat_field_file": "../data/emit/EMIT_FlatField_20220504",
+       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffs_20220504.txt"
+     },
+     "half":{
+       "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
+       "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
+       "flat_field_file": "../data/emit/EMIT_FlatFieldHalf_20220504",
+       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffsHalf_20220504.txt"
+     }
+   },
    "srf_correction_file": "../data/emit/EMIT_SpectralScatter_20220406",
    "crf_correction_file": "../data/emit/EMIT_SpatialScatter_20220406",
    "bad_element_file": "../data/emit/EMIT_BadElements_20220307",
-   "flat_field_file": "../data/emit/EMIT_FlatField_20220504",
-   "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffs_20220504.txt",
-   "flat_field_file_half": "../data/emit/EMIT_FlatFieldHalf_20220504",
-   "radiometric_coefficient_file_half": "../data/emit/EMIT_RadiometricCoeffsHalf_20220504.txt",
    "spectral_calibration_file": "../data/emit/EMIT_Wavelengths_20220422.txt",
-   "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
    "ghost_map_file": "../data/emit/EMIT_GhostMap_20220424.json",
-   "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
    "extract_subframe": true,
    "pedestal_multiplier": 1.0,
    "osf_seam_positions": [[181,183]],

@@ -63,19 +63,19 @@ def find_header(infile):
      
 class Config:
 
-    def __init__(self, fpa, filename, dark_file=None, mode=None):
+    def __init__(self, fpa, filename, dark_file, mode):
 
         # Load calibration file data
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
         
-        if mode is not None:
-            self.radiometric_coefficient_file = getattr(self, 'radiometric_coefficient_file_'+ mode)
-            self.flat_field_file = getattr(self, 'flat_field_file_'+ mode)
+        current_mode   = getattr(self, 'modes')[mode]
+        self.radiometric_coefficient_file = current_mode['radiometric_coefficient_file']
+        self.flat_field_file = current_mode['flat_field_file']
+        self.linearity_file = current_mode['linearity_file']
+        self.linearity_map_file = current_mode['linearity_map_file']
 
-        if dark_file is not None:
-            self.dark_frame_file = dark_file
-
+        self.dark_frame_file = dark_file
         self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
         _, self.wl_full, self.fwhm_full = \
              sp.loadtxt(self.spectral_calibration_file).T * 1000
@@ -145,15 +145,14 @@ def main():
     description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
-    default_config = my_directory + '/config/tvac4_config.json'
-    parser.add_argument('--config_file', default = default_config)
-    parser.add_argument('--dark_file', default = None)
-    parser.add_argument('--mode', default = None)
+    parser.add_argument('--mode', default = 'default')
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
     parser.add_argument('--maxjobs', type=int, default=30)
     parser.add_argument('input_file', default='')
+    parser.add_argument('dark_file', default = None)
+    parser.add_argument('config_file', default='')
     parser.add_argument('output_file', default='')
     args = parser.parse_args()
 
