@@ -42,7 +42,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config')
+    parser.add_argument('config')
     parser.add_argument('output')
     args = parser.parse_args()
 

@@ -9,14 +9,25 @@ class FPA:
   def __init__(self, filepath=None):
 
       if filepath is None:
-
-          basedir = os.path.abspath(os.path.split(__file__)[0])+'/../'
-          filepath = basedir+'config/tvac4_config.json'
+          raise ValueError('Configuration file required')
+          #basedir = os.path.abspath(os.path.split(__file__)[0])+'/../'
+          #filepath = basedir+'config/emit.json'
 
       with open(filepath,'r') as fin:
           config_dict = json.load(fin)
           for key, val in config_dict.items():
               setattr(self,key,val) 
+
+      
+      # Adjust local filepaths where needed
+      my_directory, my_executable = os.path.split(os.path.abspath(__file__))
+      for fi in dir(self):
+          if '_file' in fi:
+              path = getattr(self,fi)
+              if path[0] != '/':
+                  path = os.path.join(my_directory, path)
+                  setattr(self,fi,path)
+
 
       # Define masked rows 
       if self.first_illuminated_row>=0 and self.last_illuminated_row>=0:

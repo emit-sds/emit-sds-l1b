@@ -69,17 +69,9 @@ class Config:
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
         
-        # Adjust local filepaths where needed
-        for fi in dir(self):
-            if fi.endswith('_file'):
-                path = getattr(self,fi)
-                if path[0] != '/':
-                    path = os.path.join(my_directory, path)
-                    setattr(self,fi,path)
-
         if mode is not None:
             self.radiometric_coefficient_file = getattr(self, 'radiometric_coefficient_file_'+ mode)
-            self.flat_field_file = getattr(self, 'radiometric_coefficient_file_'+ mode)
+            self.flat_field_file = getattr(self, 'flat_field_file_'+ mode)
 
         if dark_file is not None:
             self.dark_frame_file = dark_file
@@ -96,6 +88,7 @@ class Config:
         self.flat_field = sp.fromfile(self.flat_field_file,
              dtype = sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
         self.flat_field = self.flat_field[0,:,:]
+        self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
 

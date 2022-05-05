@@ -122,15 +122,15 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config',default=None)
-    parser.add_argument('badmap')
+    parser.add_argument('config')
     parser.add_argument('output')
     args = parser.parse_args()
 
     fpa = FPA(args.config)
 
     infile = envi.open(find_header(args.input))
-    badfile = envi.open(find_header(args.badmap))
+    print(fpa.bad_element_file)
+    badfile = envi.open(find_header(fpa.bad_element_file))
     bad = np.squeeze(badfile.load()[:,:,0])
 
     if int(infile.metadata['data type']) == 2:
