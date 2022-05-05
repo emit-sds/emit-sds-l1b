@@ -63,24 +63,27 @@ def find_header(infile):
      
 class Config:
 
-    def __init__(self, fpa, filename, dark_file=None):
+    def __init__(self, fpa, filename, dark_file=None, mode=None):
 
         # Load calibration file data
         with open(filename,'r') as fin:
          self.__dict__ = json.load(fin)
         
         # Adjust local filepaths where needed
-        for fi in ['spectral_calibration_file','srf_correction_file',
-                   'crf_correction_file','linearity_file','ghost_map_file',
-                   'radiometric_coefficient_file', 'linearity_map_file',
-                   'bad_element_file','flat_field_file']:
-            path = getattr(self,fi)
-            if path[0] != '/':
-                path = os.path.join(my_directory, path)
-                setattr(self,fi,path)
+        for fi in dir(self):
+            if fi.endswith('_file'):
+                path = getattr(self,fi)
+                if path[0] != '/':
+                    path = os.path.join(my_directory, path)
+                    setattr(self,fi,path)
+
+        if mode is not None:
+            self.radiometric_coefficient_file = getattr(self, 'radiometric_coefficient_file_'+ mode)
+            self.flat_field_file = getattr(self, 'radiometric_coefficient_file_'+ mode)
 
         if dark_file is not None:
             self.dark_frame_file = dark_file
+
         self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
         _, self.wl_full, self.fwhm_full = \
              sp.loadtxt(self.spectral_calibration_file).T * 1000
@@ -152,6 +155,7 @@ def main():
     default_config = my_directory + '/config/tvac4_config.json'
     parser.add_argument('--config_file', default = default_config)
     parser.add_argument('--dark_file', default = None)
+    parser.add_argument('--mode', default = None)
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
@@ -161,7 +165,7 @@ def main():
     args = parser.parse_args()
 
     fpa = FPA(args.config_file)
-    config = Config(fpa, args.config_file, args.dark_file)
+    config = Config(fpa, args.config_file, args.dark_file, args.mode)
     ray.init()
 
     # Set up logging
