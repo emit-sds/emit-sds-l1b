@@ -19,7 +19,7 @@ class FPA:
               setattr(self,key,val) 
 
       
-      # Adjust local filepaths where needed
+      # Translate local filepaths to absolute where needed
       my_directory, my_executable = os.path.split(os.path.abspath(__file__))
       for fi in dir(self):
           if '_file' in fi:
@@ -27,6 +27,13 @@ class FPA:
               if path[0] != '/':
                   path = os.path.join(my_directory, path)
                   setattr(self,fi,path)
+
+      # Also adjust local filepaths within mode list
+      for mode in self.modes:
+          for fi,path in self.modes[mode].items():
+              if path[0] != '/':
+                  path = os.path.join(my_directory, path)
+                  self.modes[mode][fi]=path
 
 
       # Define masked rows 
