@@ -50,7 +50,10 @@ byte order = 0
 wavelength units = Nanometers
 wavelength = {{{wavelength_string}}}
 fwhm = {{{fwhm_string}}}
-band names = {{{band_names_string}}}"""
+band names = {{{band_names_string}}}
+emit pge input files = {{{input_files_string}}}
+emit pge run command = {{{run_command_string}}}
+"""
 
  
 def find_header(infile):
@@ -255,6 +258,13 @@ def main():
     wavelength_string = ','.join([str(w) for w in wl])
     
     params = {'lines': lines}
+    params['run_command_string'] = ' '.join(sys.argv)
+    params['input_files_string'] = ' dark_file='+args.dark_file
+    for var in dir(fpa):
+       if var.endswith('_file'):
+          params['input_files_string'] = params['input_files_string'] + \
+             ' %s=%s'%(var,getattr(fpa,var))
+
     params.update(**locals())
     with open(args.output_file+'.hdr','w') as fout:
         fout.write(header_template.format(**params))
