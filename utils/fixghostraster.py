@@ -141,10 +141,9 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config')
     parser.add_argument('--plot', action='store_true')
     parser.add_argument('--ncpus',default=30)
-    parser.add_argument('ghost_config')
+    parser.add_argument('config')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -168,7 +167,7 @@ def main():
 
     envi.write_envi_header(args.output+'.hdr',infile.metadata)
 
-    with open(args.ghost_config,'r') as fin:
+    with open(fpa.ghost_map_file,'r') as fin:
         ghost_config = json.load(fin)
     ghostmap = build_ghost_matrix(ghost_config, fpa)
     blur = build_ghost_blur(ghost_config, fpa)

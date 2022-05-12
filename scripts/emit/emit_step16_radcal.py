@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 plot = True
 frame_averaging = 15
 
-q,wl,fwhm = np.loadtxt('../../data/EMIT_Wavelengths_20220421.txt').T * 1000.0
+q,wl,fwhm = np.loadtxt('../../data/emit/EMIT_Wavelengths_20220422.txt').T * 1000.0
 
 def resample(wl_old, spectrum, method='linear'):
   p = interp1d(wl_old, spectrum, kind=method, fill_value='extrapolate', bounds_error=False)
@@ -79,6 +79,8 @@ input_files = [basedir+'/radcal/emit20220305t002601_o00000_s000_l1a_raw_b0100_v0
                basedir+'/radcal/emit20220305t002601_o00000_s000_l1a_raw_b0100_v01_strip_shift_darksub_pedestal_badfix_osffix_scatterfix_ghostfix_flat',
                basedir+'/radcal_half/emit20220305t161821_o00000_s000_l1a_raw_b0100_v01_strip_shift_darksub_pedestal_badfix_osffix_scatterfix_ghostfix_flat',
                basedir+'/radcal_50/emit20220305t022009_o00000_s000_l1a_raw_b0100_v01_strip_shift_darksub_pedestal_badfix_osffix_scatterfix_ghostfix_flat']
+
+input_files = [basedir+'/radcal/emit20220305t002601_o00000_s000_l1a_raw_b0100_v01_strip_shift_darksub_pedestal_badfix_osffix_scatterfix_ghostfix_flat']
 output_files = [f.replace('_flat','_rcc.txt') for f in input_files]
 
 for input_file, outfile in zip(input_files, output_files):
@@ -126,7 +128,6 @@ for input_file, outfile in zip(input_files, output_files):
 
     if True:
         # These filenames are used for the automatic selection method
-        timestamp = '20220426'
         np.savetxt(outfile,np.c_[channels,factors,factors_uncert], fmt='%10.8f')
        #np.savetxt('../data/EMIT_RadiometricUncertainty_'+timestamp+'.txt',
        #          np.c_[channels,factors_uncert/factors], fmt='%10.8f',

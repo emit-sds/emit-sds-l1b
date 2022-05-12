@@ -78,6 +78,12 @@ class Config:
 
         self.dark_frame_file = dark_file
         self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
+  
+        # Move this outside, to the main function
+        if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+           # left shift, returning to the 16 bit range.
+           self.dark = left_shift_twice(self.dark)
+
         _, self.wl_full, self.fwhm_full = \
              sp.loadtxt(fpa.spectral_calibration_file).T * 1000
         self.srf_correction = sp.fromfile(fpa.srf_correction_file,
@@ -212,9 +218,8 @@ def main():
                 raw = np.array(raw, dtype=sp.float32)
                 frame = raw.reshape((rows,columns))
 
-                if dtype == np.int16:
-                   # left shift by 2 binary digits, 
-                   # returning to the 16 bit range.
+                if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+                   # left shift, returning to the 16 bit range.
                    frame = left_shift_twice(frame)
 
                 if lines_analyzed%10==0:

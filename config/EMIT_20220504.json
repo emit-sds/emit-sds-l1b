@@ -19,6 +19,7 @@
    "spectral_calibration_file": "../data/emit/EMIT_Wavelengths_20220422.txt",
    "ghost_map_file": "../data/emit/EMIT_GhostMap_20220424.json",
    "extract_subframe": true,
+   "left_shift_twice": true,
    "pedestal_multiplier": 1.0,
    "osf_seam_positions": [[181,183]],
    "linearity_nbasis": 2,
