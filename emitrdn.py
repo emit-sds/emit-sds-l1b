@@ -17,6 +17,7 @@ import logging
 import argparse
 import multiprocessing
 import ray
+import pylab as plt
 
 # Import some EMIT-specific functions
 my_directory, my_executable = os.path.split(os.path.abspath(__file__))
@@ -49,7 +50,10 @@ byte order = 0
 wavelength units = Nanometers
 wavelength = {{{wavelength_string}}}
 fwhm = {{{fwhm_string}}}
-band names = {{{band_names_string}}}"""
+band names = {{{band_names_string}}}
+emit pge input files = {{{input_files_string}}}
+emit pge run command = {{{run_command_string}}}
+"""
 
  
 def find_header(infile):
@@ -63,41 +67,40 @@ def find_header(infile):
      
 class Config:
 
-    def __init__(self, fpa, filename, dark_file=None):
+    def __init__(self, fpa, dark_file, mode):
 
         # Load calibration file data
-        with open(filename,'r') as fin:
-         self.__dict__ = json.load(fin)
-        
-        # Adjust local filepaths where needed
-        for fi in ['spectral_calibration_file','srf_correction_file',
-                   'crf_correction_file','linearity_file','ghost_map_file',
-                   'radiometric_coefficient_file', 'linearity_map_file',
-                   'bad_element_file','flat_field_file']:
-            path = getattr(self,fi)
-            if path[0] != '/':
-                path = os.path.join(my_directory, path)
-                setattr(self,fi,path)
+        current_mode   = fpa.modes[mode]
+        self.radiometric_coefficient_file = current_mode['radiometric_coefficient_file']
+        self.flat_field_file = current_mode['flat_field_file']
+        self.linearity_file = current_mode['linearity_file']
+        self.linearity_map_file = current_mode['linearity_map_file']
 
-        if dark_file is not None:
-            self.dark_frame_file = dark_file
+        self.dark_frame_file = dark_file
         self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
+  
+        # Move this outside, to the main function
+        if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+           # left shift, returning to the 16 bit range.
+           self.dark = left_shift_twice(self.dark)
+
         _, self.wl_full, self.fwhm_full = \
-             sp.loadtxt(self.spectral_calibration_file).T * 1000
-        self.srf_correction = sp.fromfile(self.srf_correction_file,
+             sp.loadtxt(fpa.spectral_calibration_file).T * 1000
+        self.srf_correction = sp.fromfile(fpa.srf_correction_file,
              dtype = sp.float32).reshape((fpa.native_rows, fpa.native_rows))
-        self.crf_correction = sp.fromfile(self.crf_correction_file,
+        self.crf_correction = sp.fromfile(fpa.crf_correction_file,
              dtype = sp.float32).reshape((fpa.native_columns, fpa.native_columns))
-        self.bad = sp.fromfile(self.bad_element_file,
+        self.bad = sp.fromfile(fpa.bad_element_file,
              dtype = sp.int16).reshape((fpa.native_rows, fpa.native_columns))
         self.flat_field = sp.fromfile(self.flat_field_file,
              dtype = sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
         self.flat_field = self.flat_field[0,:,:]
+        self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
 
         # Load ghost configuration and construct the matrix
-        with open(self.ghost_map_file,'r') as fin:
+        with open(fpa.ghost_map_file,'r') as fin:
             ghost_config = json.load(fin)
         self.ghost_matrix = build_ghost_matrix(ghost_config, fpa)
         self.ghost_blur = build_ghost_blur(ghost_config, fpa)
@@ -119,7 +122,14 @@ def calibrate_raw(frame, fpa, config):
     frame = fix_linearity(frame, config.linearity_mu, 
         config.linearity_evec, config.linearity_coeffs)
     frame = frame * config.flat_field
-    frame = fix_bad(frame, config.bad, fpa)
+
+    # Fix bad pixels, and any nonfinite results from the previous
+    # operations
+    flagged = np.logical_not(np.isfinite(frame))
+    frame[flagged] = 0
+    bad = config.bad.copy()
+    bad[flagged] = -1
+    frame = fix_bad(frame, bad, fpa)
 
     # Optical corrections
     frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
@@ -136,7 +146,7 @@ def calibrate_raw(frame, fpa, config):
     frame[sp.logical_not(sp.isfinite(frame))]=0
 
     # Clip the channels to the appropriate size, if needed
-    if config.extract_subframe:
+    if fpa.extract_subframe:
         frame = frame[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
         frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         frame = sp.flip(frame, axis=0)
@@ -149,19 +159,19 @@ def main():
     description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
-    default_config = my_directory + '/config/tvac2_config.json'
-    parser.add_argument('--config_file', default = default_config)
-    parser.add_argument('--dark_file', default = None)
+    parser.add_argument('--mode', default = 'default')
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
     parser.add_argument('--maxjobs', type=int, default=30)
     parser.add_argument('input_file', default='')
+    parser.add_argument('dark_file', default = None)
+    parser.add_argument('config_file', default='')
     parser.add_argument('output_file', default='')
     args = parser.parse_args()
 
     fpa = FPA(args.config_file)
-    config = Config(fpa, args.config_file, args.dark_file)
+    config = Config(fpa, args.dark_file, args.mode)
     ray.init()
 
     # Set up logging
@@ -181,6 +191,8 @@ def main():
 
     if int(infile.metadata['data type']) == 2:
         dtype = np.int16
+    elif int(infile.metadata['data type']) == 12:
+        dtype = np.uint16
     elif int(infile.metadata['data type']) == 4:
         dtype = np.float32
     else:
@@ -202,17 +214,16 @@ def main():
                
             while len(raw)>0:
 
-                # Read a frame of data
-                if lines_analyzed%10==0:
-                    logging.info('Calibrating line '+str(lines_analyzed))
-                
+                # Read a frame of data 
                 raw = np.array(raw, dtype=sp.float32)
                 frame = raw.reshape((rows,columns))
 
-                if dtype == np.int16:
-                   # left shift by 2 binary digits, 
-                   # returning to the 16 bit range.
+                if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+                   # left shift, returning to the 16 bit range.
                    frame = left_shift_twice(frame)
+
+                if lines_analyzed%10==0:
+                    logging.info('Calibrating line '+str(lines_analyzed))
 
                 jobs.append(calibrate_raw.remote(frame, fpa, config))
                 lines_analyzed = lines_analyzed + 1
@@ -222,7 +233,7 @@ def main():
                     # Write to file
                     result = ray.get(jobs)
                     for frame in result:
-                        sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                        np.asarray(frame, dtype=sp.float32).tofile(fout)
                     jobs = []
             
                 # Read next chunk
@@ -237,7 +248,7 @@ def main():
     wl = config.wl_full.copy()
     fwhm = config.fwhm_full.copy()
 
-    if config.extract_subframe:
+    if fpa.extract_subframe:
         ncolumns = fpa.last_distributed_column - fpa.first_distributed_column + 1
         nchannels = fpa.last_distributed_row - fpa.first_distributed_row + 1
         clip_rows = np.arange(fpa.last_distributed_row, fpa.first_distributed_row-1,-1,dtype=int)
@@ -252,6 +263,13 @@ def main():
     wavelength_string = ','.join([str(w) for w in wl])
     
     params = {'lines': lines}
+    params['run_command_string'] = ' '.join(sys.argv)
+    params['input_files_string'] = ' dark_file='+args.dark_file
+    for var in dir(fpa):
+       if var.endswith('_file'):
+          params['input_files_string'] = params['input_files_string'] + \
+             ' %s=%s'%(var,getattr(fpa,var))
+
     params.update(**locals())
     with open(args.output_file+'.hdr','w') as fout:
         fout.write(header_template.format(**params))

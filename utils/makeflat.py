@@ -14,6 +14,7 @@ import json
 from numba import jit
 from lowess import lowess
 from PIL import Image
+from fpa import FPA
 
 
 def find_header(infile):
@@ -29,10 +30,9 @@ def moving_average(x, w=5):
       return np.convolve(x, np.ones(w), 'same') / w
 
 
-def polymax(y, plot=False):
+def polymax(y, plot=False, halfwid=16):
     series = moving_average(y)
     ctr = np.argmax(series)
-    halfwid = 16
     segment = y[max(0,ctr-halfwid):min(ctr+halfwid+1,len(y)-1)]
     x = np.arange(len(segment))
     p = np.polyfit(x,segment,6)
@@ -47,10 +47,6 @@ def polymax(y, plot=False):
 # Reference columns of the focal plane array used for
 # radiometric calibration.  Avoid the center (due to 
 # symmetric ghosting) and avoid the divot from 1015-1035.
-reference_cols = np.concatenate((np.arange(140,340),
-                            np.arange(940,1015),
-                            np.arange(1035,1140)),axis=0)
-
 
 
 def main():
@@ -62,9 +58,17 @@ def main():
     parser.add_argument('--cue_channel',default=50,type=int)
     parser.add_argument('--background',type=str)
     parser.add_argument('--config',type=str)
+    parser.add_argument('--halfwid',type=int, default=16)
     parser.add_argument('--mask_image',type=str,default=None)
     parser.add_argument('output')
     args = parser.parse_args()
+    fpa = FPA(args.config)
+
+    reference_cols = []
+    print(dir(fpa))
+    for extrema in fpa.reference_cols:
+      reference_cols.extend(np.arange(extrema[0],extrema[1]))
+    reference_cols = np.array(reference_cols, dtype=int)
 
     infile = envi.open(find_header(args.input))
  
@@ -84,6 +88,10 @@ def main():
     margin=2
     meta = {'interleave':'bsq', 'data type':4}
         
+    if args.background is not None:
+       bgfile = envi.open(find_header(args.background))
+       bglines = int(bgfile.metadata['lines'])
+
     flat = np.ones((rows,columns)) * -9999
     noise = np.ones((rows,columns)) * -9999
     DN_average, DN_noise = [],[]
@@ -122,7 +130,7 @@ def main():
 
         if args.background is not None:
             with open(args.background,'rb') as fin:
-                for line in range(lines):
+                for line in range(bglines):
                     frame = np.fromfile(fin, count=nframe, dtype=dtype)
                     frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
                     use = np.where(mask[line,:]>0)
@@ -151,8 +159,9 @@ def main():
 
     else:
 
-        foreground = np.ones((lines,rows,columns))
-        background = np.ones((lines,rows,columns))
+        foreground = np.ones((lines,rows,columns),dtype=np.float32)
+        if args.background is not None:
+            background = np.ones((lines,rows,columns),dtype=np.float32)
         with open(args.input,'rb') as fin:
         
             # Accumulate n brightest observations of the source
@@ -165,7 +174,7 @@ def main():
             with open(args.background,'rb') as fin:
         
                 # Accumulate n brightest observations of the background
-                for line in range(lines):
+                for line in range(bglines):
                     bg = np.fromfile(fin, count=nframe, dtype=dtype)
                     bg = np.array(bg.reshape((rows, columns)), dtype=np.float32)
                     background[line,:,:] = bg
@@ -174,10 +183,16 @@ def main():
            for col in range(columns):
         
                y = np.squeeze(foreground[:,row,col])
-               bg_y = np.squeeze(background[:,row,col])
-               fg, resid_fg = polymax(y,plot=False)#(row==150 and col==200))
-               bg, resid_bg = polymax(bg_y,plot=False)#(row==150 and col==200))
-               flat[row,col] = fg - bg
+               fg, resid_fg = polymax(y,plot=False,#plot=(row==150 and col==200), 
+                   halfwid=int(args.halfwid))
+
+               if args.background is not None:
+                   bg_y = np.squeeze(background[:,row,col])
+                   bg, resid_bg = polymax(bg_y,plot=False,#(row==150 and col==200),
+                       halfwid=int(args.halfwid))
+                   fg = fg - bg
+
+               flat[row,col] = fg 
                noise[row,col] = resid_fg
         
            ref = nanmedian(flat[row, reference_cols])

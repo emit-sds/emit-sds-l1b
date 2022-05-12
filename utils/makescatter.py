@@ -42,22 +42,30 @@ def err(x,v,obs):
 
 
 def find_peak(x):
-    
+    ''' Find the peak, ignoring NaNs''' 
     fitter = modeling.fitting.LevMarLSQFitter()
-
-    model = modeling.models.Gaussian1D(amplitude=np.max(x),
-                                       mean=np.argmax(x),
+    xr = x.copy()
+    xr[np.isnan(x)] = np.nanmax(x)
+    model = modeling.models.Gaussian1D(amplitude=np.nanmax(x),
+                                       mean=np.argmax(xr),
                                        stddev=1.0/2.35)   # depending on the data you need to give some initial values
-    fitted_model = fitter(model, np.arange(len(x)), x)
+    abcissa = np.arange(len(x))
+    use = np.isfinite(x)
+    fitted_model = fitter(model, abcissa[use], x[use])
     return fitted_model.mean[0], fitted_model.amplitude[0], fitted_model.stddev[0]
 
 
 def find_scatter(obs, args):
+    ''' Fit the scatter function, ignoring NaNs''' 
 
     v = np.arange(len(obs))
-    ctr,n,n2 = find_peak(obs)
-    use = np.logical_and(v>(ctr-args.hwid),v<(ctr+args.hwid+1))
-    x0 = np.array([ctr, 1, 0.7, 0.010, 1.7, 0.0017, 7])
+    if args.target_col is None:
+        ctr,n,n2 = find_peak(obs)
+    else:
+        ctr = args.target_col
+    use = np.logical_and(np.isfinite(obs),np.logical_and(v>(ctr-args.hwid),v<(ctr+args.hwid+1)))
+    x0 = np.array([ctr, 0.8, 0.42, 0.0020, 1.5, 0.0005, 7])
+    #x0 = np.array([ctr, 1, 0.7, 0.010, 1.7, 0.0017, 7])
     #x0 = np.array([ctr, 1, 0.7, 0.001, 10, 0.001, 10])
 
     mdl = sum_of_gaussians(v,x0[0],abs(x0[1]),abs(x0[2]),abs(x0[3]),abs(x0[4]),abs(x0[5]),abs(x0[6]))
@@ -68,7 +76,7 @@ def find_scatter(obs, args):
     if args.plot:
         #plt.semilogy(v[use],mdl[use],'b')
         plt.semilogy(v[use],obs[use],'ko')
-        plt.semilogy(v[use],mdl2[use],'r')
+        #plt.semilogy(v[use],mdl2[use],'r')
         plt.box(False)
         plt.xlabel('channel')
         plt.grid(True)
@@ -86,8 +94,10 @@ def main():
     parser.add_argument('--spatial',action='store_true')
     parser.add_argument('--plot',action='store_true')
     parser.add_argument('--hwid',type=int,default=10)
+    parser.add_argument('--saturation',type=float,default=47000.0)
     parser.add_argument('--top_margin',type=int,default=20)
     parser.add_argument('--target_row',type=int,default=40)
+    parser.add_argument('--target_col',type=int,default=None)
     parser.add_argument('input',nargs='+')
     args = parser.parse_args()
 
@@ -109,22 +119,32 @@ def main():
         nframe = rows * columns
         
         X = infile.load()
-        c = np.argmax(np.sum(np.sum(X,axis=1),axis=0)) 
+   
+        if args.target_col is None:
+            c = np.argmax(np.sum(np.sum(X,axis=1),axis=0)) 
+        else:
+            c = int(args.target_col)
         
-        col = args.target_row
+        if args.target_row>0:
+            col = args.target_row
+        else:
+            plt.plot(np.mean(np.mean(X[args.top_margin:,:,:],axis=2),axis=0))
+            plt.show()
+            col = np.argmax(np.mean(np.mean(X[args.top_margin:,:,:],axis=2),axis=0))
         sequence = X[args.top_margin:,(col-args.hwid):(col+args.hwid+1),:]
 
         if args.spatial:
             # spatial scatter
-            sequence = np.mean(sequence, axis=2)
-            sequence = np.mean(sequence, axis=0)
+            sequence = np.nanmean(sequence, axis=2)
+            sequence = np.nanmean(sequence, axis=0)
         else:
             # spectral scatter
-            sequence = np.mean(sequence, axis=1)
-            sequence = np.mean(sequence, axis=0)
+            sequence = np.nanmean(sequence, axis=1)
+            sequence = np.nanmean(sequence, axis=0)
 
         sequence = np.squeeze(sequence)
-        sequence = sequence / max(sequence)                                         
+        sequence[sequence > args.saturation] = np.nan
+        sequence = sequence / np.nanmax(sequence)                                         
         best, er = find_scatter(sequence, args)
         best = [abs(b) for b in best]
         print('%i %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f'%(c, \

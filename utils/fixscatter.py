@@ -41,18 +41,16 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config')
-    parser.add_argument('spatial_corr')
-    parser.add_argument('spectral_corr')
+    parser.add_argument('config')
     parser.add_argument('output')
     args = parser.parse_args()
 
     fpa = FPA(args.config)
 
     infile = envi.open(find_header(args.input))
-    spatialfile = envi.open(find_header(args.spatial_corr))
+    spatialfile = envi.open(find_header(fpa.crf_correction_file))
     spatial = np.squeeze(spatialfile.load())
-    spectralfile = envi.open(find_header(args.spectral_corr))
+    spectralfile = envi.open(find_header(fpa.srf_correction_file))
     spectral = np.squeeze(spectralfile.load())
 
     if int(infile.metadata['data type']) == 2:

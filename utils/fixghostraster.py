@@ -13,7 +13,6 @@ import json
 import logging
 import argparse
 from scipy.ndimage import gaussian_filter
-from numba import jit
 from math import pow
 from fpa import FPA
 from fixghost import fix_ghost
@@ -46,6 +45,8 @@ def build_ghost_matrix(ghost_config, fpa):
     for order in ghost_config['orders']:
 
       x0, x1 = order['extent']
+      x0 = max(x0,fpa.first_valid_row)
+      x1 = min(x1,fpa.last_valid_row)
       scaling = order['scaling']
 
       # calculate target channel endpoints
@@ -77,7 +78,9 @@ def build_ghost_matrix(ghost_config, fpa):
       y = y0
       i = i0
       for j in range(steps+1):
-          ghostmap[int(round(x)),int(round(y))] = i
+          if int(round(x))<=fpa.last_valid_row and\
+             int(round(y))<=fpa.last_valid_row:
+              ghostmap[int(round(x)),int(round(y))] = i
           x = x + xinc
           y = y + yinc
           i = x * islope + ioffset
@@ -138,10 +141,9 @@ def main():
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
-    parser.add_argument('--config')
     parser.add_argument('--plot', action='store_true')
     parser.add_argument('--ncpus',default=30)
-    parser.add_argument('ghost_config')
+    parser.add_argument('config')
     parser.add_argument('output')
     args = parser.parse_args()
 
@@ -165,7 +167,7 @@ def main():
 
     envi.write_envi_header(args.output+'.hdr',infile.metadata)
 
-    with open(args.ghost_config,'r') as fin:
+    with open(fpa.ghost_map_file,'r') as fin:
         ghost_config = json.load(fin)
     ghostmap = build_ghost_matrix(ghost_config, fpa)
     blur = build_ghost_blur(ghost_config, fpa)

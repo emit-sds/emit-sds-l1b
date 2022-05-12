@@ -13,9 +13,7 @@ import json
 import logging
 import argparse
 from scipy.ndimage import gaussian_filter
-from numba import jit
 from math import pow
-from numba import jit
 from pylab import plt
 
 
@@ -35,7 +33,9 @@ def fix_ghost(frame, fpa, ghostmap, blur, center, plot=False):
      ghost[:, tcol] = target 
 
   for extent, (blur_spatial, blur_spectral) in blur.items():
-      indices = np.arange(extent[0], extent[1]+1)
+      lo = max(extent[0],fpa.first_valid_row)
+      hi = min(extent[1],fpa.last_valid_row)
+      indices = np.arange(lo, hi+1)
       ghost = blur_spectral @ ghost
       ghost[indices,:] = (blur_spatial @ ghost[indices,:].T).T
   

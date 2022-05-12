@@ -64,6 +64,12 @@ def serialize_ghost_config(config, coarse):
           bounds.append((-0.001,0.001))
           x.append(config['orders'][i]['intensity_offset'])
           bounds.append((-0.1,0.1))
+  elif coarse==3:
+      for i in range(len(config['orders'])):
+          x.append(config['orders'][i]['extent'][0])
+          bounds.append((x[-1]-2,x[-1]+2))
+          x.append(config['orders'][i]['extent'][1])
+          bounds.append((x[-1]-2,x[-1]+2))
   else:
       for zone in config['psf_zones']:
           for psf in zone['psfs']:
@@ -83,6 +89,10 @@ def deserialize_ghost_config(x, config, coarse):
       for i in range(len(ghost_config['orders'])):
         ghost_config['orders'][i]['intensity_slope'] = x[i*2]
         ghost_config['orders'][i]['intensity_offset'] = x[i*2+1]
+  elif coarse==3:
+      for i in range(len(config['orders'])):
+          ghost_config['orders'][i]['extent'][0] = x[i*2]
+          ghost_config['orders'][i]['extent'][1] = x[i*2+1]
   else:
       ind = 0
       for zone in range(len(ghost_config['psf_zones'])):
@@ -171,7 +181,7 @@ def main():
     ghost_config = randomize_ghost_config(ghost_config, args.seed)
 
     # We perform coordinate descent on different state vector subspaces
-    for coarse in [1,0,2,1,0,2,1,0,2]:
+    for coarse in [3,1,2,0,1,2,0]:#[2,2]:#[1,0,2,1,0,2,1,0,2]:
 
         # nonlinear solution
         x0, bounds = serialize_ghost_config(ghost_config, coarse=coarse)

@@ -35,7 +35,7 @@ def sum_of_gaussians(x, mean1=0, amplitude1=1., sigma1=1.,
 
 def main():
 
-    description = "Calculate linearity basis"
+    description = "Scatter function"
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
@@ -55,15 +55,30 @@ def main():
     i = np.argsort(ctr)
     for field in [mean1, amp1, sigma1, amp2, sigma2, amp3, sigma3, err]:
         field = field[i]
+
+    # Normalize to the magnitude of the central peak
+    plt.plot(amp2)
+    if args.spatial:
+         x = np.arange(fpa.native_columns)
+    else:
+         x = np.arange(fpa.native_rows)
+    for i in range(len(mean1)):
+         total = sum_of_gaussians(x,mean1[i],amp1[i],0,0.5,0,0.5).sum()
+         amp2[i] = amp2[i] / total 
+         amp3[i] = amp3[i] / total 
+         amp1[i] = amp1[i] / total 
+         if any(np.logical_not(np.isfinite(np.array([amp1[i],amp2[i],amp3[i]])))):
+             err[i] = np.nan # will skip this datapoint
+    plt.plot(amp2,'k')
+    plt.show()
      
     # Hold all spectral points 
     grid = np.arange(fpa.native_rows)
 
     if True:
-        use = err < err.std()
+        use = np.logical_and(err < np.nanmean(err) + np.nanstd(err), np.isfinite(err))
         ransac = linear_model.RANSACRegressor()
-        abscissa = np.column_stack((ctr, pow(ctr-int(fpa.native_rows),2)))
-        print(abscissa.shape)
+        abscissa = np.column_stack(((ctr), pow(ctr-int(fpa.native_rows),2)))
         ransac.fit(abscissa[use,:],sigma1[use])
         sigma1_smoothed = ransac.predict(abscissa)
         ransac.fit(abscissa[use,:],amp1[use])
@@ -108,22 +123,27 @@ def main():
     plt.plot(grid, sigma3,'k')
     plt.show()
 
+    metadata = {}
+
     if args.spatial:
 
         L = np.zeros((fpa.native_columns, fpa.native_columns))
         x = np.arange(fpa.native_columns)
 
-        s1 = np.mean(sigma1)
-        a2 = np.mean(amp2)
-        s2 = np.mean(sigma2)
-        a3 = np.mean(amp3)
-        s3 = np.mean(sigma3)
 
-        # set amplitude relative to main peak with area of unity
-        ampn = norm.pdf(x,int(fpa.native_columns/2),s1)
-        ampn = ampn / ampn.sum()
-        a2 = a2 * ampn.max() * float(args.manual)
-        a3 = a3 * ampn.max() * float(args.manual)
+        a1 = np.nanmean(amp1)
+        s1 = np.nanmean(sigma1)
+        a2 = np.nanmean(amp2)
+        s2 = np.nanmean(sigma2)
+        a3 = np.nanmean(amp3)
+        s3 = np.nanmean(sigma3)
+        metadata['scatter'] = [a2,s2,a3,s3] 
+
+       ## set amplitude relative to main peak with area of unity
+       #ampn = norm.pdf(x,int(fpa.native_columns/2),s1)
+       #ampn = ampn / ampn.sum()
+       #a2 = a2 * ampn.max() * float(args.manual)
+       #a3 = a3 * ampn.max() * float(args.manual)
 
         for i in range(left, right+1):
              if i%100==0:
@@ -134,7 +154,7 @@ def main():
              L[np.logical_not(np.isfinite(L))] = 0
              L[i,:left] = 0
              L[i,(right+1):] = 0
-             
+             L[i,:] = L[i,:] * float(args.manual)
         L = L + np.eye(fpa.native_columns)
 
         # Normalize each row to conserve photons
@@ -150,28 +170,31 @@ def main():
 
              s1, a2, s2, a3, s3 = sigma1[i],amp2[i],sigma2[i],amp3[i],sigma3[i]
 
-             s1 = np.mean(sigma1)
-             a2 = np.mean(amp2)
-             s2 = np.mean(sigma2)
-             a3 = np.mean(amp3)
-             s3 = np.mean(sigma3)
+            #a1 = np.nanmean(amp1)
+            #s1 = np.nanmean(sigma1)
+            #a2 = np.nanmean(amp2)
+            #s2 = np.nanmean(sigma2)
+            #a3 = np.nanmean(amp3)
+            #s3 = np.nanmean(sigma3)
 
-             # set amplitude relative to main peak with area of unity
-             ampn = norm.pdf(x,int(fpa.native_rows/2),s1)
-             ampn = ampn / ampn.sum()
-             a2 = a2 * ampn.max() * float(args.manual)
-             a3 = a3 * ampn.max() * float(args.manual)
+            ## set amplitude relative to main peak with area of unity
+            #ampn = norm.pdf(x,int(fpa.native_rows/2),s1)
+            #ampn = ampn / ampn.sum()
+            #a2 = a2 * ampn.max() * float(args.manual)
+            #a3 = a3 * ampn.max() * float(args.manual)
 
              # sigma of 0.5 is arbitrary because central peak magnitude is zero
-             L[i,:] = sum_of_gaussians(x,i,0,0.5,a2,s2,a3,s3)
+             L[i,:] = sum_of_gaussians(x,i,0,0.5,a2,s2,a3,s3) 
              L[np.logical_not(np.isfinite(L))] = 0
              L[i,:shortw] = 0
              L[i,(longw+1):] = 0
+             L[i,:] = L[i,:] * float(args.manual)
                                
-             if i%100==0:
-                 print(i,'/',fpa.native_rows)
-                 plt.semilogy(x,L[i,:])
-                 plt.show()
+            #if i%100==0:
+            #    print(i,'/',fpa.native_rows)
+            #    plt.semilogy(x,L[i,:])
+            #    plt.show()
+             metadata['channel_%i_scatter'%i] = [a2,s2,a3,s3] 
 
         L = L + np.eye(fpa.native_rows)
 
@@ -181,7 +204,7 @@ def main():
   
     Linv = inv(L)
     Linv = Linv.astype(np.float32)
-    envi.save_image(args.output+'.hdr',Linv,ext='',force=True)
+    envi.save_image(args.output+'.hdr',Linv,metadata=metadata,ext='',force=True)
 
 
 
