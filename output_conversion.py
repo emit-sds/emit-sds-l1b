@@ -25,6 +25,7 @@ def main():
     parser.add_argument('obs_file', type=str, help="EMIT L1B observation data ENVI file")
     parser.add_argument('loc_file', type=str, help="EMIT L1B location data ENVI file")
     parser.add_argument('glt_file', type=str, help="EMIT L1B glt ENVI file")
+    parser.add_argument('version', type=str, help="3 digit (with leading V) version number")
     parser.add_argument('--ummg_file', type=str, help="Output UMMG filename")
     parser.add_argument('--log_file', type=str, default=None, help="Logging file to write to")
     parser.add_argument('--log_level', type=str, default="INFO", help="Logging level")
@@ -47,7 +48,7 @@ def main():
     logging.debug('Creating global attributes')
     daac_converter.makeGlobalAttr(nc_ds, args.rdn_file, args.glt_file)
 
-    nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance Data 60 m V001"
+    nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance Data 60 m " + args.version
     nc_ds.summary = nc_ds.summary + \
         f"\\n\\nThis file contains L1B at-sensor calibrated radiances. \
         The radiance calibration occurs in two basic stages: 1) transforming raw digital numbers \
