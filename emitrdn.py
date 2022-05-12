@@ -51,6 +51,7 @@ wavelength units = Nanometers
 wavelength = {{{wavelength_string}}}
 fwhm = {{{fwhm_string}}}
 band names = {{{band_names_string}}}
+masked pixel noise = {masked_pixel_noise}
 emit pge input files = {{{input_files_string}}}
 emit pge run command = {{{run_command_string}}}
 """
@@ -116,8 +117,18 @@ class Config:
 @ray.remote
 def calibrate_raw(frame, fpa, config):
 
-    # Detector corrections
+    # Dark state subtraction
     frame = subtract_dark(frame, config.dark)
+
+    # Raw noise calculation
+    if hasattr(fpa,'masked_columns'):
+        noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
+    elif hasattr(fpa,'masked_rows'):
+        noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
+    else:
+        noise = -1 
+
+    # Detector corrections
     frame = fix_pedestal(frame, fpa)
     frame = fix_linearity(frame, config.linearity_mu, 
         config.linearity_evec, config.linearity_coeffs)
@@ -151,7 +162,7 @@ def calibrate_raw(frame, fpa, config):
         frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         frame = sp.flip(frame, axis=0)
 
-    return frame
+    return frame, noise
    
 
 def main():
@@ -205,6 +216,7 @@ def main():
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
     lines_analyzed = 0
+    noises = []
 
     with open(args.input_file,'rb') as fin:
         with open(args.output_file,'wb') as fout:
@@ -232,8 +244,9 @@ def main():
                     
                     # Write to file
                     result = ray.get(jobs)
-                    for frame in result:
+                    for frame, noise in result:
                         np.asarray(frame, dtype=sp.float32).tofile(fout)
+                        noises.append(noise)
                     jobs = []
             
                 # Read next chunk
@@ -241,8 +254,9 @@ def main():
 
             # Do any final jobs
             result = ray.get(jobs)
-            for frame in result:
+            for frame, noise in result:
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                noises.append(noise)
 
     # Form output metadata strings
     wl = config.wl_full.copy()
@@ -263,6 +277,8 @@ def main():
     wavelength_string = ','.join([str(w) for w in wl])
     
     params = {'lines': lines}
+    print(noises)
+    params['masked_pixel_noise'] = np.nanmedian(np.array(noises))
     params['run_command_string'] = ' '.join(sys.argv)
     params['input_files_string'] = ' dark_file='+args.dark_file
     for var in dir(fpa):
