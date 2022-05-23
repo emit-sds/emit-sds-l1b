@@ -1,18 +1,18 @@
 {
    "modes":{
      "default":{
-       "flat_field_file": "../data/CWIS_FlatField_20220413",
-       "radiometric_coefficient_file": "../data/CWIS_RadiometricCoeffs_20220413.txt",
-       "linearity_file": "../data/CWIS_LinearityBasis_22020331",
-       "linearity_map_file": "../data/CWIS_LinearityMap_22020331"
+       "flat_field_file": "../data/cwis/CWIS_FlatField_20220428",
+       "radiometric_coefficient_file": "../data/cwis/CWIS_RadiometricCoeffs_20220428.txt",
+       "linearity_file": "../data/cwis/CWIS_LinearityBasis_22020331",
+       "linearity_map_file": "../data/cwis/CWIS_LinearityMap_22020331"
      }
    },
-   "srf_correction_file": "../data/CWIS_SpectralScatter_20220406",
-   "crf_correction_file": "../data/CWIS_SpatialScatter_20220406",
-   "bad_element_file": "../data/CWIS_BadElements_20220413",
-   "spectral_calibration_file": "../data/CWIS_Wavelengths_20220331.txt",
-   "ghost_map_file": "../data/CWIS_GhostMap_20220413.json",
-   "extract_subframe": true,
+   "srf_correction_file": "../data/cwis/CWIS_SpectralScatter_20220406",
+   "crf_correction_file": "../data/cwis/CWIS_SpatialScatter_20220406",
+   "bad_element_file": "../data/cwis/CWIS_BadElements_20220413",
+   "spectral_calibration_file": "../data/cwis/CWIS_Wavelengths_20220512.txt",
+   "ghost_map_file": "../data/cwis/CWIS_GhostMap_20220413.json",
+   "extract_subframe": false,
    "pedestal_multiplier":1.0,
    "osf_seam_positions": [[187,189]],
    "linearity_nbasis": 2,
