@@ -34,7 +34,7 @@ from fixghostraster import build_ghost_blur
 from pedestal import fix_pedestal
 from darksubtract import subtract_dark
 from leftshift import left_shift_twice
-from emit2dark import dark_from_file
+from emit2dark import bad_flag, dark_from_file
 
 
 header_template = """ENVI
@@ -117,6 +117,14 @@ class Config:
 @ray.remote
 def calibrate_raw(frame, fpa, config):
 
+    # Don't calibrate a bad frame
+    if frame[0,0] < bad_flag:
+       return frame, -9999   
+
+    # left shift, returning to the 16 bit range.
+    if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+       frame = left_shift_twice(frame)
+
     # Dark state subtraction
     frame = subtract_dark(frame, config.dark)
 
@@ -174,7 +182,7 @@ def main():
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
-    parser.add_argument('--maxjobs', type=int, default=30)
+    parser.add_argument('--max_jobs', type=int, default=40)
     parser.add_argument('input_file', default='')
     parser.add_argument('dark_file', default = None)
     parser.add_argument('config_file', default='')
@@ -230,17 +238,13 @@ def main():
                 raw = np.array(raw, dtype=sp.float32)
                 frame = raw.reshape((rows,columns))
 
-                if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
-                   # left shift, returning to the 16 bit range.
-                   frame = left_shift_twice(frame)
-
                 if lines_analyzed%10==0:
                     logging.info('Calibrating line '+str(lines_analyzed))
 
                 jobs.append(calibrate_raw.remote(frame, fpa, config))
                 lines_analyzed = lines_analyzed + 1
 
-                if len(jobs) == args.maxjobs:
+                if len(jobs) == args.max_jobs:
                     
                     # Write to file
                     result = ray.get(jobs)
@@ -277,7 +281,6 @@ def main():
     wavelength_string = ','.join([str(w) for w in wl])
     
     params = {'lines': lines}
-    print(noises)
     params['masked_pixel_noise'] = np.nanmedian(np.array(noises))
     params['run_command_string'] = ' '.join(sys.argv)
     params['input_files_string'] = ' dark_file='+args.dark_file

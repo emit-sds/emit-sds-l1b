@@ -26,7 +26,7 @@ data type = 4
 interleave = bsq
 byte order = 0"""
 
-bad_flag = -9990
+bad_flag = -9000
 
 
 def find_header(infile):
