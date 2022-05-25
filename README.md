@@ -9,7 +9,7 @@ Welcome to the EMIT Level 1b science data system repository.  To understand how 
 The top level calibration utility is emitrdn.py.  To calibrate a raw EMIT data file to spectrally resolved radiance units, simply type:
 
 ```
-python emitrdn.py [path_to_dark_file.raw] [path_to_configuration_file.json] [input_dn_file.raw]  [output_radiance.img]
+python emitrdn.py [input_dn_file.raw] [path_to_dark_file.raw] [path_to_configuration_file.json] [output_radiance.img]
 ```
 
 This utility is configured at runtime by the JSON configuration files in the config/ subdirectory.  These files provide options for varying different components of the radiometric calibration process, including the spectral calibration, radiometric calibration, optical and electronic corrections.  It selects a default configuration file if none is specified.
@@ -17,7 +17,7 @@ This utility is configured at runtime by the JSON configuration files in the con
 Often instruments will have more than one operating mode corresponding to different integration time settings.  This changes the radiometric calibration of the sensor.  For example, the EMIT top level configuration file has two blocks associated with normal and half-integration-time settings.  At run-time, half integration time observations (also known as "gypsum mode" observations) are specified using the "--mode half" flag:
 
 ```
-python emitrdn.py --mode half [path_to_dark_file.raw] ...
+python emitrdn.py --mode half [input_dn_file.raw]  ...
 ```
 
 Other command line parameters control verbosity and parallelism.
