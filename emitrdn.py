@@ -6,7 +6,7 @@
 # Author: David R Thompson, david.r.thompson@jpl.nasa.gov
 
 import scipy.linalg
-import os, sys
+import os, sys, os.path
 import scipy as sp
 import numpy as np
 from spectral.io import envi
@@ -16,13 +16,32 @@ import json
 import logging
 import argparse
 import multiprocessing
+import ray
+import pylab as plt
+
+# Import some EMIT-specific functions
+my_directory, my_executable = os.path.split(os.path.abspath(__file__))
+sys.path.append(my_directory + '/utils/')
+
+from fpa import FPA, frame_embed, frame_extract
+from fixbad import fix_bad
+from fixosf import fix_osf
+from fixlinearity import fix_linearity
+from fixscatter import fix_scatter
+from fixghost import fix_ghost
+from fixghostraster import build_ghost_matrix
+from fixghostraster import build_ghost_blur
+from pedestal import fix_pedestal
+from darksubtract import subtract_dark
+from leftshift import left_shift_twice
+from emit2dark import bad_flag, dark_from_file
 
 
 header_template = """ENVI
-description = {{Calibrated Radiance, microWatts per (steradian nanometer [centemeter squared])}}
-samples = {columns_raw}
+description = {{EMIT L1B calibrated spectral radiance (units: uW nm-1 cm-2 sr-1)}}
+samples = {ncolumns}
 lines = {lines}
-bands = {channels_raw}
+bands = {nchannels}
 header offset = 0
 file type = ENVI Standard
 data type = 4
@@ -31,192 +50,148 @@ byte order = 0
 wavelength units = Nanometers
 wavelength = {{{wavelength_string}}}
 fwhm = {{{fwhm_string}}}
-band names = {{{band_names_string}}}"""
+band names = {{{band_names_string}}}
+masked pixel noise = {masked_pixel_noise}
+emit pge input files = {{{input_files_string}}}
+emit pge run command = {{{run_command_string}}}
+"""
 
-      
+ 
+def find_header(infile):
+  if os.path.exists(infile+'.hdr'):
+    return infile+'.hdr'
+  elif os.path.exists('.'.join(infile.split('.')[:-1])+'.hdr'):
+    return '.'.join(infile.split('.')[:-1])+'.hdr'
+  else:
+    raise FileNotFoundError('Did not find header file')
+
+     
 class Config:
 
-    def __init__(self, filename, input_file='', output_file=''):
+    def __init__(self, fpa, dark_file, mode):
 
         # Load calibration file data
-        with open(filename,'r') as fin:
-         self.__dict__ = json.load(fin)
-        try:
-           self.dark, _ = sp.fromfile(self.dark_frame_file,
-                dtype = sp.float32).reshape((2, self.channels_raw, 
-                    self.columns_raw))
-           _, self.wl, self.fwhm = \
-                sp.loadtxt(self.spectral_calibration_file).T * 1000
-           self.srf_correction = sp.fromfile(self.srf_correction_file,
-                dtype = sp.float32).reshape((self.channels_raw, 
-                    self.channels_raw))
-           self.crf_correction = sp.fromfile(self.crf_correction_file,
-                dtype = sp.float32).reshape((self.columns_raw, 
-                    self.columns_raw))
-           self.bad = sp.fromfile(self.bad_element_file,
-                dtype = sp.uint16).reshape((self.channels_raw, 
-                    self.columns_raw))
-           self.flat_field = sp.fromfile(self.flat_field_file,
-                dtype = sp.float32).reshape((2, self.channels_raw, 
-                    self.columns_raw))[0,:,:]
-           self.radiometric_calibration, _, _ = \
-                sp.loadtxt(self.radiometric_coefficient_file).T
-           self.linearity = sp.fromfile(self.linearity_file, 
-                dtype=sp.uint16).reshape((65536,))
-        except ValueError:
-            logging.error('Incorrect file size for calibration data')
-        except AttributeError:
-            logging.error('One or more missing calibration files')
+        current_mode   = fpa.modes[mode]
+        self.radiometric_coefficient_file = current_mode['radiometric_coefficient_file']
+        self.flat_field_file = current_mode['flat_field_file']
+        self.linearity_file = current_mode['linearity_file']
+        self.linearity_map_file = current_mode['linearity_map_file']
 
-        # Check for NaNs in calibration data
-        for name in ['dark', 'wl', 'srf_correction', 
-                'crf_correction', 'bad', 'flat_field',
-                'radiometric_calibration','linearity']:
-            obj = getattr(self, name)
-            invalid  = np.logical_not(sp.isfinite(obj))
-            if invalid.sum() > 0:
-                msg='Replacing %i non-finite values in %s' 
-                logging.warning(msg % (invalid.sum(),name))
-            obj[invalid]=0
-
-        # Truncate flat field values, if needed
-        if self.flat_field_limits is not None:
-           lo, hi = self.flat_field_limits
-           self.flat_field[self.flat_field < lo] = lo
-           self.flat_field[self.flat_field > hi] = hi 
-
-        # Size of regular frame and raw frame (with header)
-        self.frame_shape = (self.channels, self.columns)
-        self.nframe = sp.prod(self.frame_shape)
-        self.raw_shape = (self.channels_raw + self.header_channels, self.columns_raw)
-        self.nraw = sp.prod(self.raw_shape)
-
-        # Form output metadata strings
-        self.band_names_string = ','.join(['channel_'+str(i) \
-                for i in range(len(self.wl))])
-        self.fwhm_string =  ','.join([str(w) for w in self.fwhm])
-        self.wavelength_string = ','.join([str(w) for w in self.wl])
-
-        # Clean channels have no bad elements
-        self.clean = sp.where(np.logical_not(self.bad).all(axis=1))[0]
-        logging.warning(str(len(self.clean))+' clean channels')
-
-        # Find the input files
-        if len(input_file)>0:
-            self.input_file = input_file
-        if len(output_file)>0:
-            self.output_file = output_file
-
-        # Identify input file header
-        if self.input_file.endswith('.img'):
-            self.input_header = self.input_file.replace('.img','.hdr') 
-        else:
-            self.input_header = self.input_file + '.hdr'
-
-        # Identify output file header
-        if self.output_file.endswith('.img'):
-            self.output_header = self.output_file.replace('.img','.hdr') 
-        else:
-            self.output_header = self.output_file + '.hdr'
-
-
-def correct_pedestal_shift(frame, config):
-    mean_dark = frame[config.dark_channels,:].mean(axis=0)
-    return frame - mean_dark
-
-
-def infer_bad(frame, col, config):
-    '''Infer the value of a bad pixel'''
-    bad = sp.where(config.bad[:,col])[0]
-    sa = frame[config.clean,:].T @ frame[config.clean, col]
-    norms = linalg.norm(frame[config.clean,:], axis=0).T
-    sa = sa / (norms * norms[col])
-    sa[col] = -9e99
-    best = sp.argmax(sa)
-    p = polyfit(frame[config.clean, best], frame[config.clean, col],1)
-    new = frame[:,col]
-    new[bad] = polyval(p, frame[bad, best])
-    return new 
-
-    
-def fix_bad(frame, config):
-    fixed = frame.copy()
-    for col in sp.nonzero(config.bad.any(axis=0))[0]:
-        fixed[:,col] = infer_bad(frame, col, config)
-    return fixed
-
-
-def subtract_dark(frame, config):
-    return frame - config.dark
-
-
-def correct_spatial_resp(frame, crf_correction):
-    scratch = sp.zeros(frame.shape)
-    for i in range(frame.shape[0]):
-        scratch[i,:] = crf_correction @ frame[i,:] 
-    return scratch
-
-
-def correct_spectral_resp(frame, srf_correction):
-    scratch = sp.zeros(frame.shape)
-    for i in range(frame.shape[1]):
-        scratch[:,i] = srf_correction @ frame[:,i]  
-    return scratch
-
-
-def correct_panel_ghost(frame, config):
-
-    pg_template = sp.array([config.pg_template])
-    ntemplate = len(config.pg_template)
-
-    panel1 = sp.arange(config.panel_width)
-    panel2 = sp.arange(config.panel_width,(2*config.panel_width))
-    panel3 = sp.arange((2*config.panel_width),(3*config.panel_width))
-    panel4 = sp.arange((3*config.panel_width),(4*config.panel_width))
- 
-    avg1 = frame[:,panel1].mean(axis=1)[:,sp.newaxis]
-    avg2 = frame[:,panel2].mean(axis=1)[:,sp.newaxis]
-    avg3 = frame[:,panel3].mean(axis=1)[:,sp.newaxis]
-    avg4 = frame[:,panel4].mean(axis=1)[:,sp.newaxis]
+        self.dark_frame_file = dark_file
+        self.dark, self.dark_std = dark_from_file(self.dark_frame_file)
   
-    c1 = frame[:,panel1];
-    c2 = frame[:,panel2];
-    c3 = frame[:,panel3];
-    c4 = frame[:,panel4];       
- 
-    coef1 = config.panel_ghost_correction * (c2+c3+c4);
-    coef2 = config.panel_ghost_correction * (c1+c3+c4);
-    coef3 = config.panel_ghost_correction * (c1+c2+c4);
-    coef4 = config.panel_ghost_correction * (c1+c2+c3);       
+        # Move this outside, to the main function
+        if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+           # left shift, returning to the 16 bit range.
+           self.dark = left_shift_twice(self.dark)
 
-    coef1[:,:ntemplate] = 1.6 * (avg2+avg3+avg4) @ pg_template
-    coef2[:,:ntemplate] = 1.6 * (avg1+avg3+avg4) @ pg_template
-    coef3[:,:ntemplate] = (avg1+avg2+avg4)@ pg_template
-    coef4[:,:ntemplate] = (avg1+avg2+avg3)@ pg_template
-            
-    new = sp.zeros(frame.shape)
-    new[:,panel1] = frame[:,panel1] + coef1;
-    new[:,panel2] = frame[:,panel2] + coef2;
-    new[:,panel3] = frame[:,panel3] + coef3;
-    new[:,panel4] = frame[:,panel4] + coef4;
+        _, self.wl_full, self.fwhm_full = \
+             sp.loadtxt(fpa.spectral_calibration_file).T * 1000
+        self.srf_correction = sp.fromfile(fpa.srf_correction_file,
+             dtype = sp.float32).reshape((fpa.native_rows, fpa.native_rows))
+        self.crf_correction = sp.fromfile(fpa.crf_correction_file,
+             dtype = sp.float32).reshape((fpa.native_columns, fpa.native_columns))
+        self.bad = sp.fromfile(fpa.bad_element_file,
+             dtype = sp.int16).reshape((fpa.native_rows, fpa.native_columns))
+        self.flat_field = sp.fromfile(self.flat_field_file,
+             dtype = sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
+        self.flat_field = self.flat_field[0,:,:]
+        self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
+        _, self.radiometric_calibration, self.radiometric_uncert = \
+             sp.loadtxt(self.radiometric_coefficient_file).T
 
-    return new
+        # Load ghost configuration and construct the matrix
+        with open(fpa.ghost_map_file,'r') as fin:
+            ghost_config = json.load(fin)
+        self.ghost_matrix = build_ghost_matrix(ghost_config, fpa)
+        self.ghost_blur = build_ghost_blur(ghost_config, fpa)
+        self.ghost_center = ghost_config['center']
+             
+        basis = envi.open(self.linearity_file+'.hdr').load()
+        self.linearity_mu = np.squeeze(basis[0,:])
+        self.linearity_mu[np.isnan(self.linearity_mu)] = 0
+        self.linearity_evec = np.squeeze(basis[1:,:].T)
+        self.linearity_evec[np.isnan(self.linearity_evec)] = 0
+        self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
 
+@ray.remote
+def calibrate_raw(frame, fpa, config):
+
+    # Don't calibrate a bad frame
+    if frame[0,0] < bad_flag:
+       return frame, -9999   
+
+    # left shift, returning to the 16 bit range.
+    if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+       frame = left_shift_twice(frame)
+
+    # Dark state subtraction
+    frame = subtract_dark(frame, config.dark)
+
+    # Raw noise calculation
+    if hasattr(fpa,'masked_columns'):
+        noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
+    elif hasattr(fpa,'masked_rows'):
+        noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
+    else:
+        noise = -1 
+
+    # Detector corrections
+    frame = fix_pedestal(frame, fpa)
+    frame = fix_linearity(frame, config.linearity_mu, 
+        config.linearity_evec, config.linearity_coeffs)
+    frame = frame * config.flat_field
+
+    # Fix bad pixels, and any nonfinite results from the previous
+    # operations
+    flagged = np.logical_not(np.isfinite(frame))
+    frame[flagged] = 0
+    bad = config.bad.copy()
+    bad[flagged] = -1
+    frame = fix_bad(frame, bad, fpa)
+
+    # Optical corrections
+    frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
+    frame = fix_ghost(frame, fpa, config.ghost_matrix, 
+         blur = config.ghost_blur, center = config.ghost_center)
+
+    # Absolute radiometry
+    frame = (frame.T * config.radiometric_calibration).T
+   
+    # Fix OSF
+    frame = fix_osf(frame, fpa)
+
+    # Catch NaNs
+    frame[sp.logical_not(sp.isfinite(frame))]=0
+
+    # Clip the channels to the appropriate size, if needed
+    if fpa.extract_subframe:
+        frame = frame[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
+        frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
+        frame = sp.flip(frame, axis=0)
+
+    return frame, noise
+   
 
 def main():
 
-    description = "Radiometric Calibration"
+    description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('config_file')
-    parser.add_argument('input_file', nargs='?', default='')
-    parser.add_argument('output_file', nargs='?', default='')
+    parser.add_argument('--mode', default = 'default')
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
+    parser.add_argument('--max_jobs', type=int, default=40)
+    parser.add_argument('input_file', default='')
+    parser.add_argument('dark_file', default = None)
+    parser.add_argument('config_file', default='')
+    parser.add_argument('output_file', default='')
     args = parser.parse_args()
 
-    config = Config(args.config_file, args.input_file, args.output_file)
+    fpa = FPA(args.config_file)
+    config = Config(fpa, args.dark_file, args.mode)
+    ray.init()
 
     # Set up logging
     for handler in logging.root.handlers[:]:
@@ -224,55 +199,98 @@ def main():
     if args.log_file is None:
         logging.basicConfig(format='%(message)s', level=args.level)
     else:
-        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=args.level, filename=args.log_file)
+        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', 
+            level=args.level, filename=args.log_file)
 
     logging.info('Starting calibration')
     lines = 0
     raw = 'Start'
 
-    with open(config.input_file,'rb') as fin:
-        with open(config.output_file,'wb') as fout:
+    infile = envi.open(find_header(args.input_file))
 
-            raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
+    if int(infile.metadata['data type']) == 2:
+        dtype = np.int16
+    elif int(infile.metadata['data type']) == 12:
+        dtype = np.uint16
+    elif int(infile.metadata['data type']) == 4:
+        dtype = np.float32
+    else:
+        raise ValueError('Unsupported data type')
+    if infile.metadata['interleave'] != 'bil':
+        raise ValueError('Unsupported interleave')
+
+    rows = int(infile.metadata['bands'])
+    columns = int(infile.metadata['samples'])
+    lines = int(infile.metadata['lines'])
+    nframe = rows * columns
+    lines_analyzed = 0
+    noises = []
+
+    with open(args.input_file,'rb') as fin:
+        with open(args.output_file,'wb') as fout:
+
+            raw = sp.fromfile(fin, count=nframe, dtype=dtype)
+            jobs = []
+               
             while len(raw)>0:
 
-                # Read a frame of data
-                if lines%10==0:
-                    logging.info('Calibrating line '+str(lines))
-                
+                # Read a frame of data 
                 raw = np.array(raw, dtype=sp.float32)
-                raw = raw.reshape(config.raw_shape)
-                header = raw[:config.header_channels, :]
-                frame  = raw[config.header_channels:, :]
-                
-                # Detector corrections
-                frame = subtract_dark(frame, config)
-                frame = correct_pedestal_shift(frame, config)
-                frame = correct_panel_ghost(frame, config) 
-                frame = frame * config.flat_field
-                frame = fix_bad(frame, config)
+                frame = raw.reshape((rows,columns))
 
-                # Optical corrections
-                frame = correct_spectral_resp(frame, config.srf_correction)
-                frame = correct_spatial_resp(frame, config.crf_correction)
+                if lines_analyzed%10==0:
+                    logging.info('Calibrating line '+str(lines_analyzed))
 
-                # Absolute radiometry
-                frame = (frame.T * config.radiometric_calibration).T
-   
-                # Reverse channels, catch NaNs, and write
-                frame[sp.logical_not(sp.isfinite(frame))]=0
-                if config.reverse_channels:
-                    frame = sp.flip(frame, axis=0)
-                sp.asarray(frame, dtype=sp.float32).tofile(fout)
-                lines = lines + 1
+                jobs.append(calibrate_raw.remote(frame, fpa, config))
+                lines_analyzed = lines_analyzed + 1
+
+                if len(jobs) == args.max_jobs:
+                    
+                    # Write to file
+                    result = ray.get(jobs)
+                    for frame, noise in result:
+                        np.asarray(frame, dtype=sp.float32).tofile(fout)
+                        noises.append(noise)
+                    jobs = []
             
                 # Read next chunk
-                raw = sp.fromfile(fin, count=config.nraw, dtype=sp.int16)
+                raw = sp.fromfile(fin, count=nframe, dtype=dtype)
 
+            # Do any final jobs
+            result = ray.get(jobs)
+            for frame, noise in result:
+                sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                noises.append(noise)
+
+    # Form output metadata strings
+    wl = config.wl_full.copy()
+    fwhm = config.fwhm_full.copy()
+
+    if fpa.extract_subframe:
+        ncolumns = fpa.last_distributed_column - fpa.first_distributed_column + 1
+        nchannels = fpa.last_distributed_row - fpa.first_distributed_row + 1
+        clip_rows = np.arange(fpa.last_distributed_row, fpa.first_distributed_row-1,-1,dtype=int)
+        wl = wl[clip_rows]
+        fwhm = fwhm[clip_rows]
+    else:
+        nchannels, ncolumns = fpa.native_rows, fpa.native_columns
+
+    band_names_string = ','.join(['channel_'+str(i) \
+       for i in range(len(wl))])
+    fwhm_string =  ','.join([str(w) for w in fwhm])
+    wavelength_string = ','.join([str(w) for w in wl])
+    
     params = {'lines': lines}
-    params.update(globals())
-    params.update(config.__dict__)
-    with open(config.output_header,'w') as fout:
+    params['masked_pixel_noise'] = np.nanmedian(np.array(noises))
+    params['run_command_string'] = ' '.join(sys.argv)
+    params['input_files_string'] = ' dark_file='+args.dark_file
+    for var in dir(fpa):
+       if var.endswith('_file'):
+          params['input_files_string'] = params['input_files_string'] + \
+             ' %s=%s'%(var,getattr(fpa,var))
+
+    params.update(**locals())
+    with open(args.output_file+'.hdr','w') as fout:
         fout.write(header_template.format(**params))
 
     logging.info('Done')

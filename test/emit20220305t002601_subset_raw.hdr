@@ -1,0 +1,29 @@
+ENVI
+description = {
+  Create New File Result [Tue May 24 13:47:27 2022] [Tue May 24 13:50:00 2022]}
+samples = 1280
+lines   = 3
+bands   = 328
+header offset = 0
+file type = ENVI Standard
+data type = 2
+interleave = bil
+sensor type = Unknown
+byte order = 0
+y start = 2500
+wavelength units = Unknown
+emit acquisition start time = 2022-03-05T00:26:01+0000
+emit acquisition stop time = 2022-03-05T00:27:15+0000
+emit pge name = git@github.jpl.nasa.gov:emit-sds/emit-sds-l1a.git
+emit pge version = v1.0.0
+emit pge input files = {
+ frames_dir=/beegfs/store/emit/ops/data/data_collections/by_dcid/13304/1330475174/1330475174_frames_b0100_v01, 
+ flexcodec_exe_path=/beegfs/store/emit/ops/repos/EMIT_FLEX_codec/flexcodec, 
+ constants_path=/beegfs/store/emit/ops/repos/emit-sds-l1a/decompression/constants.txt, 
+ init_data_path=/beegfs/store/emit/ops/repos/emit-sds-l1a/decompression/FPGA_Data_Initialization_File_CREATE_COMPRESSION_INIT_DATA_328_e0.bin}
+emit pge run command = python /beegfs/store/emit/ops/repos/NGIS_Check_Line_Frame/python/compute_line_stats.py /tmp/emit/ops/1330475174_emit.L1AReassembleRaw_20220305t141404/no_header_list.txt > /tmp/emit/ops/1330475174_emit.L1AReassembleRaw_20220305t141404/line_stats.txt
+emit software build version = 010000
+emit documentation version = EMIT SDS L1A JPL-D 104186, Initial
+emit data product creation time = 2022-03-05T22:19:27+0000
+emit data product version = 01
+emit acquisition daynight = Day
