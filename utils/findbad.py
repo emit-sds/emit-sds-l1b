@@ -141,17 +141,9 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def fix_bad(frame, bad, fpa):
-    model = MinCovDet(support_fraction=0.99)
-    model.fit(frame.T)
-    plt.imshow(model.covariance_)
-    plt.show()
-    plt.imshow(np.cov(frame))
-    plt.show()
 
-
-
-def conditional_gaussian(mu: np.array, C: np.array, window: np.array, remain: np.array, x: np.array) -> \
+def conditional_gaussian(mu: np.array, C: np.array, window: np.array, 
+      remain: np.array, x: np.array) -> \
         (np.array, np.array):
     """Define the conditional Gaussian distribution for convenience.
 
@@ -182,36 +174,6 @@ def conditional_gaussian(mu: np.array, C: np.array, window: np.array, remain: np
 
 
 
-def robust_spectrum(x, mu, cov):
-    subset = int(len(x)/10)
-    best = 9e99, None
-    pred = []
-    for it in range(20):
-        print('iteration',it)
-        idx = permutation(len(x))
-        remain = idx[:subset]
-        window = idx[subset:] 
-        spectrum = x.copy()
-        predicted, c = conditional_gaussian(mu, cov, window, remain, x[remain])
-        spectrum[window] = predicted 
-        pred.append(spectrum)
-    return np.median(np.array(pred),axis=0)
-
-
-
-def mahalanobis(mu, inv_cov, x):
-    difference = x - mu
-    return difference[np.newaxis,:] @ inv_cov @ difference[:,np.newaxis]
-
-
-@ray.remote
-def robustcov(x):
-    model = MinCovDet(support_fraction=0.9)
-    model.fit(x)
-    return model.covariance_
-
-
-
 def main():
 
     description = "Fix bad pixels"
@@ -221,6 +183,7 @@ def main():
     parser.add_argument('--num_cpus',type=int,default=20)
     parser.add_argument('--frames',type=int,default=3)
     parser.add_argument('--thresh',type=float,default=5)
+    parser.add_argument('--npca',type=float,default=100)
     parser.add_argument('config')
     parser.add_argument('output_bad')
     parser.add_argument('output')
@@ -280,6 +243,7 @@ def main():
     evecs,evals,T  = np.linalg.svd(cov)
     evals[evals<1e-6]=1e-6
     cov = evecs @ np.diag(evals) @ T
+    cov = cov + np.eye(rows) 
 
     # Now we form a bad pixel map
     bad = np.zeros((rows, columns))
@@ -288,7 +252,7 @@ def main():
         print('forming bad pixel map:',j,'/',columns)
         for k in range(len(frames)):
             x = frames[k][j,:] 
-            npca = 30
+            npca = args.npca
             xproj = (x - mu)[np.newaxis,:] @ evecs[:,:npca]
             xproj = xproj @ (evecs[:,:npca]).T + mu
             improvements[k,:] = abs(xproj - x)
@@ -318,14 +282,15 @@ def main():
               for i in range(frame.shape[1]):
 
                    tofix = bad[:,i]
-                   nottofix = np.logical_not(bad[:,i])
+                   nottofix = np.logical_not(tofix)
                    tofix=np.where(tofix)[0]
                    nottofix=np.where(nottofix)[0]
 
                    a,b = conditional_gaussian(mu, cov, tofix, nottofix, frame[nottofix,i])
+                   plt.plot(frame[:,i],'r')
                    frame[tofix,i] = a
-                  #plt.plot(frame[i,:],'b')
-                  #plt.show()
+                   plt.plot(frame[:,i],'b')
+                   plt.show()
               np.array(frame,dtype=np.float32).tofile(fout)
          
     print('done') 
