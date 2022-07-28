@@ -118,7 +118,7 @@ class Config:
 def calibrate_raw(frame, fpa, config):
 
     # Don't calibrate a bad frame
-    if frame[0,0] < bad_flag:
+    if np.all(frame < bad_flag):
        return frame, -9999   
 
     # left shift, returning to the 16 bit range.
