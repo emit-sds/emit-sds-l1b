@@ -118,51 +118,53 @@ class Config:
 def calibrate_raw(frame, fpa, config):
 
     # Don't calibrate a bad frame
-    if np.all(frame < bad_flag):
-       return frame, -9999   
+    if not np.all(frame < bad_flag):
 
-    # left shift, returning to the 16 bit range.
-    if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
-       frame = left_shift_twice(frame)
+        # left shift, returning to the 16 bit range.
+        if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+           frame = left_shift_twice(frame)
+        
+        # Dark state subtraction
+        frame = subtract_dark(frame, config.dark)
+        
+        # Raw noise calculation
+        if hasattr(fpa,'masked_columns'):
+            noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
+        elif hasattr(fpa,'masked_rows'):
+            noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
+        else:
+            noise = -1 
+        
+        # Detector corrections
+        frame = fix_pedestal(frame, fpa)
+        frame = fix_linearity(frame, config.linearity_mu, 
+            config.linearity_evec, config.linearity_coeffs)
+        frame = frame * config.flat_field
+        
+        # Fix bad pixels, and any nonfinite results from the previous
+        # operations
+        flagged = np.logical_not(np.isfinite(frame))
+        frame[flagged] = 0
+        bad = config.bad.copy()
+        bad[flagged] = -1
+        frame = fix_bad(frame, bad, fpa)
+        
+        # Optical corrections
+        frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
+        frame = fix_ghost(frame, fpa, config.ghost_matrix, 
+             blur = config.ghost_blur, center = config.ghost_center)
+        
+        # Absolute radiometry
+        frame = (frame.T * config.radiometric_calibration).T
+       
+        # Fix OSF
+        frame = fix_osf(frame, fpa)
+        
+        # Catch NaNs
+        frame[sp.logical_not(sp.isfinite(frame))]=0
 
-    # Dark state subtraction
-    frame = subtract_dark(frame, config.dark)
-
-    # Raw noise calculation
-    if hasattr(fpa,'masked_columns'):
-        noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
-    elif hasattr(fpa,'masked_rows'):
-        noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
     else:
-        noise = -1 
-
-    # Detector corrections
-    frame = fix_pedestal(frame, fpa)
-    frame = fix_linearity(frame, config.linearity_mu, 
-        config.linearity_evec, config.linearity_coeffs)
-    frame = frame * config.flat_field
-
-    # Fix bad pixels, and any nonfinite results from the previous
-    # operations
-    flagged = np.logical_not(np.isfinite(frame))
-    frame[flagged] = 0
-    bad = config.bad.copy()
-    bad[flagged] = -1
-    frame = fix_bad(frame, bad, fpa)
-
-    # Optical corrections
-    frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
-    frame = fix_ghost(frame, fpa, config.ghost_matrix, 
-         blur = config.ghost_blur, center = config.ghost_center)
-
-    # Absolute radiometry
-    frame = (frame.T * config.radiometric_calibration).T
-   
-    # Fix OSF
-    frame = fix_osf(frame, fpa)
-
-    # Catch NaNs
-    frame[sp.logical_not(sp.isfinite(frame))]=0
+        noise = -9999
 
     # Clip the channels to the appropriate size, if needed
     if fpa.extract_subframe:
