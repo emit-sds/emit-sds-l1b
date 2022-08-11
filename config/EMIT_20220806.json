@@ -33,10 +33,12 @@
    "last_illuminated_column": 1265,
    "first_distributed_column": 24, 
    "last_distributed_column": 1265,
-   "first_distributed_row": 19, 
+   "first_distributed_row": 20, 
    "last_distributed_row": 304,
-   "native_rows":328, 
+   "native_rows":325, 
    "native_columns":1280,
    "reference_cols":[[140,340],[940,1015],[1035,1140]],
-   "pedestal_strategy": "both"
+   "pedestal_strategy": "both",
+   "timerange_start_utc": "2022-07-14T00:00:00",
+   "comments": "Post-launch calibration.  There was an FPA tilt update on 5 August at 18:02 UTC."
 }
