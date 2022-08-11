@@ -118,14 +118,18 @@ class Config:
 def calibrate_raw(frame, fpa, config):
 
     # Don't calibrate a bad frame
-    if not np.all(frame < bad_flag):
+    if not np.all(frame <= bad_flag):
 
-        # left shift, returning to the 16 bit range.
+        # Left shift, returning to the 16 bit range.
         if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
            frame = left_shift_twice(frame)
-        
+ 
         # Dark state subtraction
         frame = subtract_dark(frame, config.dark)
+       
+        # Delete telemetry
+        if hasattr(fpa,'ignore_first_row') and fpa.ignore_first_row:
+           frame[0,:] = frame[1,:]
         
         # Raw noise calculation
         if hasattr(fpa,'masked_columns'):
@@ -134,9 +138,10 @@ def calibrate_raw(frame, fpa, config):
             noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
         else:
             noise = -1 
-        
+
         # Detector corrections
         frame = fix_pedestal(frame, fpa)
+     
         frame = fix_linearity(frame, config.linearity_mu, 
             config.linearity_evec, config.linearity_coeffs)
         frame = frame * config.flat_field
@@ -172,7 +177,11 @@ def calibrate_raw(frame, fpa, config):
         frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         frame = sp.flip(frame, axis=0)
 
-    return frame, noise
+    # Replace all bad data flags with -9999
+    cleanframe = frame.copy()
+    cleanframe[frame<=(bad_flag+1e-6)] = -9999
+
+    return cleanframe, noise
    
 
 def main():

@@ -20,6 +20,7 @@
    "ghost_map_file": "../data/emit/EMIT_GhostMap_20220424.json",
    "extract_subframe": true,
    "left_shift_twice": true,
+   "ignore_first_row": true,
    "pedestal_multiplier": 1.0,
    "osf_seam_positions": [[181,183]],
    "linearity_nbasis": 2,
