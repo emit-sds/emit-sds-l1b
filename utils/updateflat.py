@@ -9,6 +9,7 @@ from scipy.optimize import minimize
 import numpy as np
 import spectral.io.envi as envi
 from numba import jit
+from fpa import FPA, frame_embed, frame_extract
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -26,15 +27,33 @@ def main():
 
     # Required 
     parser.add_argument('input', nargs='+', help='Flat field')
+    parser.add_argument('config')
     parser.add_argument('output', help='Output flat field image')
     args = parser.parse_args()
+
+    fpa = FPA(args.config)
 
     # Define local variables
     flats = []
     for infile in args.input:
         inhdr  = find_header(infile)
         flat = np.squeeze(envi.open(inhdr).load()[:,:,0])
-        flats.append(flat)
+
+        if flat.shape[0] < fpa.native_rows or \
+           flat.shape[1] < fpa.native_columns:
+
+            # We assume it is clipped
+            a = fpa.first_distributed_row
+            b = (fpa.last_distributed_row+1)
+            c = fpa.first_distributed_column 
+            d = (fpa.last_distributed_column+1)
+            buffered = np.ones((fpa.native_rows, fpa.native_columns))
+            buffered[a:b,c:d] = flat 
+            flats.append(buffered)
+
+        else:
+            flats.append(flat)
+
     product = np.prod(np.array(flats),axis=0)
     
     I = envi.open(inhdr)

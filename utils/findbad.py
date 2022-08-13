@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.covariance import MinCovDet
 from spectral.io import envi
 import os, sys, argparse
-from fpa import FPA
 from scipy.linalg import inv
 import pylab as plt
 import logging
@@ -32,6 +31,7 @@ class R_pca:
             self.lmbda = lmbda
         else:
             self.lmbda = 1 / np.sqrt(np.max(self.D.shape))
+            print('lmbda',self.lmbda)
 
     @staticmethod
     def frobenius_norm(M):
@@ -101,35 +101,26 @@ class R_pca:
                 plt.axis('off')
 
 
+@ray.remote
+def correct_frame(frame, mu, cov, bad, regularizer=1e-6):
+   
+   fixed = frame.copy()
 
-def conditional_gaussian(mu: np.array, C: np.array, window: np.array, remain: np.array, x: np.array) -> \
-        (np.array, np.array):
-    """Define the conditional Gaussian distribution for convenience.
+   # iterate over all spectra
+   for i in range(frame.shape[1]):
 
-    len(window)+len(remain)=len(x)
+        # identify good and bad indices
+        tofix = bad[:,i]
+        ok = np.logical_not(tofix)
+        tofix = np.where(tofix)[0]
+        ok = np.where(ok)[0]
 
-    Args:
-        mu: mean values
-        C: matrix for conditioning
-        window: contains all indices not in remain
-        remain: contains indices of the observed part x1
-        x: values to condition with
+        # inference, probability of the bad given the good
+        a,b = conditional_gaussian(mu, cov, tofix, ok, fixed[ok,i], regularizer)
+        fixed[tofix,i] = a
 
-    Returns:
-        (np.array, np.array): conditional mean, conditional covariance
+   return fixed
 
-    """
-    w = np.array(window)[:,np.newaxis]
-    r = np.array(remain)[:,np.newaxis]
-    C11 = C[r, r.T]
-    C12 = C[r, w.T]
-    C21 = C[w, r.T]
-    C22 = C[w, w.T]
-
-    Cinv = svd_inv(C11)
-    conditional_mean = mu[window] + C21 @ Cinv @ (x-mu[remain])
-    conditional_cov = C22 - C21 @ Cinv @ C12
-    return conditional_mean, conditional_cov
 
 
 def find_header(infile):
@@ -142,8 +133,8 @@ def find_header(infile):
 
 
 
-def conditional_gaussian(mu: np.array, C: np.array, window: np.array, 
-      remain: np.array, x: np.array) -> \
+def conditional_gaussian(mu: np.array, Cov: np.array, window: np.array, 
+      remain: np.array, x: np.array, regularizer: float) -> \
         (np.array, np.array):
     """Define the conditional Gaussian distribution for convenience.
 
@@ -162,6 +153,7 @@ def conditional_gaussian(mu: np.array, C: np.array, window: np.array,
     """
     w = np.array(window)[:,np.newaxis]
     r = np.array(remain)[:,np.newaxis]
+    C = Cov + np.eye(Cov.shape[0]) * regularizer
     C11 = C[r, r.T]
     C12 = C[r, w.T]
     C21 = C[w, r.T]
@@ -181,22 +173,18 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('input')
     parser.add_argument('--num_cpus',type=int,default=20)
-    parser.add_argument('--frames',type=int,default=3)
-    parser.add_argument('--thresh',type=float,default=5)
-    parser.add_argument('--npca',type=float,default=100)
-    parser.add_argument('config')
-    parser.add_argument('output_bad')
+    parser.add_argument('--frames',type=int,default=10)
+    parser.add_argument('--thresh',type=float,default=3)
+    parser.add_argument('--npca',type=float,default=5)
+    parser.add_argument('--output_bad',type=str,default='')
+    parser.add_argument('--regularizer',type=float,default=1)
+    parser.add_argument('--input_bad',type=str,default='')
     parser.add_argument('output')
     args = parser.parse_args()
-
-    fpa = FPA(args.config)
 
     ray.init(num_cpus=args.num_cpus)
 
     infile = envi.open(find_header(args.input))
-    print(fpa.bad_element_file)
-    badfile = envi.open(find_header(fpa.bad_element_file))
-    bad = np.squeeze(badfile.load()[:,:,0])
 
     if int(infile.metadata['data type']) == 2:
         dtype = np.uint16
@@ -234,64 +222,73 @@ def main():
        spectra = np.array(frames).reshape((columns*len(frames),rows))
     
     # Next we generate a robust mean and covariance matrix for the image
-    model = R_pca(spectra.T)
+    model = R_pca(spectra.T, lmbda=0.000001, mu=0.001)
     L, S = model.fit(max_iter=10000, iter_print=100)
     cov = np.cov(L) 
     mu = np.median(spectra, axis=0)
 
     # Make sure we are positive definite
     evecs,evals,T  = np.linalg.svd(cov)
-    evals[evals<1e-6]=1e-6
+    #print(evals)
+    #evals[evals<0]=0
+    evals[args.npca:]=0
     cov = evecs @ np.diag(evals) @ T
-    cov = cov + np.eye(rows) 
 
     # Now we form a bad pixel map
-    bad = np.zeros((rows, columns))
-    for j in range(columns):
-        improvements = np.zeros((len(frames),rows))
-        print('forming bad pixel map:',j,'/',columns)
-        for k in range(len(frames)):
-            x = frames[k][j,:] 
-            npca = args.npca
-            xproj = (x - mu)[np.newaxis,:] @ evecs[:,:npca]
-            xproj = xproj @ (evecs[:,:npca]).T + mu
-            improvements[k,:] = abs(xproj - x)
-        improvement = np.median(improvements,axis=0)
+    if len(args.input_bad) > 1:
+        bad = envi.open(find_header(args.input_bad)).load()
+        bad = np.squeeze(bad)
+    else:
+        bad = np.zeros((rows, columns))
+        for j in range(columns):
+            divergence = np.zeros((len(frames),rows))
+            print('forming bad pixel map:',j,'/',columns)
 
-        # Threshold the improvements
-        median_improvement = np.median(improvement)
-        stdev_improvement = np.std(improvement)
-        bad[:,j] = improvement > median_improvement + (stdev_improvement * args.thresh)
-        print(sum(bad[:,j]),np.where(bad[:,j])[0])
+            # For each frame find the divergence of this spectrum
+            # vis a vis the PCA representation
+            for k in range(len(frames)):
+                x = frames[k][j,:] 
+                npca = args.npca
+                xproj = (x - mu)[np.newaxis,:] @ evecs[:,:npca]
+                xproj = xproj @ (evecs[:,:npca]).T + mu
+                divergence[k,:] = abs(xproj - x)
+
+            divergence = np.median(divergence,axis=0)
+        
+            # Threshold the divergence
+            median_divergence = np.median(divergence)
+            stdev_divergence = np.std(divergence)
+            bad[:,j] = divergence > median_divergence + \
+                           (stdev_divergence * args.thresh)
+            print(sum(bad[:,j]),np.where(bad[:,j])[0])
 
     # Write the bad pixel map
-    with open(args.output_bad,'wb') as fbout:
-       np.array(bad, dtype=np.float32).tofile(fbout)
+    if len(args.output_bad) > 1:
+        with open(args.output_bad,'wb') as fbout:
+           np.array(bad, dtype=np.float32).tofile(fbout)
 
     # Finally, fix all the frames
     with open(args.output,'wb') as fout:
        with open(args.input,'rb') as fin:
+
+          frame_buffer = []
           for line in range(lines):
+             
               # Read a frame of data
               if line%10==0:
                   logging.info('Line '+str(line))
                   print(line)
               frame = np.fromfile(fin, count=nframe, dtype=dtype)
               frame = np.array(frame.reshape((rows, columns)),dtype=np.float32)
-
-              for i in range(frame.shape[1]):
-
-                   tofix = bad[:,i]
-                   nottofix = np.logical_not(tofix)
-                   tofix=np.where(tofix)[0]
-                   nottofix=np.where(nottofix)[0]
-
-                   a,b = conditional_gaussian(mu, cov, tofix, nottofix, frame[nottofix,i])
-                   plt.plot(frame[:,i],'r')
-                   frame[tofix,i] = a
-                   plt.plot(frame[:,i],'b')
-                   plt.show()
-              np.array(frame,dtype=np.float32).tofile(fout)
+              frame_buffer.append(frame)
+             
+              # correct the frames in groups
+              if len(frame_buffer) > args.num_cpus or (line == lines-1):
+                  jobs = [correct_frame.remote(f, mu, cov, bad) for f in frame_buffer]
+                  fixed_frames = ray.get(jobs)
+                  for frame in fixed_frames:
+                      np.array(frame,dtype=np.float32).tofile(fout)
+                  frame_buffer = []
          
     print('done') 
 

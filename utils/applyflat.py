@@ -9,6 +9,8 @@ from scipy.optimize import minimize
 import numpy as np
 import spectral.io.envi as envi
 from numba import jit
+from fpa import FPA, frame_embed, frame_extract
+
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -26,6 +28,7 @@ def main():
 
     # Required 
     parser.add_argument('input', help='Input radiance image')
+    parser.add_argument('config', help='Configuration')
     parser.add_argument('flatfield', help='New (secondary) dark field')
     parser.add_argument('output', help='Output radiance image')
     parser.add_argument('--offset','-r',help='Offset', default=None) 
@@ -39,11 +42,20 @@ def main():
     outhdr = args.output + '.hdr'
     ffhdr  = args.flatfield+'.hdr'
     flat = np.squeeze(envi.open(ffhdr).load()[:,:,0])
+
     if args.offset is not None:
         dkhdr  = args.offset+'.hdr'
         offset = np.squeeze(envi.open(dkhdr).load()[:,:,0])
     else:
         offset = np.zeros((nbands, ncols))
+
+    # Clip if necessary
+    a,b = fpa.first_distributed_row, (fpa.last_distributed_row+1)
+    c,d = fpa.first_distributed_column, (fpa.last_distributed_column+1)
+    if flat.shape[0] > nrows:
+        flat = flat[a:b,c:d]
+    if offset.shape[0] > nrows:
+        offset = offset[a:b,c:d]
 
     meta = I.metadata.copy()
     Icorr = envi.create_image(outhdr, meta, force=True, ext="")
