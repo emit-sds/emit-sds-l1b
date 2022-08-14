@@ -9,6 +9,7 @@ from scipy.optimize import minimize
 import numpy as np
 import spectral.io.envi as envi
 from numba import jit
+from emit2dark import bad_flag, dark_from_file
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -136,7 +137,8 @@ def main():
     parser.add_argument('flatfield', help='New (secondary) flat field')
     parser.add_argument('darkfield', help='New (secondary) dark field')
     parser.add_argument('--reg','-r',help='Regularizer', default=0.0001) 
-    parser.add_argument('--max_radiance',help='Max. Radiance', default=30) 
+    parser.add_argument('--max_radiance',help='Max. Radiance', default=10) 
+    parser.add_argument('--margin',help='Spatial margin', default=50) 
     args = vars(parser.parse_args())
 
     # Define local variables
@@ -165,24 +167,26 @@ def main():
             if any((frame<-9989).flatten()):
                continue
 
-            use = np.max(frame, axis=0) < args['max_radiance']
+            notbright = np.max(frame, axis=0) < args['max_radiance']
+            valid = np.all(frame > bad_flag, axis=0)
+            use = np.logical_and(notbright, valid)
             
             # Cached values are stored in arrays the size of the active FPA region
             # We sum over all lines (and will later turn this into a mean)
             # The final values will be based on the mean squared error at each
             # cross-track discontinuity
-            self[:,use]   = self[:,use] + frame[:,use]
-            selfsq[:,use] = selfsq[:,use] + pow(frame[:,use],2)
-            diffs = (frame[:,:-1] * frame[:,1:])
-            adj[:,use[:-1]]    = adj[:,use[:-1]] + diffs[:,use[:-1]] 
-            nused[:,use] = nused[:,use]+1
+            if sum(use)>1: 
+                 self[:,use]   = self[:,use] + frame[:,use]
+                 selfsq[:,use] = selfsq[:,use] + pow(frame[:,use],2)
+                 diffs = (frame[:,:-1] * frame[:,1:])
+                 adj[:,use[:-1]]    = adj[:,use[:-1]] + diffs[:,use[:-1]] 
+                 nused[:,use] = nused[:,use]+1
             frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
 
     self   = self   / nused
     selfsq = selfsq / nused
     adj    = adj    / nused[:,:-1]
-    margin = 50
-    scaling = self[:, margin:-margin].mean(axis=1)
+    scaling = self[:, args.margin:-args.margin].mean(axis=1)
 
     # Second pass: optimize and correct
     ff = np.ones((nbands, ncols))

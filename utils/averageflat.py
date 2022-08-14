@@ -35,7 +35,7 @@ def main():
         inhdr  = find_header(infile)
         flat = np.squeeze(envi.open(inhdr).load()[:,:,0])
         flats.append(flat)
-    avgflat = np.array(flats).mean(axis=0)
+    avgflat = np.median(np.array(flats),axis=0)
     
     I = envi.open(inhdr)
     meta = I.metadata.copy()

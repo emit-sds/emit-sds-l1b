@@ -34,6 +34,8 @@ def main():
     parser.add_argument('--offset','-r',help='Offset', default=None) 
     args = parser.parse_args()
 
+    fpa = FPA(args.config)
+
     # Define local variables
     inhdr  = find_header(args.input)
     I = envi.open(inhdr)

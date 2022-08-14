@@ -58,6 +58,8 @@ def main():
     
     I = envi.open(inhdr)
     meta = I.metadata.copy()
+    meta['lines']=product.shape[0]
+    meta['samples']=product.shape[1]
     outhdr = args.output + '.hdr'
     Icorr = envi.create_image(outhdr, meta, force=True, ext="")
     with open(args.output,'wb') as fout:
