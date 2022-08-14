@@ -137,51 +137,57 @@ def main():
     parser.add_argument('flatfield', help='New (secondary) flat field')
     parser.add_argument('darkfield', help='New (secondary) dark field')
     parser.add_argument('--reg','-r',help='Regularizer', default=0.0001) 
-    parser.add_argument('--max_radiance',help='Max. Radiance', default=10) 
     parser.add_argument('--margin',help='Spatial margin', default=50) 
-    args = vars(parser.parse_args())
+    args = parser.parse_args()
 
     # Define local variables
-    inhdr  = find_header(args['input'])
-    outhdr = args['output'] + '.hdr'
-    ffhdr  = args['flatfield']+'.hdr'
-    dkhdr  = args['darkfield']+'.hdr'
-    reg = np.array([float(args['reg']), float(args['reg'])])
+    inhdr  = find_header(args.input)
+    outhdr = args.output + '.hdr'
+    ffhdr  = args.flatfield+'.hdr'
+    dkhdr  = args.darkfield+'.hdr'
+    reg = np.array([float(args.reg), float(args.reg)])
 
     # First I/O pass: accumulate "sufficient statistics" for FF optimization.
     I = envi.open(inhdr)
     nrows, ncols, nbands = I.nrows, I.ncols, I.nbands
     meta = I.metadata.copy()
-    self   = np.zeros((nbands,ncols))
-    selfsq = np.zeros((nbands,ncols))
-    adj    = np.zeros((nbands,ncols-1))
-    scaling   = None
-    nused = np.zeros((nbands,ncols))
 
-    with open(args['input'],'rb') as fin:
+    for max_radiance in [10,15,20,25]:
 
-        frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
-
-        while frame.size>0:
-            frame = frame.reshape((nbands, ncols)) # BIL
-            if any((frame<-9989).flatten()):
-               continue
-
-            notbright = np.max(frame, axis=0) < args['max_radiance']
-            valid = np.all(frame > bad_flag, axis=0)
-            use = np.logical_and(notbright, valid)
-            
-            # Cached values are stored in arrays the size of the active FPA region
-            # We sum over all lines (and will later turn this into a mean)
-            # The final values will be based on the mean squared error at each
-            # cross-track discontinuity
-            if sum(use)>1: 
-                 self[:,use]   = self[:,use] + frame[:,use]
-                 selfsq[:,use] = selfsq[:,use] + pow(frame[:,use],2)
-                 diffs = (frame[:,:-1] * frame[:,1:])
-                 adj[:,use[:-1]]    = adj[:,use[:-1]] + diffs[:,use[:-1]] 
-                 nused[:,use] = nused[:,use]+1
+        self   = np.zeros((nbands,ncols))
+        selfsq = np.zeros((nbands,ncols))
+        adj    = np.zeros((nbands,ncols-1))
+        scaling   = None
+        nused = np.zeros((nbands,ncols))
+        
+        with open(args.input,'rb') as fin:
+          
             frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
+        
+            while frame.size>0:
+                frame = frame.reshape((nbands, ncols)) # BIL
+                if any((frame<-9989).flatten()):
+                   continue
+        
+                notbright = np.max(frame, axis=0) < max_radiance
+                valid = np.all(frame > bad_flag, axis=0)
+                use = np.logical_and(notbright, valid)
+                
+                # Cached values are stored in arrays the size of the active FPA region
+                # We sum over all lines (and will later turn this into a mean)
+                # The final values will be based on the mean squared error at each
+                # cross-track discontinuity
+                if sum(use)>1: 
+                     self[:,use]   = self[:,use] + frame[:,use]
+                     selfsq[:,use] = selfsq[:,use] + pow(frame[:,use],2)
+                     diffs = (frame[:,:-1] * frame[:,1:])
+                     adj[:,use[:-1]]    = adj[:,use[:-1]] + diffs[:,use[:-1]] 
+                     nused[:,use] = nused[:,use]+1
+                frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
+
+        if all(nused[0,:]>100):
+            print('using max radiance:',max_radiance)
+            break
 
     self   = self   / nused
     selfsq = selfsq / nused
@@ -219,8 +225,8 @@ def main():
     # one frame at a time
     Icorr = envi.create_image(outhdr, meta, force=True, ext="")
 
-    with open(args['input'],'rb') as fin:
-        with open(args['output'],'wb') as fout:
+    with open(args.input,'rb') as fin:
+        with open(args.output,'wb') as fout:
 
             frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
 
