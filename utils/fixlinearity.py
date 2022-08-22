@@ -25,7 +25,7 @@ def fix_linearity(frame, mu, evec, coeffs):
     new = np.zeros(frame.shape) 
     for row in range(rows):
         for col in range(columns):
-            i = int(frame[row,col])
+            i = max(int(frame[row,col]),0)
             tot = np.sum(evec[i,:]*coeffs[row,col,:]) + mu[i]
             new[row,col] = frame[row,col] * tot
     return new
