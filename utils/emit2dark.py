@@ -58,8 +58,11 @@ def dark_from_file(filepath):
     lines = int(infile.metadata['lines'])
     nframe = rows * columns
 
-    total = np.zeros((rows,columns))
-    total_sq = np.zeros((rows,columns))
+    # Online calculation of mean, std dev from Welford's online algorithm
+    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+    # https://www.tandfonline.com/doi/abs/10.1080/00401706.1962.10490022
+    total_mean = np.zeros((rows,columns))
+    total_M2 = np.zeros((rows,columns))
     counts = np.zeros((rows,columns))
     with open(filepath, 'rb') as fin:
         for line in range(lines):
@@ -74,12 +77,16 @@ def dark_from_file(filepath):
             frame = frame.reshape((rows, columns))
             use = frame>bad_flag
             counts[use] = counts[use]+1
-            total[use] = total[use] + frame[use]
-            total_sq[use] = total_sq[use] + pow(frame[use],2)
 
-    avg = total / counts 
-    avg_sq = total_sq / counts 
-    std = avg_sq - pow(avg,2) 
+            delta = frame-total_mean
+            total_mean[use] += delta[use]/counts[use]
+
+            delta2 = frame-total_mean
+            total_M2[use] += delta[use]*delta2[use]
+
+    avg = total_mean
+    std = np.sqrt(total_M2/counts)
+
     avg[np.logical_not(np.isfinite(avg))] = -9999
     std[np.logical_not(np.isfinite(std))] = -9999
     return avg, std
