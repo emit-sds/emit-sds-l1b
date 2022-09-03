@@ -4,13 +4,13 @@
        "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
        "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
        "flat_field_file": "../data/emit/EMIT_FlatField_20220825",
-       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffs_20220827.txt"
+       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffs_20220901.txt"
      },
      "half":{
        "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
        "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
        "flat_field_file": "../data/emit/EMIT_FlatFieldHalf_20220825",
-       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffsHalf_20220827.txt"
+       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffsHalf_20220901.txt"
      }
    },
    "srf_correction_file": "../data/emit/EMIT_SpectralScatter_20220406",
