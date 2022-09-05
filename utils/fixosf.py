@@ -32,6 +32,9 @@ def find_header(infile):
 def fix_osf(frame, fpa):
     fixed = frame.copy()
 
+    if len(fpa.osf_seam_positions)==0:
+        return fixed
+
     for positions in fpa.osf_seam_positions:
       osf_idx = get_osf_interp_idx(positions)
       if len(positions) > 2:

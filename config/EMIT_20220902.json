@@ -22,7 +22,7 @@
    "left_shift_twice": true,
    "ignore_first_row": true,
    "pedestal_multiplier": 1.0,
-   "osf_seam_positions": [],
+   "osf_seam_positions": [[177,178,179,183,184,185]],
    "linearity_nbasis": 2,
    "last_masked_col_left": 9,
    "first_masked_col_right": 1272,
