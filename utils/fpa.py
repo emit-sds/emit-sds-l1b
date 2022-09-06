@@ -20,7 +20,10 @@ class FPA:
 
       
       # Translate local filepaths to absolute where needed
-      my_directory, my_executable = os.path.split(os.path.abspath(__file__))
+      if hasattr(self,'base_directory'):
+        my_directory = self.base_directory
+      else:
+        my_directory, my_executable = os.path.split(os.path.abspath(__file__))
       for fi in dir(self):
           if '_file' in fi:
               path = getattr(self,fi)

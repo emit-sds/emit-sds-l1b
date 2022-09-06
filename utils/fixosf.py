@@ -16,6 +16,8 @@ import argparse
 from numba import jit
 from math import pow
 from fpa import FPA
+from scipy.interpolate import interp1d
+import subprocess
 
 
 def find_header(infile):
@@ -27,13 +29,35 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-@jit
 def fix_osf(frame, fpa):
     fixed = frame.copy()
-    for lo,hi in fpa.osf_seam_positions:
-      osf = np.arange(lo+1,hi)
-      fixed[osf,:] = (frame[lo,:] + frame[hi,:]) / 2.0
+
+    if len(fpa.osf_seam_positions)==0:
+        return fixed
+
+    for positions in fpa.osf_seam_positions:
+      osf_idx = get_osf_interp_idx(positions)
+      if len(positions) > 2:
+        interp_idx = np.array(positions)
+        interp_func = interp1d(interp_idx, frame[interp_idx,:], kind='cubic', axis=0)
+        osf = np.array(list(set(range(positions[0],positions[-1])).difference(positions)))
+      else:
+        interp_idx = np.array(positions)
+        interp_func = interp1d(interp_idx, frame[interp_idx,:], kind='linear', axis=0)
+        osf = np.arange(positions[0]+1, positions[-1])
+    fixed[osf_idx,:] = interp_func(osf_idx)
+
     return fixed
+
+# Determine which indices we're interpolating through for a given OSF seam
+def get_osf_interp_idx(positions):
+  # If > 2, cubic interpolation
+  if len(positions) > 2:
+    return np.array(list(set(range(positions[0],positions[-1])).difference(positions)))
+  # If = 2, linear interpolation
+  else:
+    return np.arange(positions[0]+1, positions[-1])
+
 
 
 def main():
