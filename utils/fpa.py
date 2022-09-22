@@ -2,6 +2,7 @@
 import numpy as np
 import os, os.path, sys
 import json
+import logging
 
 
 class FPA:
@@ -13,6 +14,10 @@ class FPA:
           #basedir = os.path.abspath(os.path.split(__file__)[0])+'/../'
           #filepath = basedir+'config/emit.json'
 
+      self.first_masked_row_top = None
+      self.last_masked_row_top = None
+      self.first_masked_row_bottom = None
+      self.last_masked_row_bottom = None
       with open(filepath,'r') as fin:
           config_dict = json.load(fin)
           for key, val in config_dict.items():
@@ -40,11 +45,18 @@ class FPA:
 
 
       # Define masked rows 
-      if self.first_illuminated_row>=0 and self.last_illuminated_row>=0:
+      if self.first_masked_row_top is not None and self.first_masked_row_bottom is not None and \
+         self.last_masked_row_top is not None and self.last_masked_row_bottom is not None:
+         self.masked_rows = np.concatenate((
+            np.arange(self.first_masked_row_top, self.last_masked_row_top+1,dtype=int),
+            np.arange(self.first_masked_row_bottom, self.last_masked_row_bottom+1,dtype=int)),
+            axis=0)
+      elif self.first_illuminated_row>=0 and self.last_illuminated_row>=0:
+          logging.info('Masked rows not provided directly - inferring from illuminated rows')
           self.masked_rows = np.concatenate((
                 np.arange(0, self.first_illuminated_row, dtype=int),
                 np.arange(self.last_illuminated_row+1, self.native_rows, dtype=int)),
-               axis=0)
+                axis=0)
       else:
           self.masked_rows = []
 

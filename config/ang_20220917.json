@@ -1,0 +1,50 @@
+{
+   "modes":{
+     "default":{
+       "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
+       "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
+       "flat_field_file": "/home/jchapman/src/isat/ang/cal/data/20220401_ang20220316_BLUSS_avg_rows300-340_ff",
+       "radiometric_coefficient_file": "/home/jchapman/src/isat/ang/cal/data/20220331_ang20220315_avg_rows300-340_UVCorr2.rcc"
+     }
+   },
+   "srf_correction_file": "/home/jchapman/src/isat/ang/cal/data/20170125_via_ang20160925t182412_srf",
+   "crf_correction_file": "/home/jchapman/src/isat/ang/cal/data/20170125_via_ang20160925t182412_crf",
+   "bad_element_file": "/home/jchapman/src/isat/ang/cal/data/ANGv5_bad",
+   "spectral_calibration_file": "/home/jchapman/src/isat/ang/cal/data/20220227_ang20220224t211618_wavelength_fit_full.txt",
+   "extract_subframe": true,
+   "left_shift_twice": false,
+   "ignore_first_row": false,
+   "pedestal_multiplier": 1.0,
+   "eghost_template": [0.005,0.0023,0.0016,0.00125,0.0005,0.0,0.0,0.0],
+   "eghost_samples_per_panel": 160,
+   "eghost_panel_correction": 0.00065,
+   "eghost_panel_multipliers": [1.6, 1.6, 1, 1],
+   "osf_seam_positions": [],
+   "linearity_nbasis": 2,
+   "first_masked_row_top": 1,
+   "last_masked_row_top": 14,
+   "first_masked_row_bottom": 469,
+   "last_masked_row_bottom": 478,
+   "last_masked_col_left": 23,
+   "first_masked_col_right": 620,
+   "first_valid_row": 0, 
+   "last_valid_row": 479,
+   "first_illuminated_row": 23, 
+   "last_illuminated_row": 447,
+   "first_illuminated_column": 23,
+   "last_illuminated_column": 620,
+   "first_distributed_column": 23, 
+   "last_distributed_column": 620,
+   "first_distributed_row": 32, 
+   "last_distributed_row": 456,
+   "native_rows":480, 
+   "native_columns":640,
+   "num_dark_frames_use":800,
+   "pedestal_strategy": "rows",
+   "timerange_start_utc": "2022-08-13T00:00:00",
+   "comments": "Post-FPA position adjustments, with channel clipping. There was an FPA tilt update on 13 August.",
+   "unknown":{
+      "osf_seam_positions": [[177,178,179,183,184,185]],
+      "reference_cols":[[140,340],[940,1015],[1035,1140]]
+   }
+}
