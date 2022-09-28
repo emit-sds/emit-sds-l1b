@@ -211,6 +211,11 @@ def calibrate_raw(frame, fpa, config):
         bad = bad[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         bad = sp.flip(bad, axis=0)
 
+    # Mirror image
+    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
+        bad = sp.flip(bad, axis=1)
+        frame = sp.flip(frame, axis=1)
+
     # Replace all bad data flags with -9999
     cleanframe = frame.copy()
     cleanframe[frame<=(bad_flag+1e-6)] = -9999
