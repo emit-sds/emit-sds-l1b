@@ -1,0 +1,47 @@
+{
+   "modes":{
+     "default":{
+       "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
+       "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
+       "flat_field_file": "../data/emit/EMIT_FlatField_20220825",
+       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffs_20220901.txt"
+     },
+     "half":{
+       "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
+       "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
+       "flat_field_file": "../data/emit/EMIT_FlatFieldHalf_20220825",
+       "radiometric_coefficient_file": "../data/emit/EMIT_RadiometricCoeffsHalf_20220901.txt"
+     }
+   },
+   "srf_correction_file": "../data/emit/EMIT_SpectralScatter_20220406",
+   "crf_correction_file": "../data/emit/EMIT_SpatialScatter_20220406",
+   "bad_element_file": "../data/emit/EMIT_BadElements_20220307",
+   "spectral_calibration_file": "../data/emit/EMIT_Wavelengths_20220817.txt",
+   "ghost_map_file": "../data/emit/EMIT_GhostMap_20220424.json",
+   "extract_subframe": true,
+   "flip_horizontal": true,
+   "left_shift_twice": true,
+   "ignore_first_row": true,
+   "saturation_DN": 55000,
+   "pedestal_multiplier": 1.0,
+   "osf_seam_positions": [[177,178,179,183,184,185]],
+   "linearity_nbasis": 2,
+   "last_masked_col_left": 9,
+   "first_masked_col_right": 1272,
+   "first_valid_row": 0, 
+   "last_valid_row": 327,
+   "first_illuminated_row": 14, 
+   "last_illuminated_row": 314,
+   "first_illuminated_column": 24,
+   "last_illuminated_column": 1265,
+   "first_distributed_column": 24, 
+   "last_distributed_column": 1265,
+   "first_distributed_row": 20, 
+   "last_distributed_row": 304,
+   "native_rows":328, 
+   "native_columns":1280,
+   "reference_cols":[[140,340],[940,1015],[1035,1140]],
+   "pedestal_strategy": "both",
+   "timerange_start_utc": "2022-08-13T00:00:00",
+   "comments": "Post-FPA position adjustments, with channel clipping. There was an FPA tilt update on 13 August."
+}
