@@ -139,6 +139,7 @@ class Config:
 def calibrate_raw(frame, fpa, config):
 
     saturated = np.ones(frame.shape)<0 # False
+    bad = config.bad.copy()
 
     # Don't calibrate a bad frame
     if not np.all(frame <= bad_flag):
@@ -178,7 +179,6 @@ def calibrate_raw(frame, fpa, config):
         # results from the previous operations
         flagged = np.logical_or(saturated, np.logical_not(np.isfinite(frame)))
         frame[flagged] = 0
-        bad = config.bad.copy()
         bad[flagged] = -1
         frame = fix_bad(frame, bad, fpa)
         
