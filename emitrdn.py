@@ -353,6 +353,11 @@ def main():
     # Output the header file for the replaced pixel image
     nreplacedchannels = bad.shape[0]
     params = {'lines': lines}
+    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
+        params['flip_horizontal'] = 1
+    else:
+        params['flip_horizontal'] = 0
+
     params.update(**locals())
     with open(args.output_replaced+'.hdr','w') as fout:
         fout.write(replaced_header_template.format(**params))
