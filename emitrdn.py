@@ -54,6 +54,7 @@ band names = {{{band_names_string}}}
 masked pixel noise = {masked_pixel_noise}
 emit pge input files = {{{input_files_string}}}
 emit pge run command = {{{run_command_string}}}
+flip horizontal  = {flip_horizontal}
 """
 
 
@@ -67,6 +68,7 @@ file type = ENVI Standard
 data type = 1
 interleave = bil
 byte order = 0
+flip horizontal  = {flip_horizontal}
 """
 
 
@@ -344,6 +346,12 @@ def main():
           params['input_files_string'] = params['input_files_string'] + \
              ' %s=%s'%(var,getattr(fpa,var))
 
+    flip_horizontal = None
+    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
+        flip_horizontal = 1
+    else:
+        flip_horizontal = 0
+
     # Write the header
     params.update(**locals())
     with open(args.output_file+'.hdr','w') as fout:
@@ -353,11 +361,6 @@ def main():
     # Output the header file for the replaced pixel image
     nreplacedchannels = bad.shape[0]
     params = {'lines': lines}
-    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
-        params['flip_horizontal'] = 1
-    else:
-        params['flip_horizontal'] = 0
-
     params.update(**locals())
     with open(args.output_replaced+'.hdr','w') as fout:
         fout.write(replaced_header_template.format(**params))
