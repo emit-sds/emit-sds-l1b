@@ -392,7 +392,10 @@ def main():
                  frame = frame.reshape((nbands, ncols)) # BIL
                  if frame.shape[0]<1:
                      continue
+                 mask = frame < -9989
                  new_frame = dk+frame*ff # It's that easy.
+                 new_frame[mask] = -9999
+
                  new_frame = np.array(new_frame, dtype=np.float32)  
                  new_frame.tofile(fout)
                  frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
