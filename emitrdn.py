@@ -200,7 +200,6 @@ def calibrate_raw(frame, fpa, config):
 
     else:
         noise = -9999
-        frame[...] = -9999
 
     if fpa.extract_subframe:
 
