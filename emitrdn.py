@@ -54,7 +54,23 @@ band names = {{{band_names_string}}}
 masked pixel noise = {masked_pixel_noise}
 emit pge input files = {{{input_files_string}}}
 emit pge run command = {{{run_command_string}}}
+flip horizontal  = {flip_horizontal}
 """
+
+
+replaced_header_template = """ENVI
+description = {{EMIT replaced channels}}
+samples = {ncolumns}
+lines = {lines}
+bands = {nreplacedchannels}
+header offset = 0
+file type = ENVI Standard
+data type = 1
+interleave = bil
+byte order = 0
+flip horizontal  = {flip_horizontal}
+"""
+
 
  
 def find_header(infile):
@@ -100,6 +116,13 @@ class Config:
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
 
+        # zero offset perturbation
+        self.zero_offset = np.zeros((fpa.native_rows, fpa.native_columns))
+        if hasattr(fpa, 'zero_offset_file'):
+            self.zero_offset = sp.fromfile(fpa.zero_offset_file,
+                dtype=sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
+
+
         # Load ghost configuration and construct the matrix
         with open(fpa.ghost_map_file,'r') as fin:
             ghost_config = json.load(fin)
@@ -117,60 +140,89 @@ class Config:
 @ray.remote
 def calibrate_raw(frame, fpa, config):
 
-    # Don't calibrate a bad frame
-    if frame[0,0] < bad_flag:
-       return frame, -9999   
-
-    # left shift, returning to the 16 bit range.
-    if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
-       frame = left_shift_twice(frame)
-
-    # Dark state subtraction
-    frame = subtract_dark(frame, config.dark)
-
-    # Raw noise calculation
-    if hasattr(fpa,'masked_columns'):
-        noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
-    elif hasattr(fpa,'masked_rows'):
-        noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
-    else:
-        noise = -1 
-
-    # Detector corrections
-    frame = fix_pedestal(frame, fpa)
-    frame = fix_linearity(frame, config.linearity_mu, 
-        config.linearity_evec, config.linearity_coeffs)
-    frame = frame * config.flat_field
-
-    # Fix bad pixels, and any nonfinite results from the previous
-    # operations
-    flagged = np.logical_not(np.isfinite(frame))
-    frame[flagged] = 0
+    saturated = np.ones(frame.shape)<0 # False
     bad = config.bad.copy()
-    bad[flagged] = -1
-    frame = fix_bad(frame, bad, fpa)
 
-    # Optical corrections
-    frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
-    frame = fix_ghost(frame, fpa, config.ghost_matrix, 
-         blur = config.ghost_blur, center = config.ghost_center)
+    # Don't calibrate a bad frame
+    if not np.all(frame <= bad_flag):
 
-    # Absolute radiometry
-    frame = (frame.T * config.radiometric_calibration).T
-   
-    # Fix OSF
-    frame = fix_osf(frame, fpa)
+        # Left shift, returning to the 16 bit range.
+        if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
+           frame = left_shift_twice(frame)
 
-    # Catch NaNs
-    frame[sp.logical_not(sp.isfinite(frame))]=0
+        # Test for saturation
+        if hasattr(fpa,'saturation_DN'):
+            saturated = frame>fpa.saturation_DN
+ 
+        # Dark state subtraction
+        frame = subtract_dark(frame, config.dark)
+        frame = frame - config.zero_offset
+       
+        # Delete telemetry
+        if hasattr(fpa,'ignore_first_row') and fpa.ignore_first_row:
+           frame[0,:] = frame[1,:]
+        
+        # Raw noise calculation
+        if hasattr(fpa,'masked_columns'):
+            noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
+        elif hasattr(fpa,'masked_rows'):
+            noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
+        else:
+            noise = -1 
 
-    # Clip the channels to the appropriate size, if needed
+        # Detector corrections
+        frame = fix_pedestal(frame, fpa)
+     
+        frame = fix_linearity(frame, config.linearity_mu, 
+            config.linearity_evec, config.linearity_coeffs)
+        frame = frame * config.flat_field
+        
+        # Fix bad pixels, saturated pixels, and any nonfinite 
+        # results from the previous operations
+        flagged = np.logical_or(saturated, np.logical_not(np.isfinite(frame)))
+        frame[flagged] = 0
+        bad[flagged] = -1
+        frame = fix_bad(frame, bad, fpa)
+        
+        # Optical corrections
+        frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
+        frame = fix_ghost(frame, fpa, config.ghost_matrix, 
+             blur = config.ghost_blur, center = config.ghost_center)
+        
+        # Absolute radiometry
+        frame = (frame.T * config.radiometric_calibration).T
+       
+        # Fix OSF
+        frame = fix_osf(frame, fpa)
+        
+        # Catch NaNs
+        frame[sp.logical_not(sp.isfinite(frame))]=0
+
+    else:
+        noise = -9999
+
     if fpa.extract_subframe:
+
+        # Clip the radiance data to the appropriate size
         frame = frame[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
         frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         frame = sp.flip(frame, axis=0)
 
-    return frame, noise
+        # Clip the replaced channel mask
+        bad = bad[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
+        bad = bad[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
+        bad = sp.flip(bad, axis=0)
+
+    # Mirror image
+    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
+        bad = sp.flip(bad, axis=1)
+        frame = sp.flip(frame, axis=1)
+
+    # Replace all bad data flags with -9999
+    cleanframe = frame.copy()
+    cleanframe[frame<=(bad_flag+1e-6)] = -9999
+
+    return cleanframe, noise, np.packbits(bad, axis=0) 
    
 
 def main():
@@ -187,6 +239,7 @@ def main():
     parser.add_argument('dark_file', default = None)
     parser.add_argument('config_file', default='')
     parser.add_argument('output_file', default='')
+    parser.add_argument('output_replaced', default='')
     args = parser.parse_args()
 
     fpa = FPA(args.config_file)
@@ -227,7 +280,8 @@ def main():
     noises = []
 
     with open(args.input_file,'rb') as fin:
-        with open(args.output_file,'wb') as fout:
+       with open(args.output_file,'wb') as fout:
+          with open(args.output_replaced,'wb') as foutreplace:
 
             raw = sp.fromfile(fin, count=nframe, dtype=dtype)
             jobs = []
@@ -248,8 +302,9 @@ def main():
                     
                     # Write to file
                     result = ray.get(jobs)
-                    for frame, noise in result:
+                    for frame, noise, bad in result:
                         np.asarray(frame, dtype=sp.float32).tofile(fout)
+                        np.asarray(bad, dtype=sp.uint8).tofile(foutreplace)
                         noises.append(noise)
                     jobs = []
             
@@ -258,8 +313,9 @@ def main():
 
             # Do any final jobs
             result = ray.get(jobs)
-            for frame, noise in result:
+            for frame, noise, bad in result:
                 sp.asarray(frame, dtype=sp.float32).tofile(fout)
+                np.asarray(bad, dtype=sp.uint8).tofile(foutreplace)
                 noises.append(noise)
 
     # Form output metadata strings
@@ -280,6 +336,7 @@ def main():
     fwhm_string =  ','.join([str(w) for w in fwhm])
     wavelength_string = ','.join([str(w) for w in wl])
     
+    # Place all calibration parameters in header metadata
     params = {'lines': lines}
     params['masked_pixel_noise'] = np.nanmedian(np.array(noises))
     params['run_command_string'] = ' '.join(sys.argv)
@@ -289,10 +346,24 @@ def main():
           params['input_files_string'] = params['input_files_string'] + \
              ' %s=%s'%(var,getattr(fpa,var))
 
+    flip_horizontal = None
+    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
+        flip_horizontal = 1
+    else:
+        flip_horizontal = 0
+
+    # Write the header
     params.update(**locals())
     with open(args.output_file+'.hdr','w') as fout:
         fout.write(header_template.format(**params))
 
+
+    # Output the header file for the replaced pixel image
+    nreplacedchannels = bad.shape[0]
+    params = {'lines': lines}
+    params.update(**locals())
+    with open(args.output_replaced+'.hdr','w') as fout:
+        fout.write(replaced_header_template.format(**params))
     logging.info('Done')
 
 

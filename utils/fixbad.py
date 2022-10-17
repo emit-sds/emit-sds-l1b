@@ -16,6 +16,7 @@ import argparse
 from numba import jit
 from math import pow
 from fpa import FPA, frame_embed, frame_extract
+from fixosf import get_osf_interp_idx
 
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
@@ -95,8 +96,9 @@ def fix_bad(frame, bad, fpa):
 
             # Don't match on OSF or extrema
             good_channels = (bad[:,col]==0)
-            for seam_lo, seam_hi in fpa.osf_seam_positions:
-                good_channels[np.arange(seam_lo-1,seam_hi+2)] = False
+            for positions in fpa.osf_seam_positions:
+                osf_idx = get_osf_interp_idx(positions)
+                good_channels[osf_idx] = False
             good_channels[:fpa.first_illuminated_row] = False
             good_channels[(fpa.last_illuminated_row+1):] = False
             good_channels = np.where(good_channels)[0]
