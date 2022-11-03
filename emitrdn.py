@@ -54,6 +54,7 @@ band names = {{{band_names_string}}}
 masked pixel noise = {masked_pixel_noise}
 emit pge input files = {{{input_files_string}}}
 emit pge run command = {{{run_command_string}}}
+flip horizontal  = {flip_horizontal}
 """
 
 
@@ -67,6 +68,7 @@ file type = ENVI Standard
 data type = 1
 interleave = bil
 byte order = 0
+flip horizontal  = {flip_horizontal}
 """
 
 
@@ -343,6 +345,12 @@ def main():
        if var.endswith('_file'):
           params['input_files_string'] = params['input_files_string'] + \
              ' %s=%s'%(var,getattr(fpa,var))
+
+    flip_horizontal = None
+    if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
+        flip_horizontal = 1
+    else:
+        flip_horizontal = 0
 
     # Write the header
     params.update(**locals())
