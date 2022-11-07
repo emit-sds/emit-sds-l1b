@@ -278,7 +278,7 @@ def main():
     I = envi.open(inhdr)
     nrows, ncols, nbands = I.nrows, I.ncols, I.nbands
     meta = I.metadata.copy()
-    ref = 50
+    refs = np.array([50,245])
 
 
     self   = np.zeros((nbands,ncols))
@@ -293,10 +293,16 @@ def main():
         frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
         while frame.size>0:
             frame = frame.reshape((nbands, ncols)) # BIL
-            img.append(frame[ref,:])
+            img.append(frame[refs,:])
             frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
     img = np.array(img)
-    edges = abs(ndimage.sobel(ndimage.gaussian_filter(img,3)))
+
+    all_edges = []
+    for i in range(img.shape[1]):
+       band = np.array(img[:,i,:]) 
+       edges = abs(ndimage.sobel(ndimage.gaussian_filter(band, 3)))
+       all_edges.append(edges)
+    edges = np.max(np.array(all_edges),axis=0)
     thresh = filters.threshold_otsu(edges) 
     noedge = edges<thresh
     noedge = ndimage.binary_erosion(noedge)
