@@ -259,9 +259,10 @@ def main():
     parser.add_argument('output', help='Output radiance image')
     parser.add_argument('flatfield', help='New (secondary) flat field')
     parser.add_argument('darkfield', help='New (secondary) dark field')
+    parser.add_argument('--badmask', default=None, help='per-channel flagged bad data values')
     parser.add_argument('--reg','-r',help='Regularizer', default=0.0001) 
     parser.add_argument('--fitoffset',help='Fit offset?', action='store_true') 
-    parser.add_argument('--max_radiance',default=35)
+    parser.add_argument('--max_radiance',default=35, type=float)
     parser.add_argument('--margin',help='Spatial margin', default=50) 
     args = parser.parse_args()
 
@@ -278,9 +279,20 @@ def main():
     I = envi.open(inhdr)
     nrows, ncols, nbands = I.nrows, I.ncols, I.nbands
     meta = I.metadata.copy()
-    ref = 50
+    refs = np.array([50,245])
 
+    if args.badmask is not None:
+        saturated = np.sum(envi.open(args.badmask + '.hdr').open_memmap(interleave='bip').copy(),axis=-1).astype(float) #find all flags
+        saturated -= np.min(saturated,axis=0) #subtract column-wise min to remove bad-pixel instances
+        saturated = saturated > 0
+    else:
+        saturated = np.zeros((nrows,ncols),dtype=bool)
 
+    # Catch really bright SWIR targets that might now quite be saturated
+    bright_swir = envi.open(inhdr).open_memmap(interleave='bil')[:,280,:].copy().squeeze()
+    bright_swir = bright_swir > (np.median(bright_swir,axis=0) + 4*np.std(bright_swir,axis=0))[np.newaxis,:]
+    saturated[bright_swir] = True
+    
     self   = np.zeros((nbands,ncols))
     selfsq = np.zeros((nbands,ncols))
     adj    = np.zeros((nbands,ncols-1))
@@ -293,10 +305,16 @@ def main():
         frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
         while frame.size>0:
             frame = frame.reshape((nbands, ncols)) # BIL
-            img.append(frame[ref,:])
+            img.append(frame[refs,:])
             frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
     img = np.array(img)
-    edges = abs(ndimage.sobel(ndimage.gaussian_filter(img,3)))
+
+    all_edges = []
+    for i in range(img.shape[1]):
+       band = np.array(img[:,i,:]) 
+       edges = abs(ndimage.sobel(ndimage.gaussian_filter(band, 3)))
+       all_edges.append(edges)
+    edges = np.max(np.array(all_edges),axis=0)
     thresh = filters.threshold_otsu(edges) 
     noedge = edges<thresh
     noedge = ndimage.binary_erosion(noedge)
@@ -327,7 +345,7 @@ def main():
             notedge[:] = True
             notbright = np.max(frame, axis=0) < args.max_radiance
             valid = np.all(frame > bad_flag, axis=0)
-            use = np.logical_and(np.logical_and(notbright, valid),notedge)
+            use = np.logical_and.reduce((notbright, valid, notedge, np.logical_not(saturated[nframes,:])))
             
             # Cached values are stored in arrays the size of the active FPA region
             # We sum over all lines (and will later turn this into a mean)
