@@ -263,6 +263,7 @@ def main():
     parser.add_argument('--reg','-r',help='Regularizer', default=0.0001) 
     parser.add_argument('--fitoffset',help='Fit offset?', action='store_true') 
     parser.add_argument('--max_radiance',default=35, type=float)
+    parser.add_argument('--swir2_std',default=4, type=float, help='Num stds within which to accept swir2')
     parser.add_argument('--margin',help='Spatial margin', default=50) 
     args = parser.parse_args()
 
@@ -289,9 +290,10 @@ def main():
         saturated = np.zeros((nrows,ncols),dtype=bool)
 
     # Catch really bright SWIR targets that might now quite be saturated
-    bright_swir = envi.open(inhdr).open_memmap(interleave='bil')[:,280,:].copy().squeeze()
-    bright_swir = bright_swir > (np.median(bright_swir,axis=0) + 4*np.std(bright_swir,axis=0))[np.newaxis,:]
-    saturated[bright_swir] = True
+    if args.swir2_std > 0:
+        bright_swir = envi.open(inhdr).open_memmap(interleave='bil')[:,280,:].copy().squeeze()
+        bright_swir = bright_swir > (np.median(bright_swir,axis=0) + args.swir2_std * np.std(bright_swir,axis=0))[np.newaxis,:]
+        saturated[bright_swir] = True
     
     self   = np.zeros((nbands,ncols))
     selfsq = np.zeros((nbands,ncols))
