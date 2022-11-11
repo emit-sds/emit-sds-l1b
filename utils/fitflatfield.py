@@ -361,7 +361,6 @@ def main():
                  nused[:,use] = nused[:,use]+1
             frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
             nframes = nframes + 1
-    print(nused[0,:]) 
     self   = self   / nused
     selfsq = selfsq / nused
     adj    = adj    / nused[:,:-1]
@@ -389,6 +388,10 @@ def main():
       else:
           ff[b,:] = results[b]
           dk[b,:] = 0
+
+    # Safeguard failed fits!
+    ff[np.isfinite(ff) == False] = 1
+    dk[np.isfinite(dk) == False] = 0
       
     # Write the full-sized optimized and mean-divided flat field
     ff3d = np.array(ff.reshape((nbands,ncols,1)), dtype=np.float32)
