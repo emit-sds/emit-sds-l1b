@@ -51,21 +51,21 @@ def main():
     nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance Data 60 m " + args.version
     nc_ds.summary = nc_ds.summary + \
         f"\\n\\nThis file contains L1B at-sensor calibrated radiances. \
-        The radiance calibration occurs in two basic stages: 1) transforming raw digital numbers \
-        into radiance units using a calibrated radiometric response and correcting for electronic artifacts, and 2) \
-        a correction for instrument optical effects which results in an absolute spectral wavelength calibration. \
-        The radiance file contains radiance for each of {rdn_ds.shape[-1]} channels in units of microwatts per centimeter per \
-        centimeter squared per steradian. \
-        Geolocation data (latitude, longitude, height) and a lookup table to project the data are also included."
+The radiance calibration occurs in two basic stages: 1) transforming raw digital numbers \
+into radiance units using a calibrated radiometric response and correcting for electronic artifacts, and 2) \
+a correction for instrument optical effects which results in an absolute spectral wavelength calibration. \
+The radiance file contains radiance for each of {rdn_ds.shape[-1]} channels in units of microwatts per centimeter per \
+centimeter squared per steradian. \
+Geolocation data (latitude, longitude, height) and a lookup table to project the data are also included."
     nc_ds.sync()
 
     logging.debug('Creating dimensions')
     daac_converter.makeDims(nc_ds, args.rdn_file, args.glt_file)
 
     logging.debug('Creating and writing radiance metadata')
-    daac_converter.add_variable(nc_ds, "sensor_band_parameters/radiance_wl", "f4", "Wavelength Centers", "nm",
+    daac_converter.add_variable(nc_ds, "sensor_band_parameters/wavelengths", "f4", "Wavelength Centers", "nm",
                  [float(d) for d in rdn_ds.metadata['wavelength']], {"dimensions": ("bands",)})
-    daac_converter.add_variable(nc_ds, "sensor_band_parameters/radiance_fwhm", "f4", "Full Width at Half Max", "nm",
+    daac_converter.add_variable(nc_ds, "sensor_band_parameters/fwhm", "f4", "Full Width at Half Max", "nm",
                  [float(d) for d in rdn_ds.metadata['fwhm']], {"dimensions": ("bands",)})
     daac_converter.add_variable(nc_ds, 'radiance', "f4", "Radiance Data", "uW/cm^2/SR/nm", rdn_ds.open_memmap(interleave='bip')[...].copy(),
                  {"dimensions":("downtrack", "crosstrack", "bands")})
@@ -89,11 +89,11 @@ def main():
     logging.debug('Creating global attributes')
     daac_converter.makeGlobalAttr(nc_ds, args.obs_file, args.glt_file)
 
-    nc_ds.title = "EMIT L1B Observation Data 60 m V001"
+    nc_ds.title = "EMIT L1B Observation Data 60 m " + args.version
     nc_ds.summary = nc_ds.summary + \
         f"\\n\\nThis file contains L1B geometric information (path length, view and solar angles, timing) associated with \
-        each pixel in an acquisition. \
-        Geolocation data (latitude, longitude, height) and a lookup table to project the data are also included."
+each pixel in an acquisition. \
+Geolocation data (latitude, longitude, height) and a lookup table to project the data are also included."
     nc_ds.sync()
 
     daac_converter.makeDims(nc_ds, args.obs_file, args.glt_file)
