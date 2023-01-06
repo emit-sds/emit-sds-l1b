@@ -143,8 +143,8 @@ def calibrate_raw(frame, fpa, config):
     saturated = np.ones(frame.shape)<0 # False
     bad = config.bad.copy()
 
-    # Don't calibrate a bad frame
-    if not np.all(frame <= bad_flag):
+    # Don't calibrate a bad frame.  Ignore channel zero (telemetry)
+    if not np.all(frame[1:,:] <= bad_flag):
 
         # Left shift, returning to the 16 bit range.
         if hasattr(fpa,'left_shift_twice') and fpa.left_shift_twice:
