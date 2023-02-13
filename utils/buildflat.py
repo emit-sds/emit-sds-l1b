@@ -33,7 +33,7 @@ def main():
     # Required 
     parser.add_argument('input', nargs='+', help='Flat field')
     parser.add_argument('--config',type=str)
-    parser.add_argument('--highpass',action='store_true')
+    parser.add_argument('--save_individual',action="store_true")
     parser.add_argument('output_all', help='Output flat field list')
     parser.add_argument('output', help='Output final flat field')
     args = parser.parse_args()
@@ -55,16 +55,10 @@ def main():
         band = np.squeeze(img[:,:,50])
         nbands = img.shape[2]
         nsamps = img.shape[1]
-       #plt.imshow(band)
-       #plt.show()
         edges = abs(ndimage.sobel(ndimage.gaussian_filter(band, 3)))
-       #plt.imshow(edges)
-       #plt.show()
         thresh = filters.threshold_otsu(edges) 
         thresh = np.percentile(edges,70)
         edge = edges>thresh
-       #plt.imshow(edge)
-       #plt.show()
         edge = ndimage.binary_dilation(edge)
         bright = np.any(img>35,axis=2)
         use = np.logical_or(edge, bright)
@@ -73,26 +67,23 @@ def main():
 
         flat = np.nanmedian(img,axis=0).T # convert to row, column
         new = flat.copy()
-        if args.highpass:
-           blur = gaussian_filter(new,(0.4,2))
-           new = new / blur
-        else:
-           for j in range(new.shape[0]):
-               knots = np.array([40,330,620,910,1200])
-               x = np.arange(new.shape[1])
-               sp = splrep(x,new[j,:],t=knots)
-              #plt.plot(x,new[j,:])
-               new[j,:] = new[j,:]/splev(x,sp) 
-              #plt.plot(x,new[j,:])
-              #plt.show()
+        blur = gaussian_filter(new,(0.4,2))
+
+        # remove edge effect
+        blur[:,:4] = new[:,:4]
+        blur[:,-4:] = new[:,-4:]
+
+        new = new / blur
         flat = new
         for row in range(flat.shape[0]):
            ref = np.nanmedian(flat[row, reference_cols])
            flat[row,:] = ref / flat[row,:] 
         flat[np.logical_not(np.isfinite(flat))]= 1
-        envi.save_image(infile+'_flat.hdr',np.array(flat,dtype=np.float32),ext='',force=True)
-        print(flat)
         flats.append(flat)
+
+        if args.save_individual:
+            envi.save_image(infile+'_flat.hdr',
+                np.array(flat,dtype=np.float32),ext='',force=True)
 
     flats = np.array(flats)
     avgflat = np.nanmedian(np.array(flats),axis=0)
