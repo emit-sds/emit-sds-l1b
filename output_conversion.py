@@ -26,6 +26,7 @@ def main():
     parser.add_argument('loc_file', type=str, help="EMIT L1B location data ENVI file")
     parser.add_argument('glt_file', type=str, help="EMIT L1B glt ENVI file")
     parser.add_argument('version', type=str, help="3 digit (with leading V) version number")
+    parser.add_argument('software_delivery_version', type=str, help="The extended build number at delivery time")
     parser.add_argument('--ummg_file', type=str, help="Output UMMG filename")
     parser.add_argument('--log_file', type=str, default=None, help="Logging file to write to")
     parser.add_argument('--log_level', type=str, default="INFO", help="Logging level")
@@ -46,7 +47,7 @@ def main():
 
     # make global attributes
     logging.debug('Creating global attributes')
-    daac_converter.makeGlobalAttr(nc_ds, args.rdn_file, args.glt_file)
+    daac_converter.makeGlobalAttr(nc_ds, args.rdn_file, args.software_delivery_version, glt_envi_file=args.glt_file)
 
     nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance Data 60 m " + args.version
     nc_ds.summary = nc_ds.summary + \
@@ -87,7 +88,7 @@ Geolocation data (latitude, longitude, height) and a lookup table to project the
     nc_ds = Dataset(args.obs_output_filename, 'w', clobber=True, format='NETCDF4')
 
     logging.debug('Creating global attributes')
-    daac_converter.makeGlobalAttr(nc_ds, args.obs_file, args.glt_file)
+    daac_converter.makeGlobalAttr(nc_ds, args.obs_file, args.software_delivery_version, glt_envi_file=args.glt_file)
 
     nc_ds.title = "EMIT L1B Observation Data 60 m " + args.version
     nc_ds.summary = nc_ds.summary + \
