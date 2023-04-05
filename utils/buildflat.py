@@ -33,8 +33,7 @@ def main():
     # Required 
     parser.add_argument('input', nargs='+', help='Flat field')
     parser.add_argument('--config',type=str)
-    parser.add_argument('--save_individual',action="store_true")
-    parser.add_argument('output_all', help='Output flat field list')
+    parser.add_argument('--max_rdn',default=35.0)
     parser.add_argument('output', help='Output final flat field')
     args = parser.parse_args()
     fpa = FPA(args.config)
@@ -55,21 +54,27 @@ def main():
         band = np.squeeze(img[:,:,50])
         nbands = img.shape[2]
         nsamps = img.shape[1]
+
+        # Remove edges
         edges = abs(ndimage.sobel(ndimage.gaussian_filter(band, 3)))
         thresh = filters.threshold_otsu(edges) 
         thresh = np.percentile(edges,70)
         edge = edges>thresh
         edge = ndimage.binary_dilation(edge)
-        bright = np.any(img>35,axis=2)
+
+        # Remove bright pixels (clouds, etc.)
+        bright = np.any(img>args.max_rdn,axis=2)
         use = np.logical_or(edge, bright)
         for i in range(img.shape[0]):
             img[i,use[i,:],:] = np.nan
 
         flat = np.nanmedian(img,axis=0).T # convert to row, column
         new = flat.copy()
+
+        # High pass filter
         blur = gaussian_filter(new,(0.4,2))
 
-        # remove edge effect
+        # Remove edge effect
         blur[:,:4] = new[:,:4]
         blur[:,-4:] = new[:,-4:]
 
@@ -81,13 +86,8 @@ def main():
         flat[np.logical_not(np.isfinite(flat))]= 1
         flats.append(flat)
 
-        if args.save_individual:
-            envi.save_image(infile+'_flat.hdr',
-                np.array(flat,dtype=np.float32),ext='',force=True)
-
     flats = np.array(flats)
     avgflat = np.nanmedian(np.array(flats),axis=0)
-    envi.save_image(args.output_all+'.hdr',np.array(flats,dtype=np.float32),ext='',force=True)
 
     I = envi.open(inhdr)
     meta = I.metadata.copy()

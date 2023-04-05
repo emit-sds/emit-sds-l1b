@@ -21,7 +21,7 @@ def find_header(infile):
 
 def main():
 
-    description = 'Apply a multiplicative flat field (and optionally, an additive offset)';
+    description = 'Combine multiple flat fields with a median';
     parser = argparse.ArgumentParser()
 
     # Required 
@@ -35,14 +35,14 @@ def main():
         inhdr  = find_header(infile)
         flat = np.squeeze(envi.open(inhdr).load()[:,:,0])
         flats.append(flat)
-    avgflat = np.median(np.array(flats),axis=0)
+    median_flat = np.median(np.array(flats),axis=0)
     
     I = envi.open(inhdr)
     meta = I.metadata.copy()
     outhdr = args.output + '.hdr'
     Icorr = envi.create_image(outhdr, meta, force=True, ext="")
     with open(args.output,'wb') as fout:
-        np.array(avgflat, dtype=np.float32).tofile(fout)
+        np.array(median_flat, dtype=np.float32).tofile(fout)
                    
 if __name__ == '__main__':
     main()
