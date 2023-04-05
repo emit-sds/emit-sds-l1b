@@ -25,16 +25,17 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Required 
-    parser.add_argument('input', nargs='+', help='Flat field')
+    parser.add_argument('input', type=str, help='Text file with flat field paths')
     parser.add_argument('output', help='Output radiance image')
     args = parser.parse_args()
 
     # Define local variables
     flats = []
-    for infile in args.input:
-        inhdr  = find_header(infile)
-        flat = np.squeeze(envi.open(inhdr).load()[:,:,0])
-        flats.append(flat)
+    with open(args.input,'r') as fin:
+        for line in fin.readlines():
+            inhdr  = find_header(line.strip())
+            flat = np.squeeze(envi.open(inhdr).load()[:,:,0])
+            flats.append(flat)
     median_flat = np.median(np.array(flats),axis=0)
     
     I = envi.open(inhdr)
