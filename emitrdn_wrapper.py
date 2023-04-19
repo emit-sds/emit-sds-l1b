@@ -44,18 +44,7 @@ def main():
     with open(in_file, "r") as f:
         runconfig = json.load(f)
 
-    logger = set_up_logging(runconfig["level"], runconfig["tmp_log_path"])
-    logger.info(f"Starting emitrdn_wrapper.py with runconfig {in_file}")
-
-    # Write out tmp_l1b_config and tmp_ff_list
-    l1b_config_path = f"{runconfig['tmp_dir']}/l1b_config.json"
-    with open(l1b_config_path, "w") as f:
-        json.dump(runconfig["l1b_config"], f, indent=4)
-    ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
-    with open(ff_list_path, "w") as f:
-        for p in runconfig["recent_ff_paths"]:
-            f.write(f"{p}\n")
-    # Assume output dir is already created by workflow manager
+    # output dir should be created by workflow manager, but if not, create it here
     output_dir = f"{runconfig['tmp_dir']}/output"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -72,6 +61,18 @@ def main():
     buildflat_exe = f"{runconfig['repository_dir']}/utils/buildflat.py"
     medianflat_exe = f"{runconfig['repository_dir']}/utils/medianflat.py"
     applyflat_exe = f"{runconfig['repository_dir']}/utils/applyflat.py"
+
+    logger = set_up_logging(runconfig["level"], log_path)
+    logger.info(f"Starting emitrdn_wrapper.py with runconfig {in_file}")
+
+    # Write out tmp_l1b_config and tmp_ff_list
+    l1b_config_path = f"{runconfig['tmp_dir']}/l1b_config.json"
+    with open(l1b_config_path, "w") as f:
+        json.dump(runconfig["l1b_config"], f, indent=4)
+    ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
+    with open(ff_list_path, "w") as f:
+        for p in runconfig["recent_ff_paths"]:
+            f.write(f"{p}\n")
 
     # Create emitrdn.py command
     cmd = ["python",
