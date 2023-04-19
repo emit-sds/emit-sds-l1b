@@ -10,7 +10,6 @@ Author: Winston Olson-Duvall, winston.olson-duvall@jpl.nasa.gov
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 
@@ -48,44 +47,70 @@ def main():
     logger = set_up_logging(runconfig["level"], runconfig["tmp_log_path"])
     logger.info(f"Starting emitrdn_wrapper.py with runconfig {in_file}")
 
+    # Write out tmp_l1b_config and tmp_ff_list
+    l1b_config_path = f"{runconfig['tmp_dir']}/l1b_config.json"
+    with open(l1b_config_path, "w") as f:
+        json.dump(runconfig["l1b_config"], f, indent=4)
+    ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
+    with open(ff_list_path, "w") as f:
+        for p in runconfig["recent_ff_paths"]:
+            f.write(f"{p}\n")
+    # Assume output dir is already created by workflow manager
+    output_dir = f"{runconfig['tmp_dir']}/output"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Create path names
+    rdn_basename = os.path.basename(runconfig["raw_image_path"]).replace("l1a", "l1b").replace("raw", "rdn")
+    log_path = f"{output_dir}/{rdn_basename.replace('.img', '_pge.log')}"
+    rdn_img_path = f"{output_dir}/{rdn_basename}"
+    bandmask_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'bandmask')}"
+    ffupdate_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffupdate')}"
+    ffmedian_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffmedian')}"
+    rdn_destripe_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'rdndestripe')}"
+    emitrdn_exe = f"{runconfig['repository_dir']}/emitrdn.py"
+    buildflat_exe = f"{runconfig['repository_dir']}/utils/buildflat.py"
+    medianflat_exe = f"{runconfig['repository_dir']}/utils/medianflat.py"
+    applyflat_exe = f"{runconfig['repository_dir']}/utils/applyflat.py"
+
     # Create emitrdn.py command
     cmd = ["python",
-           runconfig["emitrdn_exe"],
+           emitrdn_exe,
            f"--mode {runconfig['instrument_mode']}"
            f"--level {runconfig['level']}"
-           f"--log_file {runconfig['tmp_log_path']}",
+           f"--log_file {log_path}",
            runconfig["raw_img_path"],
            runconfig["dark_img_path"],
-           runconfig["tmp_l1b_config_path"],
-           runconfig["tmp_rdn_img_path"],
-           runconfig["tmp_rdn_bandmask_img_path"]]
+           l1b_config_path,
+           rdn_img_path,
+           bandmask_img_path]
     print("Running emitrdn.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
     # Create buildflat.py command
     cmd = ["python",
-           runconfig["buildflat_exe"],
-           f"--config {runconfig['tmp_l1b_config_path']}",
-           runconfig["tmp_rdn_img_path"],
-           runconfig["tmp_ffupdate_img_path"]]
+           buildflat_exe,
+           f"--config {l1b_config_path}",
+           rdn_img_path,
+           ffupdate_img_path]
     print("Running utils/buildflat.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
     # Create medianflat.py command
     cmd = ["python",
-           runconfig["medianflat_exe"],
-           runconfig["tmp_ff_list_path"],
-           runconfig["tmp_ffmedian_img_path"]]
+           medianflat_exe,
+           ff_list_path,
+           ffmedian_img_path]
     print("Running utils/medianflat.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
     # Create applyflat.py command
     cmd = ["python",
-           runconfig["applyflat_exe"],
-           runconfig["tmp_rdn_img_path"],
-           runconfig["tmp_l1b_config_path"],
-           runconfig["tmp_ffmedian_img_path"],
-           runconfig["tmp_rdn_destripe_img_path"]]
+           applyflat_exe,
+           rdn_img_path,
+           l1b_config_path,
+           ffmedian_img_path,
+           rdn_destripe_img_path]
     print("Running utils/applyflat.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
