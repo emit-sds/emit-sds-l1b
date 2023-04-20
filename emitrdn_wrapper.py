@@ -56,6 +56,7 @@ def main():
     ffupdate_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffupdate')}"
     ffmedian_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffmedian')}"
     rdn_destripe_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'rdndestripe')}"
+    utils_path = f"{runconfig['repository_dir']}/utils"
     emitrdn_exe = f"{runconfig['repository_dir']}/emitrdn.py"
     buildflat_exe = f"{runconfig['repository_dir']}/utils/buildflat.py"
     medianflat_exe = f"{runconfig['repository_dir']}/utils/medianflat.py"
@@ -73,6 +74,11 @@ def main():
         for p in runconfig["recent_ff_paths"]:
             f.write(f"{p}\n")
 
+    # Set environment variables
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"$PYTHONPATH:{utils_path}"
+    env["RAY_worker_register_timeout_seconds"] = "600"
+
     # Create emitrdn.py command
     cmd = ["python",
            emitrdn_exe,
@@ -85,7 +91,7 @@ def main():
            rdn_img_path,
            bandmask_img_path]
     logger.info("Running emitrdn.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True)
+    subprocess.run(" ".join(cmd), shell=True, env=env)
 
     # Create buildflat.py command
     cmd = ["python",
@@ -94,7 +100,7 @@ def main():
            rdn_img_path,
            ffupdate_img_path]
     logger.info("Running utils/buildflat.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True)
+    subprocess.run(" ".join(cmd), shell=True, env=env)
 
     # Create medianflat.py command
     cmd = ["python",
@@ -102,7 +108,7 @@ def main():
            ff_list_path,
            ffmedian_img_path]
     logger.info("Running utils/medianflat.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True)
+    subprocess.run(" ".join(cmd), shell=True, env=env)
 
     # Create applyflat.py command
     cmd = ["python",
@@ -112,7 +118,7 @@ def main():
            ffmedian_img_path,
            rdn_destripe_img_path]
     logger.info("Running utils/applyflat.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True)
+    subprocess.run(" ".join(cmd), shell=True, env=env)
 
 
 if __name__ == "__main__":
