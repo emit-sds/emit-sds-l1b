@@ -40,7 +40,6 @@ def main():
     in_file = sys.argv[1]
 
     # Read in runconfig
-    print("Reading in runconfig")
     with open(in_file, "r") as f:
         runconfig = json.load(f)
 
@@ -77,15 +76,15 @@ def main():
     # Create emitrdn.py command
     cmd = ["python",
            emitrdn_exe,
-           f"--mode {runconfig['instrument_mode']}"
-           f"--level {runconfig['level']}"
+           f"--mode {runconfig['instrument_mode']}",
+           f"--level {runconfig['level']}",
            f"--log_file {log_path}",
            runconfig["raw_img_path"],
            runconfig["dark_img_path"],
            l1b_config_path,
            rdn_img_path,
            bandmask_img_path]
-    print("Running emitrdn.py command: " + " ".join(cmd))
+    logger.info("Running emitrdn.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
     # Create buildflat.py command
@@ -94,7 +93,7 @@ def main():
            f"--config {l1b_config_path}",
            rdn_img_path,
            ffupdate_img_path]
-    print("Running utils/buildflat.py command: " + " ".join(cmd))
+    logger.info("Running utils/buildflat.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
     # Create medianflat.py command
@@ -102,7 +101,7 @@ def main():
            medianflat_exe,
            ff_list_path,
            ffmedian_img_path]
-    print("Running utils/medianflat.py command: " + " ".join(cmd))
+    logger.info("Running utils/medianflat.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
     # Create applyflat.py command
@@ -112,10 +111,9 @@ def main():
            l1b_config_path,
            ffmedian_img_path,
            rdn_destripe_img_path]
-    print("Running utils/applyflat.py command: " + " ".join(cmd))
+    logger.info("Running utils/applyflat.py command: " + " ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True)
 
 
 if __name__ == "__main__":
     main()
-
