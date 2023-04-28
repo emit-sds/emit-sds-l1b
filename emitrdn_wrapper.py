@@ -71,7 +71,7 @@ def main():
         json.dump(runconfig["l1b_config"], f, indent=4)
     ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
     with open(ff_list_path, "w") as f:
-        for p in runconfig["recent_ff_paths"]:
+        for p in runconfig["recent_ffupdate_paths"]:
             f.write(f"{p}\n")
 
     # Set environment variables
