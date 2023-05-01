@@ -69,10 +69,6 @@ def main():
     l1b_config_path = f"{runconfig['tmp_dir']}/l1b_config.json"
     with open(l1b_config_path, "w") as f:
         json.dump(runconfig["l1b_config"], f, indent=4)
-    ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
-    with open(ff_list_path, "w") as f:
-        for p in runconfig["recent_ffupdate_paths"]:
-            f.write(f"{p}\n")
 
     # Set environment variables
     env = os.environ.copy()
@@ -91,7 +87,12 @@ def main():
            rdn_img_path,
            bandmask_img_path]
     logger.info("Running emitrdn.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, env=env)
+    output = subprocess.run(" ".join(cmd), shell=True, env=env)
+    if output.returncode == 0:
+        logger.info("emitrdn.py command SUCCEEDED")
+    else:
+        logger.error("emitrdn.py command FAILED, exiting...")
+        raise RuntimeError(output.stderr.decode("utf-8"))
 
     # Create buildflat.py command
     cmd = ["python",
@@ -100,7 +101,20 @@ def main():
            rdn_img_path,
            ffupdate_img_path]
     logger.info("Running utils/buildflat.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, env=env)
+    output = subprocess.run(" ".join(cmd), shell=True, env=env)
+    if output.returncode == 0:
+        logger.info("buildflat.py command SUCCEEDED")
+    else:
+        logger.error("buildflat.py command FAILED, but processing will continue and there will be no flat field "
+                     "update for this scene.  Removing flat field if it exists.")
+        if os.path.exists(ffupdate_img_path):
+            os.remove(ffupdate_img_path)
+
+    # Create ff_list
+    ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
+    with open(ff_list_path, "w") as f:
+        for p in runconfig["recent_ffupdate_paths"]:
+            f.write(f"{p}\n")
 
     # Create medianflat.py command
     cmd = ["python",
@@ -108,7 +122,12 @@ def main():
            ff_list_path,
            ffmedian_img_path]
     logger.info("Running utils/medianflat.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, env=env)
+    output = subprocess.run(" ".join(cmd), shell=True, env=env)
+    if output.returncode == 0:
+        logger.info("medianflat.py command SUCCEEDED")
+    else:
+        logger.error("medianflat.py command FAILED, exiting...")
+        raise RuntimeError(output.stderr.decode("utf-8"))
 
     # Create applyflat.py command
     cmd = ["python",
@@ -118,7 +137,12 @@ def main():
            ffmedian_img_path,
            rdn_destripe_img_path]
     logger.info("Running utils/applyflat.py command: " + " ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, env=env)
+    output = subprocess.run(" ".join(cmd), shell=True, env=env)
+    if output.returncode == 0:
+        logger.info("applyflat.py command SUCCEEDED")
+    else:
+        logger.error("applyflat.py command FAILED, exiting...")
+        raise RuntimeError(output.stderr.decode("utf-8"))
 
 
 if __name__ == "__main__":
