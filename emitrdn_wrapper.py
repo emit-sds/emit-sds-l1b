@@ -116,33 +116,35 @@ def main():
         for p in runconfig["recent_ffupdate_paths"]:
             f.write(f"{p}\n")
 
-    # Create medianflat.py command
-    cmd = ["python",
-           medianflat_exe,
-           ff_list_path,
-           ffmedian_img_path]
-    logger.info("Running utils/medianflat.py command: " + " ".join(cmd))
-    output = subprocess.run(" ".join(cmd), shell=True, env=env)
-    if output.returncode == 0:
-        logger.info("medianflat.py command SUCCEEDED")
-    else:
-        logger.error("medianflat.py command FAILED, exiting...")
-        raise RuntimeError(output.stderr.decode("utf-8"))
+    # Proceed with the last two steps only if we have more than 100 recent flat fields
+    if len(runconfig["recent_ffupdate_paths"]) >= 100:
+        # Create medianflat.py command
+        cmd = ["python",
+               medianflat_exe,
+               ff_list_path,
+               ffmedian_img_path]
+        logger.info("Running utils/medianflat.py command: " + " ".join(cmd))
+        output = subprocess.run(" ".join(cmd), shell=True, env=env)
+        if output.returncode == 0:
+            logger.info("medianflat.py command SUCCEEDED")
+        else:
+            logger.error("medianflat.py command FAILED, exiting...")
+            raise RuntimeError(output.stderr.decode("utf-8"))
 
-    # Create applyflat.py command
-    cmd = ["python",
-           applyflat_exe,
-           rdn_img_path,
-           l1b_config_path,
-           ffmedian_img_path,
-           rdn_destripe_img_path]
-    logger.info("Running utils/applyflat.py command: " + " ".join(cmd))
-    output = subprocess.run(" ".join(cmd), shell=True, env=env)
-    if output.returncode == 0:
-        logger.info("applyflat.py command SUCCEEDED")
-    else:
-        logger.error("applyflat.py command FAILED, exiting...")
-        raise RuntimeError(output.stderr.decode("utf-8"))
+        # Create applyflat.py command
+        cmd = ["python",
+               applyflat_exe,
+               rdn_img_path,
+               l1b_config_path,
+               ffmedian_img_path,
+               rdn_destripe_img_path]
+        logger.info("Running utils/applyflat.py command: " + " ".join(cmd))
+        output = subprocess.run(" ".join(cmd), shell=True, env=env)
+        if output.returncode == 0:
+            logger.info("applyflat.py command SUCCEEDED")
+        else:
+            logger.error("applyflat.py command FAILED, exiting...")
+            raise RuntimeError(output.stderr.decode("utf-8"))
 
 
 if __name__ == "__main__":
