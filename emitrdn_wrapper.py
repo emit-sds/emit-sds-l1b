@@ -110,14 +110,15 @@ def main():
         if os.path.exists(ffupdate_img_path):
             os.remove(ffupdate_img_path)
 
-    # Create ff_list
-    ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
-    with open(ff_list_path, "w") as f:
-        for p in runconfig["recent_ffupdate_paths"]:
-            f.write(f"{p}\n")
+    # Only proceed if we have at least one flat field update path.
+    # NOTE: The SDS workflow code enforces a minimum of 100 paths
+    if len(runconfig["flat_field_update_paths"]) > 0:
+        # Create ff_list
+        ff_list_path = f"{runconfig['tmp_dir']}/ff_list.txt"
+        with open(ff_list_path, "w") as f:
+            for p in runconfig["flat_field_update_paths"]:
+                f.write(f"{p}\n")
 
-    # Proceed with the last two steps only if we have more than 100 recent flat fields
-    if len(runconfig["recent_ffupdate_paths"]) >= 100:
         # Create medianflat.py command
         cmd = ["python",
                medianflat_exe,
