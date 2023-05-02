@@ -146,6 +146,9 @@ def main():
         else:
             logger.error("applyflat.py command FAILED, exiting...")
             raise RuntimeError(output.stderr.decode("utf-8"))
+    else:
+        logger.info("No flat field update paths provided, so medianflat.py and applyflat.py steps will not be "
+                    "performed.")
 
 
 if __name__ == "__main__":
