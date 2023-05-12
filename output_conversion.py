@@ -74,8 +74,8 @@ Geolocation data (latitude, longitude, height) and a lookup table to project the
     if args.flat_field_update:
         ff_ds = envi.open(envi_header(args.flat_field_update))
         daac_converter.add_variable(nc_ds, 'flat_field_update', "f4", "Flat Field Update", None,
-                                    ff_ds.open_memmap(interleave='bip')[...].copy().squeeze(),
-                                    {"dimensions": ("crosstrack", "bands")})
+                                    ff_ds.open_memmap(interleave='bip')[...].copy().squeeze().T,
+                                    {"dimensions": ("downtrack", "crosstrack", "bands")})
 
     logging.debug('Creating and writing location data')
     daac_converter.add_loc(nc_ds, args.loc_file)
