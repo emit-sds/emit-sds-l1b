@@ -71,8 +71,9 @@ def main():
         while frame.size>0:
             frame = frame.reshape((nbands, ncols)) # BIL
             if any((frame<-9989).flatten()):
-               frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
-               continue
+                frame.tofile(fout)
+                frame = np.fromfile(fin, count=nbands*ncols, dtype=np.float32)
+                continue
 
             frame = frame * flat + offset 
             frame = np.array(frame,dtype=np.float32)
