@@ -27,6 +27,7 @@ def main():
     parser.add_argument('glt_file', type=str, help="EMIT L1B glt ENVI file")
     parser.add_argument('version', type=str, help="3 digit (with leading V) version number")
     parser.add_argument('software_delivery_version', type=str, help="The extended build number at delivery time")
+    parser.add_argument('--flat_field_update', type=str, help="Optional flat field update")
     parser.add_argument('--ummg_file', type=str, help="Output UMMG filename")
     parser.add_argument('--log_file', type=str, default=None, help="Logging file to write to")
     parser.add_argument('--log_level', type=str, default="INFO", help="Logging level")
@@ -70,6 +71,11 @@ Geolocation data (latitude, longitude, height) and a lookup table to project the
                  [float(d) for d in rdn_ds.metadata['fwhm']], {"dimensions": ("bands",)})
     daac_converter.add_variable(nc_ds, 'radiance', "f4", "Radiance Data", "uW/cm^2/SR/nm", rdn_ds.open_memmap(interleave='bip')[...].copy(),
                  {"dimensions":("downtrack", "crosstrack", "bands")})
+    if args.flat_field_update:
+        ff_ds = envi.open(envi_header(args.flat_field_update))
+        daac_converter.add_variable(nc_ds, 'flat_field_update', "f4", "Flat Field Update", None,
+                                    ff_ds.open_memmap(interleave='bip')[...].copy().squeeze().T,
+                                    {"dimensions": ("crosstrack", "bands")})
 
     logging.debug('Creating and writing location data')
     daac_converter.add_loc(nc_ds, args.loc_file)
