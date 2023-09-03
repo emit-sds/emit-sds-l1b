@@ -48,7 +48,14 @@ def main():
 
     # make global attributes
     logging.debug('Creating global attributes')
-    daac_converter.makeGlobalAttr(nc_ds, args.rdn_file, args.software_delivery_version, glt_envi_file=args.glt_file)
+    if args.flat_field_update:
+        # Pass in runconfig in order to get ffupdate_paths
+        runconfig_file = args.rdn_file.replace(".img", "_runconfig.json")
+        daac_converter.makeGlobalAttr(nc_ds, args.rdn_file, args.software_delivery_version,
+                                      glt_envi_file=args.glt_file, rdn_runconfig_file=runconfig_file)
+    else:
+        daac_converter.makeGlobalAttr(nc_ds, args.rdn_file, args.software_delivery_version,
+                                      glt_envi_file=args.glt_file)
 
     nc_ds.title = "EMIT L1B At-Sensor Calibrated Radiance Data 60 m " + args.version
     nc_ds.summary = nc_ds.summary + \
