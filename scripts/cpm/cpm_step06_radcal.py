@@ -39,8 +39,12 @@ spectralon_uncert = resample(wl_spec, spec_uncert)
 brdf_factor = np.ones(len(wl)) * 1.015
 brdf_uncert = np.ones(len(wl)) * 0.01
 
+# integrated effect of r^-2 and cosine(i), uncerrtainty is 1% each  
+fill_factor = np.ones(len(wl)) *  0.975 * 0.988  
+fill_factor_uncert = np.ones(len(wl)) * 0.014
+ 
 # Radiance 
-rdn = irradiance * spectralon_rfl * window_trans / np.pi * brdf_factor 
+rdn = irradiance * spectralon_rfl * window_trans / np.pi * brdf_factor * fill_factor
 print('!',irradiance[10],spectralon_rfl[10],window_trans[10],brdf_factor[10])
 
 distance_uncert = 0.0015875 # meters
@@ -48,15 +52,17 @@ distance = 0.5
 distance_uncert_rdn =( 1-(0.5**2)/((0.5+distance_uncert)**2)) * rdn
 
 # Derivatives of radiance
-drdn_dirr    =              spectralon_rfl * window_trans / np.pi * brdf_factor 
-drdn_dspec   = irradiance *                  window_trans / np.pi * brdf_factor 
-drdn_dtrans  = irradiance * spectralon_rfl                / np.pi * brdf_factor 
-drdn_dbrdf   = irradiance * spectralon_rfl * window_trans / np.pi                
+drdn_dirr    =              spectralon_rfl * window_trans / np.pi * brdf_factor * fill_factor 
+drdn_dspec   = irradiance *                  window_trans / np.pi * brdf_factor * fill_factor 
+drdn_dtrans  = irradiance * spectralon_rfl                / np.pi * brdf_factor * fill_factor 
+drdn_dbrdf   = irradiance * spectralon_rfl * window_trans / np.pi               * fill_factor  
+drdn_dfill   = irradiance * spectralon_rfl * window_trans / np.pi * brdf_factor                 
 
 rdn_uncert = np.sqrt((drdn_dirr * irradiance_uncert)**2 + \
                      (drdn_dspec * spectralon_uncert)**2 + \
                      (drdn_dtrans * window_uncert)**2 + \
                      (drdn_dbrdf * brdf_uncert)**2 + \
+                     (drdn_dfill * fill_factor_uncert)**2 + \
                      (distance_uncert_rdn**2))
 
 
@@ -141,7 +147,7 @@ for input_file, outfile in zip(input_files, output_files):
     SNR = DN/DN_std/np.sqrt(frame_averaging)
 
 
-    np.savetxt(outfile,np.c_[channels,factors,factors_uncert], fmt='%10.8f')
+    np.savetxt(outfile,np.c_[channels,factors,factors_uncert], fmt='%14.12f')
 
     if plot:
        plt.plot(wl,irradiance,color=[0.8,0.2,0.2])
@@ -154,11 +160,12 @@ for input_file, outfile in zip(input_files, output_files):
        plt.plot(wl, drdn_dtrans * window_uncert / rdn, color=[0.2, 0.8, 0.2])
        plt.plot(wl, drdn_dirr * irradiance_uncert / rdn, color=[0.2, 0.2, 0.8])
        plt.plot(wl, drdn_dbrdf * brdf_uncert / rdn, color=[0.2, 0.8, 0.8])
+       plt.plot(wl, drdn_dfill * fill_factor_uncert / rdn, color=[0.8, 0.8, 0.2])
        plt.plot(wl, distance_uncert_rdn / rdn, color=[0.8, 0.2, 0.8])
        plt.plot(wl, rdn_uncert/rdn, 'k--')
        plt.legend(('Spectralon reflectance','Window transmittance',
              'Lamp irradiance','Spectralon BRDF',
-             'OGSE geometry','Total uncertainty'))
+             'Pupil fill factor','OGSE geometry','Total uncertainty'))
        plt.grid(True)
        plt.box(False)
        plt.xlabel('Wavelength (nm)')
