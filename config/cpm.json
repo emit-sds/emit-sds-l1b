@@ -2,7 +2,7 @@
    "modes":{
      "default":{
        "flat_field_file": "../data/cpm/CPM_Flatfield_20231002",
-       "radiometric_coefficient_file": "../data/cpm/CPM_RadiometricCoeffs_20231002.txt",
+       "radiometric_coefficient_file": "../data/cpm/CPM_RadiometricCoeffs_8ms_20231002.txt",
        "linearity_file": "../data/cpm/CPM_LinearityBasis_20231009",
        "linearity_map_file": "../data/cpm/CPM_LinearityMap_20231009"
      }
@@ -13,8 +13,8 @@
    "spectral_calibration_file": "../data/cpm/CPM_Wavelengths_20231001.txt",
    "ghost_map_file": "../data/cpm/CPM_GhostMap_20230902.json",
    "extract_subframe": false,
-   "pedestal_multiplier":1.0,
-   "osf_seam_positions": [[266,268]],
+   "pedestal_multiplier": 1.0,
+   "osf_seam_positions": [[266,271],[393,395]],
    "linearity_nbasis": 2,
    "last_masked_col_left": 9,
    "first_masked_col_right": 1269,
