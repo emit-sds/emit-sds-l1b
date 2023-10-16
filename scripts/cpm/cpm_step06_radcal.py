@@ -36,8 +36,8 @@ spectralon_rfl = resample(wl_spec, spec_rfl)
 spectralon_uncert = resample(wl_spec, spec_uncert)
 
 # BRDF
-brdf_factor = np.ones(len(wl)) * 1.015
-brdf_uncert = np.ones(len(wl)) * 0.01
+brdf_factor = np.ones(len(wl)) * 0.995
+brdf_uncert = np.ones(len(wl)) * 0.02
 
 # integrated effect of r^-2 and cosine(i), uncerrtainty is 1% each  
 fill_factor = np.ones(len(wl)) *  0.975 * 0.988  
@@ -92,7 +92,7 @@ if not os.path.exists(bghdr):
 # Run makeflat.py here
 config = '../../config/cpm.json'          
 flat = basedir+'20230904_193731_UTC_RADCAL/20230904_193936_UTC_RadCal_Fields-0-590_darksub_pedestal_bgsub_flat'
-if not os.path.exists(flat):
+if True: #not os.path.exists(flat):
   cmd = 'python ../../utils/makeflat.py --config %s %s %s'%(config,bgsub,flat)
   print(cmd)
   os.system(cmd)
