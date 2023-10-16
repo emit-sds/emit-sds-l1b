@@ -82,15 +82,13 @@ for i in range(len(observed)):
     offset = np.mean(D[:,1])
     plt.plot(D[:,0],D[:,1]-offset,colors[i]+'.')
     plt.plot(np.arange(ncols),x[i,:]-offset,colors[i])
-    np.savetxt('../../data/plots/CPM_Laser_%i_ColRow.txt'%wavelengths[i],D,fmt='%8.6f')
+    np.savetxt('../../data/cpm/plots/CPM_Laser_%i_ColRow.txt'%wavelengths[i],D,fmt='%8.6f')
 plt.show()
 
 # now we fit the nonuniform dispersion curve
 # we assume it is similar to the EMIT Dyson dispersion curve, and translate
-average = 7.431625
-EMIT_CPM_Translation = 5.0/average
-model_wavelengths=np.array([380.00000,439.00000,498.00000,557.00000,616.00000,675.00000,800.00000,925.00000,1050.00000,1175.00000,1300.00000,1542.00000,1784.00000,2026.00000,2268.00000,2510.00000])
-model_dispersions=np.array([7.39600,7.41900,7.43300,7.44200,7.44800,7.45200,7.45700,7.45800,7.45600,7.45300,7.45000,7.43900,7.42600,7.41100,7.39300,7.37300]) * EMIT_CPM_Translation
+average = 4.998
+model_wavelengths, model_dispersions = np.loadtxt('../../data/cpm/ancillary/cpm_model_dispersions.txt').T
 
 # FPA is flipped
 model_dispersions = -np.array(model_dispersions)
