@@ -34,6 +34,10 @@ def fix_pedestal(frame, fpa):
        avg = frame[mask].mean() * fpa.pedestal_multiplier 
        frame = frame - avg
        return frame
+    if fpa.pedestal_strategy == 'row-average': 
+        pedestal = np.mean(frame[fpa.masked_rows,:]) #Testing only
+        pedestal = pedestal * fpa.pedestal_multiplier
+        frame = frame - pedestal
     if fpa.pedestal_strategy == 'column-average': 
         pedestal = np.median(frame[:,fpa.masked_cols])
         pedestal = pedestal * fpa.pedestal_multiplier

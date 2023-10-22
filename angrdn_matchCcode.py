@@ -100,6 +100,9 @@ class Config:
         self.radiometric_calibration, self.radiometric_uncert, _ = \
              sp.loadtxt(self.radiometric_coefficient_file).T
 
+        #Truncate to match C code read-in
+        self.radiometric_calibration = (1e-7)*np.floor(self.radiometric_calibration*(1e7)) 
+
         basis = envi.open(self.linearity_file+'.hdr').load()
         self.linearity_mu = np.squeeze(basis[0,:]).copy()
         self.linearity_mu[np.isnan(self.linearity_mu)] = 0
@@ -134,7 +137,7 @@ def calibrate_raw(frames, fpa, config):
        
         ## Delete telemetry
         if hasattr(fpa,'ignore_first_row') and fpa.ignore_first_row:
-           frame[0,:] = frame[1,:]
+            frame[0,:] = frame[1,:]
         
         # Raw noise calculation
         if hasattr(fpa,'masked_columns'):
@@ -153,7 +156,17 @@ def calibrate_raw(frames, fpa, config):
      
         ##frame = fix_linearity(frame, config.linearity_mu, 
         ##    config.linearity_evec, config.linearity_coeffs)
-        frame = frame * config.flat_field
+        # frame[frame<0] = 0
+        # frame[frame>=65536] = 65535
+
+        temp_flatfield = config.flat_field.copy()
+        temp_flatfield[temp_flatfield==0] = 1.0
+        temp_flatfield[temp_flatfield>2.0] = 1.0
+        temp_flatfield[temp_flatfield<0.5] = 1.0
+
+        frame = frame * temp_flatfield
+        
+        #frame = frame * config.flat_field
         
         # Fix bad pixels, and any nonfinite results from the previous
         # operations
@@ -162,6 +175,10 @@ def calibrate_raw(frames, fpa, config):
         bad = config.bad.copy()
         bad[flagged] = -1
         frame = fix_bad(frame, bad, fpa)
+
+        frame[frame<-50] = 0.0
+        frame[frame>1e9] = 0.0
+        frame[np.logical_not(np.isfinite(frame))] = 0.0
         
         # Optical corrections
         frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
@@ -222,14 +239,14 @@ def main():
     
     fpa = FPA(args.config_file)
     config = Config(fpa, args.mode)
-
+    
     #Find binfac
     binfac_file = args.input_file + '.binfac'
     if os.path.isfile(binfac_file) is False:
         logging.error(f'binfac file not found at expected location: {binfac_file}')
         raise ValueError('Binfac file not found - see log for details')
     binfac = int(np.genfromtxt(binfac_file))
-
+    
     # Set up logging
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
@@ -238,12 +255,12 @@ def main():
     else:
         logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', 
             level=args.level, filename=args.log_file)
-
+    
     logging.info('Starting calibration')
     raw = 'Start'
-
+    
     infile = envi.open(find_header(args.input_file))
-
+    
     if int(infile.metadata['data type']) == 2:
         dtype = np.int16
     elif int(infile.metadata['data type']) == 12:
@@ -254,39 +271,40 @@ def main():
         raise ValueError('Unsupported data type')
     if infile.metadata['interleave'] != 'bil':
         raise ValueError('Unsupported interleave')
-
+    
     rows = int(infile.metadata['bands']) - 1 # extra band is metadata
     columns = int(infile.metadata['samples'])
     lines_analyzed = 0
     noises = []
-
+    
     # Read metadata from RAW ang file
     logging.debug('Reading metadata')
     frame_meta, num_read, frame_obcv = read_frames_metadata(args.input_file, 500000, rows, columns, 0)
-
+    
     dark_frame_idxs = np.where(frame_obcv == 2)[0]
     science_frame_idxs = np.where(frame_obcv[dark_frame_idxs[-1]+1:])[0] + dark_frame_idxs[-1] + 1
-
+    
+    #*** need to read this in fro GLT for consistency with c code
+    
     dark_frame_start_idx = dark_frame_idxs[fpa.dark_margin] # Trim to make sure the shutter transition isn't in the dark
-    num_dark_frames = dark_frame_idxs[-1*fpa.dark_margin]-dark_frame_start_idx
-    #dark_frame_idxs = np.arange(5,905)
-    #science_frame_idxs = np.arange(3000,3050)
-
-    logging.debug('Found {len(dark_frame_idxs)} dark frames and {len(science_frame_idxs)} science frames')
-
+    num_dark_frames = 600 #Matches C code directly
+    #dark_frame_idxs[-1*fpa.dark_margin]-dark_frame_start_idx
+    # ASSUMES THAT OBCV only gives darks at the beginning
+    
+    logging.debug(f'Found {len(dark_frame_idxs)} dark frames and {len(science_frame_idxs)} science frames')
+    
     if np.all(science_frame_idxs - science_frame_idxs[0] == np.arange(len(science_frame_idxs))) is False:
         logging.error('Science frames are not contiguous, cannot proceed')
         raise AttributeError('Science frames are not contiguous')
 
     # Read dark
-    dark_frames, _, _, _ = read_frames(args.input_file, num_dark_frames, fpa.native_rows, fpa.native_columns, dark_frame_start_idx)
-    config.dark = np.median(dark_frames,axis=0)
+    dark_frames, _, _, _ = read_frames(args.input_file, 599, fpa.native_rows, fpa.native_columns, 101)
+    config.dark = np.mean(dark_frames,axis=0) #np.median(dark_frames,axis=0)
     config.dark_std = np.std(dark_frames,axis=0)
     del dark_frames
     logging.debug('Dark read complete, beginning calibration')
     #ray.init()
     #fpa_id = ray.put(fpa)
-    setup_time = time.time()
 
     jobs = []
     if args.debug_mode:
@@ -294,18 +312,18 @@ def main():
     for sc_idx in range(science_frame_idxs[0], science_frame_idxs[0] + len(science_frame_idxs), binfac):
         if sc_idx + binfac >= science_frame_idxs[-1]:
             break
-
+    
         frames, frame_meta, num_read, frame_obcv = read_frames(args.input_file, binfac, fpa.native_rows, fpa.native_columns, sc_idx)
-
+    
         if lines_analyzed%10==0:
             logging.info('Calibrating line '+str(lines_analyzed))
-
+    
         if args.debug_mode:
             result.append(calibrate_raw(frames, fpa, config))
         else:
             jobs.append(calibrate_raw_remote.remote(frames, fpa_id, config))
         lines_analyzed = lines_analyzed + 1
-
+    
     num_output_lines = 0
     with open(args.output_file,'wb') as fout:
         # Do any final jobs
@@ -315,11 +333,11 @@ def main():
             sp.asarray(frame, dtype=sp.float32).tofile(fout)
             noises.append(noise)
             num_output_lines += 1
-
+    
     # Form output metadata strings
     wl = config.wl_full.copy()
     fwhm = config.fwhm_full.copy()
-
+    
     if fpa.extract_subframe:
         ncolumns = fpa.last_distributed_column - fpa.first_distributed_column + 1
         nchannels = fpa.last_distributed_row - fpa.first_distributed_row + 1
@@ -328,7 +346,7 @@ def main():
         fwhm = fwhm[::-1][clip_rows]
     else:
         nchannels, ncolumns = fpa.native_rows, fpa.native_columns
-
+    
     band_names_string = ','.join(['channel_'+str(i) \
        for i in range(len(wl))])
     fwhm_string =  ','.join([str(w) for w in fwhm])
@@ -343,14 +361,12 @@ def main():
           params['input_files_string'] = params['input_files_string'] + \
              ' %s=%s'%(var,getattr(fpa,var))
     params['lines'] =  num_output_lines
-
+    
     params.update(**locals())
     with open(args.output_file+'.hdr','w') as fout:
         fout.write(header_template.format(**params))
-
+    
     end_time = time.time()
-    logging.info(f'Set-up time: {setup_time-start_time} seconds')
-    logging.info(f'Processing time: {end_time-setup_time} seconds')
     logging.info(f'Completed {len(science_frame_idxs)} frames in {end_time-start_time} seconds')
     logging.info('Done')
 

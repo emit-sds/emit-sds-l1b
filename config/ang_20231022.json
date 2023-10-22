@@ -25,12 +25,14 @@
    "last_masked_row_top": 14,
    "first_masked_row_bottom": 469,
    "last_masked_row_bottom": 478,
-   "last_masked_col_left": 23,
-   "first_masked_col_right": 620,
+   "first_masked_col_left": 1,
+   "last_masked_col_left": 9,
+   "first_masked_col_right": 631,
+   "last_masked_col_left": 639,
    "first_valid_row": 0, 
    "last_valid_row": 479,
-   "first_illuminated_row": 23, 
-   "last_illuminated_row": 447,
+   "first_illuminated_row": 32, 
+   "last_illuminated_row": 456,
    "first_illuminated_column": 23,
    "last_illuminated_column": 620,
    "first_distributed_column": 23, 
@@ -39,13 +41,13 @@
    "last_distributed_row": 456,
    "native_rows":480, 
    "native_columns":640,
-   "num_dark_frames_use":800,
-   "num_dark_frames_use":800,
+   "dark_margin":100,
+   "num_dark_frames_use":600,
    "pedestal_strategy": "rows",
    "timerange_start_utc": "2022-08-13T00:00:00",
-   "comments": "Post-FPA position adjustments, with channel clipping. There was an FPA tilt update on 13 August.",
+   "comments": "Updates to use python code",
    "unknown":{
-      "osf_seam_positions": [[177,178,179,183,184,185]],
-      "reference_cols":[[140,340],[940,1015],[1035,1140]]
+      "osf_seam_positions": [[270,271,396,397]],
+      "reference_cols":[[250,390]]
    }
 }
