@@ -46,6 +46,9 @@
    "pedestal_strategy": "row-average",
    "timerange_start_utc": "2022-08-13T00:00:00",
    "comments": "Match C code for AVNG",
+   "BMARGIN": 5,
+   "CMARGIN": 20,
+   "SMARGIN": 23,
    "unknown":{
       "osf_seam_positions": [[270,271,396,397]],
       "reference_cols":[[250,390]]

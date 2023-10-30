@@ -27,6 +27,7 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
+
 # Polynomial fitting from https://gist.github.com/kadereub/
 @jit(nopython=True)
 def _coeff_mat(x, deg):
@@ -64,9 +65,12 @@ def eval_polynomial(P, x):
     return result
 
 
-@jit
+
 def spectral_angle(a,b):
-    return np.arccos(np.sum(a*b)/(np.sqrt(pow(a,2).sum()) * np.sqrt(pow(a,2).sum())))
+    return np.arccos(np.sum(a*b)/(np.sqrt((b**2).sum()) * np.sqrt((a**2).sum())))
+
+def spectral_angle_nocos(a,b):
+    return np.sum(a*b)/(np.sqrt((b**2).sum()) * np.sqrt((a**2).sum()))
 
 
 # Spectral angle comparison
@@ -77,9 +81,55 @@ def closest(a,B):
     projection = numerator/denominator
     return np.argmax(projection)
 
+def ang_infer_bad(frame,t_row,t_col,span,fpa):
+    n_rows, n_columns = frame.shape
 
-@jit
-def fix_bad(frame, bad, fpa):
+    closest_col = fpa.SMARGIN
+    best_sa = -9e99
+    use_idx = np.zeros(n_rows,dtype=bool)
+    use_idx[t_row-fpa.BMARGIN:t_row+span+fpa.BMARGIN] = True
+    use_idx[t_row:t_row+span] = False
+
+    for col in range(fpa.SMARGIN,n_columns-fpa.SMARGIN):
+        if col == t_col:
+            continue #Cannot match to itself
+        #Get spectral angle
+
+        sa = spectral_angle_nocos(frame[use_idx,t_col],frame[use_idx,col])
+        if not np.isnan(sa) and sa > best_sa:
+            best_sa = sa
+            closest_col = col
+
+    best_spectrum = frame[:,closest_col]
+    #slope, offset = fit_poly(best_spectrum[use_idx],frame[use_idx, t_col], 1) 
+
+    sx = best_spectrum[use_idx].sum()
+    sy = frame[use_idx, t_col].sum()
+    sxy = np.sum(best_spectrum[use_idx]*frame[use_idx, t_col])
+    sx2 = np.sum(best_spectrum[use_idx]**2)
+    n = np.sum(use_idx)
+
+    slope = ((n*sxy) - (sx*sy))/((n*sx2) - (sx*sx))
+    offset = ((sy*sx2) - (sx*sxy))/((n*sx2)-(sx*sx))
+
+    replace_vals = slope * best_spectrum[t_row:t_row+span] + offset
+            
+    return replace_vals
+
+def ang_replace_bad(frame,bad,fpa):
+    n_rows, n_columns = frame.shape
+    fixed = frame.copy()
+
+    for col in range(n_columns):
+        row = fpa.CMARGIN
+        while row < n_rows - fpa.CMARGIN:
+            if bad[row,col]>0:
+                fixed[row:row+bad[row,col],col] = ang_infer_bad(fixed,row,col,bad[row,col],fpa)
+                row += bad[row,col]
+            row += 1 #Seems like a bug, but ??      
+    return fixed
+
+def ang_fix_bad(frame, bad, fpa):
 
     rows, columns = frame.shape
     fixed = frame.copy()

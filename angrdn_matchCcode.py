@@ -27,6 +27,7 @@ sys.path.append(my_directory + '/utils/')
 
 from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
+from ang_fixbad import ang_replace_bad
 from fixosf import fix_osf
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
@@ -170,11 +171,8 @@ def calibrate_raw(frames, fpa, config):
         
         # Fix bad pixels, and any nonfinite results from the previous
         # operations
-        flagged = np.logical_not(np.isfinite(frame))
-        frame[flagged] = 0
-        bad = config.bad.copy()
-        bad[flagged] = -1
-        frame = fix_bad(frame, bad, fpa)
+
+        frame = ang_replace_bad(frame, bad, fpa)
 
         frame[frame<-50] = 0.0
         frame[frame>1e9] = 0.0

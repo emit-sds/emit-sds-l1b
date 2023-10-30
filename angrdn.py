@@ -89,6 +89,20 @@ class Config:
              dtype = sp.float32).reshape((fpa.native_columns, fpa.native_columns))
         self.bad = sp.fromfile(fpa.bad_element_file,
              dtype = sp.int16).reshape((fpa.native_rows, fpa.native_columns))
+        
+        #Convert ANG version bad pixel file to EMIT version bad pixel file
+        bad_new = np.zeros(self.bad.shape)
+        for s in np.arange(bad_new.shape[1]):
+            c = 0
+            while c < bad_new.shape[0]:
+                if bad_copy[c,s] > 0:
+                    bad_new[c:c+self.bad[c,s],s] = -1
+                    c += self.bad[c,s]
+                else:
+                    #print(f'good! {c}, {s}, {bad_copy[c,s]}',flush=True)
+                    c += 1
+
+        self.bad = bad_new.copy()
 
         #TODO - confirm that 64-bit float is correct
         self.flat_field = sp.fromfile(self.flat_field_file,
