@@ -77,6 +77,11 @@ def build_ghost_matrix(ghost_config, fpa):
       x = x0
       y = y0
       i = i0
+
+      # Scales the whole line
+      if 'scale_all' in ghost_config and ghost_config['scale_all']:
+          i = i * scaling
+
       for j in range(steps+1):
           if int(round(x))<=fpa.last_valid_row and\
              int(round(y))<=fpa.last_valid_row:
