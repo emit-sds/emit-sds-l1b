@@ -58,7 +58,7 @@ ang pge input files = {{{input_files_string}}}
 ang pge run command = {{{run_command_string}}}
 """
 
- 
+
 def find_header(infile):
   if os.path.exists(infile+'.hdr'):
     return infile+'.hdr'
@@ -67,43 +67,63 @@ def find_header(infile):
   else:
     raise FileNotFoundError('Did not find header file')
 
-     
+
 class Config:
 
     def __init__(self, fpa, mode):
 
-        # Load calibration file data
-        current_mode   = fpa.modes[mode]
-        self.radiometric_coefficient_file = current_mode['radiometric_coefficient_file']
-        self.flat_field_file = current_mode['flat_field_file']
-        self.linearity_file = current_mode['linearity_file']
-        self.linearity_map_file = current_mode['linearity_map_file']
 
-        _, self.wl_full, self.fwhm_full = \
-             sp.loadtxt(fpa.spectral_calibration_file).T * 1000
-        self.srf_correction = sp.fromfile(fpa.srf_correction_file,
-             dtype = sp.float32).reshape((fpa.native_rows, fpa.native_rows))
-        self.crf_correction = sp.fromfile(fpa.crf_correction_file,
-             dtype = sp.float32).reshape((fpa.native_columns, fpa.native_columns))
-        self.bad = sp.fromfile(fpa.bad_element_file,
-             dtype = sp.int16).reshape((fpa.native_rows, fpa.native_columns))
+        self.wl_full = None
+        self.fwhm_full = None
+        self.srf_correction = None
+        self.crf_correction = None
+        self.bad = np.zeros((fpa.native_rows, fpa.native_columns))
+        self.flat_field = None
+        self.radiometric_calibration = None
+        self.radiometric_uncert = None
+        self.linearity_file = None
+        self.linearity_map_file = None
+        self.linearity_mu = None
+        self.linearity_evec =None
+        self.linearity_coeffs = None
 
-        #TODO - confirm that 64-bit float is correct
-        self.flat_field = sp.fromfile(self.flat_field_file,
-             dtype = sp.float32).reshape((2, fpa.native_rows, fpa.native_columns))
+        current_mode  = fpa.modes[mode]
 
-        # Take only first band of flat field - second band is the uncertainty
-        self.flat_field = self.flat_field[0,:,:]
-        self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
-        self.radiometric_calibration, self.radiometric_uncert, _ = \
-             sp.loadtxt(self.radiometric_coefficient_file).T
+        if hasattr(fpa,'spectral_calibration_file'):
+            _, self.wl_full, self.fwhm_full = \
+                 np.loadtxt(fpa.spectral_calibration_file).T * 1000
 
-        basis = envi.open(self.linearity_file+'.hdr').load()
-        self.linearity_mu = np.squeeze(basis[0,:])
-        self.linearity_mu[np.isnan(self.linearity_mu)] = 0
-        self.linearity_evec = np.squeeze(basis[1:,:].T)
-        self.linearity_evec[np.isnan(self.linearity_evec)] = 0
-        self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
+        if hasattr(fpa,'srf_correction_file'):
+            self.srf_correction = np.fromfile(fpa.srf_correction_file,
+                 dtype = np.float32).reshape((fpa.native_rows, fpa.native_rows))
+            self.crf_correction = np.fromfile(fpa.crf_correction_file,
+                 dtype = np.float32).reshape((fpa.native_columns, fpa.native_columns))
+
+        if hasattr(fpa,'bad_element_file'):
+            self.bad = np.fromfile(fpa.bad_element_file,
+                 dtype = np.int16).reshape((fpa.native_rows, fpa.native_columns))
+
+        if 'flat_field_file' in current_mode.keys():
+            self.flat_field_file = current_mode['flat_field_file']
+            self.flat_field = np.fromfile(self.flat_field_file,
+                 dtype = np.float32).reshape((2, fpa.native_rows, fpa.native_columns))
+            self.flat_field = self.flat_field[0,:,:]
+            self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
+
+        if 'radiometric_coefficient_file' in current_mode.keys():
+            self.radiometric_coefficient_file = current_mode['radiometric_coefficient_file']
+            self.radiometric_calibration, self.radiometric_uncert,_ = \
+                 np.loadtxt(self.radiometric_coefficient_file).T
+
+        if 'linearity_file' in current_mode.keys():
+            self.linearity_file = current_mode['linearity_file']
+            self.linearity_map_file = current_mode['linearity_map_file']
+            basis = envi.open(self.linearity_file+'.hdr').load()
+            self.linearity_mu = np.copy(np.squeeze(basis[0,:]))
+            self.linearity_mu[np.isnan(self.linearity_mu)] = 0
+            self.linearity_evec = np.copy(np.squeeze(basis[1:,:].T))
+            self.linearity_evec[np.isnan(self.linearity_evec)] = 0
+            self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
 
 @ray.remote
 def calibrate_raw_remote(frames, fpa, config):
@@ -129,30 +149,30 @@ def calibrate_raw(frames, fpa, config):
 
         # Dark state subtraction
         frame = subtract_dark(frame, config.dark)
-       
+
         ## Delete telemetry
         if hasattr(fpa,'ignore_first_row') and fpa.ignore_first_row:
            frame[0,:] = frame[1,:]
-        
+
         # Raw noise calculation
         if hasattr(fpa,'masked_columns'):
             noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
         elif hasattr(fpa,'masked_rows'):
             noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
         else:
-            noise = -1 
+            noise = -1
 
         # Detector corrections
         frame = fix_pedestal(frame, fpa)
 
         # Electronic ghost
-        frame = fix_electronic_ghost(frame, fpa.eghost_samples_per_panel, np.array(fpa.eghost_template),
-                                     fpa.eghost_panel_correction, fpa.eghost_panel_multipliers)
-     
-        ##frame = fix_linearity(frame, config.linearity_mu, 
-        ##    config.linearity_evec, config.linearity_coeffs)
-        frame = frame * config.flat_field
-        
+        if hasattr(fpa,'eghost_template'):
+            frame = fix_electronic_ghost(frame, fpa.eghost_samples_per_panel, np.array(fpa.eghost_template),
+                                         fpa.eghost_panel_correction, fpa.eghost_panel_multipliers)
+
+        if config.flat_field is not None:
+            frame = frame * config.flat_field
+
         # Fix bad pixels, and any nonfinite results from the previous
         # operations
         flagged = np.logical_not(np.isfinite(frame))
@@ -160,16 +180,15 @@ def calibrate_raw(frames, fpa, config):
         bad = config.bad.copy()
         bad[flagged] = -1
         frame = fix_bad(frame, bad, fpa)
-        
+
         # Optical corrections
-        frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
-        
+        if config.srf_correction is not None:
+            frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
+
         # Absolute radiometry
-        frame = (frame.T * config.radiometric_calibration).T
-       
-        # Fix OSF
-        #frame = fix_osf(frame, fpa)
-        
+        if config.radiometric_calibration is not None:
+            frame = (frame.T * config.radiometric_calibration).T
+
         # Catch NaNs
         frame[sp.logical_not(sp.isfinite(frame))]=0
 
@@ -198,32 +217,38 @@ def calibrate_raw(frames, fpa, config):
   output_frames[np.isnan(output_frames)] = -9999
 
   return output_frames, noises
-   
+
 
 def main():
 
     description = "Spectroradiometric Calibration"
 
     parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('input_file', default='')
+    parser.add_argument('config_file', default='')
+    parser.add_argument('output_file', default='')
     parser.add_argument('--mode', default = 'default')
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
     parser.add_argument('--max_jobs', type=int, default=40)
     parser.add_argument('--debug_mode', action='store_true')
-    parser.add_argument('input_file', default='')
-    parser.add_argument('config_file', default='')
-    parser.add_argument('output_file', default='')
+    parser.add_argument('--binfac', type=str, default=None)
+
     args = parser.parse_args()
 
     fpa = FPA(args.config_file)
     config = Config(fpa, args.mode)
 
-    #Find binfac
-    binfac_file = args.input_file + '.binfac'
-    if os.path.isfile(binfac_file) is False:
-        logging.error(f'binfac file not found at expected location: {binfac_file}')
-        raise ValueError('Binfac file not found - see log for details')
+    #Find binfac file if not provided
+    if args.binfac is None:
+        binfac_file = args.input_file + '.binfac'
+        if os.path.isfile(binfac_file) is False:
+            logging.error(f'binfac file not found at expected location: {binfac_file}')
+            raise ValueError('Binfac file not found - see log for details')
+    else:
+        binfac_file = args.binfac
+
     binfac = int(np.genfromtxt(binfac_file))
 
     # Set up logging
@@ -232,7 +257,7 @@ def main():
     if args.log_file is None:
         logging.basicConfig(format='%(message)s', level=args.level)
     else:
-        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', 
+        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
             level=args.level, filename=args.log_file)
 
     logging.info('Starting calibration')
@@ -262,8 +287,6 @@ def main():
 
     dark_frame_idxs = np.where(frame_obcv == 2)[0]
     science_frame_idxs = np.where(frame_obcv[dark_frame_idxs[-1]+1:])[0] + dark_frame_idxs[-1] + 1
-    #dark_frame_idxs = np.arange(5,905)
-    #science_frame_idxs = np.arange(3000,3050)
 
     logging.debug('Found {len(dark_frame_idxs)} dark frames and {len(science_frame_idxs)} science frames')
 
@@ -284,13 +307,12 @@ def main():
     if args.debug_mode:
         result = []
     for sc_idx in range(science_frame_idxs[0], science_frame_idxs[0] + len(science_frame_idxs), binfac):
-        if sc_idx + binfac >= science_frame_idxs[-1]:
+        if sc_idx + binfac > science_frame_idxs[-1]:
             break
-
         frames, frame_meta, num_read, frame_obcv = read_frames(args.input_file, binfac, fpa.native_rows, fpa.native_columns, sc_idx)
 
         if lines_analyzed%10==0:
-            logging.info('Calibrating line '+str(lines_analyzed))
+            logging.info('Calibrating line ' + str(lines_analyzed))
 
         if args.debug_mode:
             result.append(calibrate_raw(frames, fpa, config))
@@ -325,7 +347,7 @@ def main():
        for i in range(len(wl))])
     fwhm_string =  ','.join([str(w) for w in fwhm])
     wavelength_string = ','.join([str(w) for w in wl])
-    
+
     params = {}
     params['masked_pixel_noise'] = np.nanmedian(np.array(noises))
     params['run_command_string'] = ' '.join(sys.argv)
@@ -346,4 +368,3 @@ def main():
 if __name__ == '__main__':
 
     main()
-
