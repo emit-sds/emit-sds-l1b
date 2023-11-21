@@ -49,9 +49,9 @@ def main():
         os.makedirs(output_dir)
 
     # Create path names
-    rdn_basename = os.path.basename(runconfig["raw_img_path"]).replace("l1a", "l1b").replace("raw", "rdn")
-    log_path = f"{output_dir}/{rdn_basename.replace('.img', '_pge.log')}"
     rdn_img_path = runconfig["rdn_img_path"]
+    rdn_basename = os.path.basename(rdn_img_path)
+    log_path = f"{output_dir}/{rdn_basename.replace('.img', '_pge.log')}"
     bandmask_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'bandmask')}"
     ffupdate_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffupdate')}"
     ffmedian_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffmedian')}"
