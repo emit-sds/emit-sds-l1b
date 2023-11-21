@@ -51,7 +51,7 @@ def main():
     # Create path names
     rdn_basename = os.path.basename(runconfig["raw_img_path"]).replace("l1a", "l1b").replace("raw", "rdn")
     log_path = f"{output_dir}/{rdn_basename.replace('.img', '_pge.log')}"
-    rdn_img_path = f"{output_dir}/{rdn_basename}"
+    rdn_img_path = runconfig["rdn_img_path"]
     bandmask_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'bandmask')}"
     ffupdate_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffupdate')}"
     ffmedian_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'ffmedian')}"
