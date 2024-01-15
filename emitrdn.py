@@ -182,20 +182,23 @@ def calibrate_raw(frame, fpa, config):
         # Delete telemetry
         if hasattr(fpa,'ignore_first_row') and fpa.ignore_first_row:
            frame[0,:] = frame[1,:]
-        
-        # Raw noise calculation
+
+        # Pedestal shift correction
+        frame = fix_pedestal(frame, fpa)
+
+        # Raw noise calculation comes after flat fielding
         if hasattr(fpa,'masked_columns'):
             noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
         elif hasattr(fpa,'masked_rows'):
             noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
         else:
             noise = -1 
-
-        # Detector corrections
-        frame = fix_pedestal(frame, fpa)
      
+        # Linearity 
         frame = fix_linearity(frame, config.linearity_mu, 
             config.linearity_evec, config.linearity_coeffs)
+
+        # FPA spatial uniformity
         frame = frame * config.flat_field
         
         # Fix bad pixels, saturated pixels, and any nonfinite 
