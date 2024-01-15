@@ -45,5 +45,5 @@
    "reference_cols":[[140,340],[940,1015],[1035,1140]],
    "pedestal_strategy": "both",
    "timerange_start_utc": "2022-08-13T00:00:00",
-   "comments": "Post-FPA position adjustments, with channel clipping. There was an FPA tilt update on 13 August."
+   "comments": "New approach for OSF filter seam interpolation"
 }
