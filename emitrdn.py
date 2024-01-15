@@ -186,7 +186,7 @@ def calibrate_raw(frame, fpa, config):
         # Pedestal shift correction
         frame = fix_pedestal(frame, fpa)
 
-        # Raw noise calculation comes after flat fielding
+        # Raw noise calculation comes after pedestal shift
         if hasattr(fpa,'masked_columns'):
             noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
         elif hasattr(fpa,'masked_rows'):
