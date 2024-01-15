@@ -117,9 +117,14 @@ class Config:
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
     
-        d = loadmat(fpa.osf_seam_interpolation_file)
-        self.radiance_mean = np.squeeze(d['radiance_mean']) 
-        self.radiance_covariance = d['radiance_covariance'] 
+        # There are two ways to fix OSF seams.  If the OSF seam interpolation
+        # file is defined, we are using method #2.  Read in the file.
+        if hasattr(fpa,'osf_seam_interpolation_file'):
+            d = loadmat(fpa.osf_seam_interpolation_file)
+            self.radiance_mean = np.squeeze(d['radiance_mean']) 
+            self.radiance_covariance = d['radiance_covariance'] 
+        else:
+            self.radiance_mean = None
 
         # zero offset perturbation
         self.zero_offset = np.zeros((fpa.native_rows, fpa.native_columns))
@@ -207,6 +212,12 @@ def calibrate_raw(frame, fpa, config):
         
         # Absolute radiometry
         frame = (frame.T * config.radiometric_calibration).T
+
+        # There are two ways to fix OSF seams.  The first one is the
+        # traditional way, which is applied to unclipped, unflipped (long-to-short)
+        # FPA data.    
+        if config.radiance_mean is None:
+            frame = fix_osf(frame, fpa)
         
         # Catch NaNs
         frame[sp.logical_not(sp.isfinite(frame))]=0
@@ -226,8 +237,11 @@ def calibrate_raw(frame, fpa, config):
         bad = bad[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         bad = sp.flip(bad, axis=0)
 
-    # Fix OSF using clipped data
-    frame = fix_osf_gaussian(frame, fpa, config.radiance_mean, config.radiance_covariance)
+    # If we are using the statistical prediction method for fixing the  OSF seam,
+    # we apply that approach to clipped data
+    if config.radiance_mean is not None:
+        frame = fix_osf_gaussian(frame, fpa, config.radiance_mean, 
+            config.radiance_covariance)
 
     # Mirror image
     if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
