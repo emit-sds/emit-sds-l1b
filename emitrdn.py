@@ -6,6 +6,7 @@
 # Author: David R Thompson, david.r.thompson@jpl.nasa.gov
 
 import scipy.linalg
+from scipy.io import loadmat
 import os, sys, os.path
 import scipy as sp
 import numpy as np
@@ -25,7 +26,7 @@ sys.path.append(my_directory + '/utils/')
 
 from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
-from fixosf import fix_osf
+from fixosf import fix_osf_gaussian
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
@@ -115,6 +116,10 @@ class Config:
         self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
+    
+        d = loadmat(fpa.osf_seam_interpolation_file)
+        self.radiance_mean = np.squeeze(d['radiance_mean']) 
+        self.radiance_covariance = d['radiance_covariance'] 
 
         # zero offset perturbation
         self.zero_offset = np.zeros((fpa.native_rows, fpa.native_columns))
@@ -131,11 +136,22 @@ class Config:
         self.ghost_center = ghost_config['center']
              
         basis = envi.open(self.linearity_file+'.hdr').load()
-        self.linearity_mu = np.squeeze(basis[0,:])
-        self.linearity_mu[np.isnan(self.linearity_mu)] = 0
-        self.linearity_evec = np.squeeze(basis[1:,:].T)
-        self.linearity_evec[np.isnan(self.linearity_evec)] = 0
-        self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
+
+        linearity_mu = np.array(np.squeeze(basis[0,:]))
+        print(linearity_mu.flags.writeable)
+        linearity_mu.flags.writeable = True
+        bad = np.isnan(linearity_mu)
+        linearity_mu[bad] = 0
+        self.linearity_mu = linearity_mu
+
+        linearity_evec = np.array(np.squeeze(basis[1:,:].T))
+        linearity_evec.flags.writeable = True
+        bad = np.isnan(linearity_evec)
+        linearity_evec[bad] = 0
+        self.linearity_evec = linearity_evec
+
+        linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
+        self.linearity_coeffs = np.array(linearity_coeffs)
 
 @ray.remote
 def calibrate_raw(frame, fpa, config):
@@ -191,9 +207,6 @@ def calibrate_raw(frame, fpa, config):
         
         # Absolute radiometry
         frame = (frame.T * config.radiometric_calibration).T
-       
-        # Fix OSF
-        frame = fix_osf(frame, fpa)
         
         # Catch NaNs
         frame[sp.logical_not(sp.isfinite(frame))]=0
@@ -212,6 +225,9 @@ def calibrate_raw(frame, fpa, config):
         bad = bad[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
         bad = bad[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         bad = sp.flip(bad, axis=0)
+
+    # Fix OSF using clipped data
+    frame = fix_osf_gaussian(frame, fpa, config.radiance_mean, config.radiance_covariance)
 
     # Mirror image
     if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
