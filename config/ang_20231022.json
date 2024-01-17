@@ -3,14 +3,14 @@
      "default":{
        "linearity_file": "../data/emit/EMIT_LinearityBasis_20220504",
        "linearity_map_file": "../data/emit/EMIT_LinearityMap_20220504",
-       "flat_field_file": "/Users/reckert/Documents/Develop/ang/cal/data/20220401_ang20220316_BLUSS_avg_rows300-340_ff",
-       "radiometric_coefficient_file": "/Users/reckert/Documents/Develop/ang/cal/data/20220331_ang20220315_avg_rows300-340_UVCorr2.rcc"
+       "flat_field_file": "../data/ang/20220401_ang20220316_BLUSS_avg_rows300-340_ff",
+       "radiometric_coefficient_file": "../data/ang/20220331_ang20220315_avg_rows300-340_UVCorr2.rcc"
      }
    },
-   "srf_correction_file": "/Users/reckert/Documents/Develop/ang/cal/data/20170125_via_ang20160925t182412_srf",
-   "crf_correction_file": "/Users/reckert/Documents/Develop/ang/cal/data/20170125_via_ang20160925t182412_crf",
-   "bad_element_file": "/Users/reckert/Documents/Develop/ang/cal/data/ANGv5_bad",
-   "spectral_calibration_file": "/Users/reckert/Documents/Develop/ang/cal/data/20220227_ang20220224t211618_wavelength_fit_full.txt",
+   "srf_correction_file": "../data/ang/20170125_via_ang20160925t182412_srf",
+   "crf_correction_file": "../data/ang/20170125_via_ang20160925t182412_crf",
+   "bad_element_file": "../data/ang/ANGv5_bad",
+   "spectral_calibration_file": "../data/ang/20220227_ang20220224t211618_wavelength_fit_full.txt",
    "extract_subframe": true,
    "left_shift_twice": false,
    "ignore_first_row": false,

@@ -16,7 +16,7 @@ import json
 import logging
 import argparse
 import multiprocessing
-#import ray
+import ray
 import pylab as plt
 
 import time
@@ -95,7 +95,7 @@ class Config:
         for s in np.arange(bad_new.shape[1]):
             c = 0
             while c < bad_new.shape[0]:
-                if bad_copy[c,s] > 0:
+                if self.bad[c,s] > 0:
                     bad_new[c:c+self.bad[c,s],s] = -1
                     c += self.bad[c,s]
                 else:
@@ -105,8 +105,8 @@ class Config:
         self.bad = bad_new.copy()
 
         #TODO - confirm that 64-bit float is correct
-        self.flat_field = sp.fromfile(self.flat_field_file,
-             dtype = sp.float32).reshape((2, fpa.native_rows, fpa.native_columns))
+        self.flat_field = sp.fromfile(self.flat_field_file,dtype=sp.float32)
+        self.flat_field = self.flat_field.reshape((np.size(self.flat_field)//(fpa.native_rows*fpa.native_columns), fpa.native_rows, fpa.native_columns))
 
         # Take only first band of flat field - second band is the uncertainty
         self.flat_field = self.flat_field[0,:,:]
@@ -121,7 +121,7 @@ class Config:
         self.linearity_evec[np.isnan(self.linearity_evec)] = 0
         self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
 
-#@ray.remote
+@ray.remote
 def calibrate_raw_remote(frames, fpa, config):
     return calibrate_raw(frames, fpa, config)
 
@@ -227,6 +227,7 @@ def main():
     parser.add_argument('--log_file', type=str, default=None)
     parser.add_argument('--max_jobs', type=int, default=40)
     parser.add_argument('--debug_mode', action='store_true')
+    parser.add_argument('--binfac_file', type=str,default=None)
     parser.add_argument('input_file', default='')
     parser.add_argument('config_file', default='')
     parser.add_argument('output_file', default='')
@@ -238,7 +239,11 @@ def main():
     config = Config(fpa, args.mode)
 
     #Find binfac
-    binfac_file = args.input_file + '.binfac'
+    binfac_file = None
+    if args.binfac_file is None:
+        binfac_file = args.input_file + '.binfac'
+    else:
+        binfac_file = args.binfac_file
     if os.path.isfile(binfac_file) is False:
         logging.error(f'binfac file not found at expected location: {binfac_file}')
         raise ValueError('Binfac file not found - see log for details')
@@ -298,8 +303,8 @@ def main():
     config.dark_std = np.std(dark_frames,axis=0)
     del dark_frames
     logging.debug('Dark read complete, beginning calibration')
-    #ray.init()
-    #fpa_id = ray.put(fpa)
+    ray.init()
+    fpa_id = ray.put(fpa)
     setup_time = time.time()
 
     jobs = []
@@ -372,4 +377,5 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
