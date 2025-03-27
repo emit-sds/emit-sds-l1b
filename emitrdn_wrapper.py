@@ -72,7 +72,7 @@ def main():
 
     # Set environment variables
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"$PYTHONPATH:{utils_path}"
+    env["PYTHONPATH"] = f"$PYTHONPATH:{utils_path}:{runconfig['isofit_dir']}"
     env["RAY_worker_register_timeout_seconds"] = "600"
 
     # Create emitrdn.py command

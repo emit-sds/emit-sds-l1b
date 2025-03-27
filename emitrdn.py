@@ -26,7 +26,7 @@ sys.path.append(my_directory + '/utils/')
 
 from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
-from fixosf import fix_osf_gaussian
+from fixosf import fix_osf, fix_osf_gaussian
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
