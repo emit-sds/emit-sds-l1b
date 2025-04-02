@@ -6,6 +6,7 @@
 # Author: David R Thompson, david.r.thompson@jpl.nasa.gov
 
 import scipy.linalg
+from scipy.io import loadmat
 import os, sys, os.path
 import scipy as sp
 import numpy as np
@@ -25,7 +26,7 @@ sys.path.append(my_directory + '/utils/')
 
 from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
-from fixosf import fix_osf
+from fixosf import fix_osf, fix_osf_gaussian
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
@@ -115,6 +116,15 @@ class Config:
         self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
         _, self.radiometric_calibration, self.radiometric_uncert = \
              sp.loadtxt(self.radiometric_coefficient_file).T
+    
+        # There are two ways to fix OSF seams.  If the OSF seam interpolation
+        # file is defined, we are using method #2.  Read in the file.
+        if hasattr(fpa,'osf_seam_interpolation_file'):
+            d = loadmat(fpa.osf_seam_interpolation_file)
+            self.radiance_mean = np.squeeze(d['radiance_mean']) 
+            self.radiance_covariance = d['radiance_covariance'] 
+        else:
+            self.radiance_mean = None
 
         # zero offset perturbation
         self.zero_offset = np.zeros((fpa.native_rows, fpa.native_columns))
@@ -131,11 +141,22 @@ class Config:
         self.ghost_center = ghost_config['center']
              
         basis = envi.open(self.linearity_file+'.hdr').load()
-        self.linearity_mu = np.squeeze(basis[0,:])
-        self.linearity_mu[np.isnan(self.linearity_mu)] = 0
-        self.linearity_evec = np.squeeze(basis[1:,:].T)
-        self.linearity_evec[np.isnan(self.linearity_evec)] = 0
-        self.linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
+
+        linearity_mu = np.array(np.squeeze(basis[0,:]))
+        print(linearity_mu.flags.writeable)
+        linearity_mu.flags.writeable = True
+        bad = np.isnan(linearity_mu)
+        linearity_mu[bad] = 0
+        self.linearity_mu = linearity_mu
+
+        linearity_evec = np.array(np.squeeze(basis[1:,:].T))
+        linearity_evec.flags.writeable = True
+        bad = np.isnan(linearity_evec)
+        linearity_evec[bad] = 0
+        self.linearity_evec = linearity_evec
+
+        linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
+        self.linearity_coeffs = np.array(linearity_coeffs)
 
 @ray.remote
 def calibrate_raw(frame, fpa, config):
@@ -161,20 +182,23 @@ def calibrate_raw(frame, fpa, config):
         # Delete telemetry
         if hasattr(fpa,'ignore_first_row') and fpa.ignore_first_row:
            frame[0,:] = frame[1,:]
-        
-        # Raw noise calculation
+
+        # Pedestal shift correction
+        frame = fix_pedestal(frame, fpa)
+
+        # Raw noise calculation comes after pedestal shift
         if hasattr(fpa,'masked_columns'):
             noise = np.nanmedian(np.std(frame[:,fpa.masked_columns],axis=0))
         elif hasattr(fpa,'masked_rows'):
             noise = np.nanmedian(np.std(frame[fpa.masked_rows,:],axis=1))
         else:
             noise = -1 
-
-        # Detector corrections
-        frame = fix_pedestal(frame, fpa)
      
+        # Linearity 
         frame = fix_linearity(frame, config.linearity_mu, 
             config.linearity_evec, config.linearity_coeffs)
+
+        # FPA spatial uniformity
         frame = frame * config.flat_field
         
         # Fix bad pixels, saturated pixels, and any nonfinite 
@@ -191,9 +215,12 @@ def calibrate_raw(frame, fpa, config):
         
         # Absolute radiometry
         frame = (frame.T * config.radiometric_calibration).T
-       
-        # Fix OSF
-        frame = fix_osf(frame, fpa)
+
+        # There are two ways to fix OSF seams.  The first one is the
+        # traditional way, which is applied to unclipped, unflipped (long-to-short)
+        # FPA data.    
+        if config.radiance_mean is None:
+            frame = fix_osf(frame, fpa)
         
         # Catch NaNs
         frame[sp.logical_not(sp.isfinite(frame))]=0
@@ -212,6 +239,12 @@ def calibrate_raw(frame, fpa, config):
         bad = bad[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
         bad = bad[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
         bad = sp.flip(bad, axis=0)
+
+    # If we are using the statistical prediction method for fixing the  OSF seam,
+    # we apply that approach to clipped data
+    if config.radiance_mean is not None:
+        frame = fix_osf_gaussian(frame, fpa, config.radiance_mean, 
+            config.radiance_covariance)
 
     # Mirror image
     if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
