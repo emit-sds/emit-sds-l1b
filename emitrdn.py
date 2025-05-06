@@ -12,7 +12,7 @@ import scipy as sp
 import numpy as np
 from spectral.io import envi
 from datetime import datetime, timezone
-from scipy import linalg, polyfit, polyval
+from numpy import linalg, polyfit, polyval
 import json
 import logging
 import argparse
@@ -103,19 +103,19 @@ class Config:
            self.dark = left_shift_twice(self.dark)
 
         _, self.wl_full, self.fwhm_full = \
-             sp.loadtxt(fpa.spectral_calibration_file).T * 1000
-        self.srf_correction = sp.fromfile(fpa.srf_correction_file,
-             dtype = sp.float32).reshape((fpa.native_rows, fpa.native_rows))
-        self.crf_correction = sp.fromfile(fpa.crf_correction_file,
-             dtype = sp.float32).reshape((fpa.native_columns, fpa.native_columns))
-        self.bad = sp.fromfile(fpa.bad_element_file,
-             dtype = sp.int16).reshape((fpa.native_rows, fpa.native_columns))
-        self.flat_field = sp.fromfile(self.flat_field_file,
-             dtype = sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
+             np.loadtxt(fpa.spectral_calibration_file).T * 1000
+        self.srf_correction = np.fromfile(fpa.srf_correction_file,
+             dtype = np.float32).reshape((fpa.native_rows, fpa.native_rows))
+        self.crf_correction = np.fromfile(fpa.crf_correction_file,
+             dtype = np.float32).reshape((fpa.native_columns, fpa.native_columns))
+        self.bad = np.fromfile(fpa.bad_element_file,
+             dtype = np.int16).reshape((fpa.native_rows, fpa.native_columns))
+        self.flat_field = np.fromfile(self.flat_field_file,
+             dtype = np.float32).reshape((1, fpa.native_rows, fpa.native_columns))
         self.flat_field = self.flat_field[0,:,:]
         self.flat_field[np.logical_not(np.isfinite(self.flat_field))] = 0
         _, self.radiometric_calibration, self.radiometric_uncert = \
-             sp.loadtxt(self.radiometric_coefficient_file).T
+             np.loadtxt(self.radiometric_coefficient_file).T
     
         # There are two ways to fix OSF seams.  If the OSF seam interpolation
         # file is defined, we are using method #2.  Read in the file.
@@ -129,8 +129,8 @@ class Config:
         # zero offset perturbation
         self.zero_offset = np.zeros((fpa.native_rows, fpa.native_columns))
         if hasattr(fpa, 'zero_offset_file'):
-            self.zero_offset = sp.fromfile(fpa.zero_offset_file,
-                dtype=sp.float32).reshape((1, fpa.native_rows, fpa.native_columns))
+            self.zero_offset = np.fromfile(fpa.zero_offset_file,
+                dtype=np.float32).reshape((1, fpa.native_rows, fpa.native_columns))
 
 
         # Load ghost configuration and construct the matrix
@@ -223,7 +223,7 @@ def calibrate_raw(frame, fpa, config):
             frame = fix_osf(frame, fpa)
         
         # Catch NaNs
-        frame[sp.logical_not(sp.isfinite(frame))]=0
+        frame[np.logical_not(np.isfinite(frame))]=0
 
     else:
         noise = -9999
@@ -233,12 +233,12 @@ def calibrate_raw(frame, fpa, config):
         # Clip the radiance data to the appropriate size
         frame = frame[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
         frame = frame[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
-        frame = sp.flip(frame, axis=0)
+        frame = np.flip(frame, axis=0)
 
         # Clip the replaced channel mask
         bad = bad[:,fpa.first_distributed_column:(fpa.last_distributed_column + 1)]
         bad = bad[fpa.first_distributed_row:(fpa.last_distributed_row + 1),:]
-        bad = sp.flip(bad, axis=0)
+        bad = np.flip(bad, axis=0)
 
     # If we are using the statistical prediction method for fixing the  OSF seam,
     # we apply that approach to clipped data
@@ -248,8 +248,8 @@ def calibrate_raw(frame, fpa, config):
 
     # Mirror image
     if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
-        bad = sp.flip(bad, axis=1)
-        frame = sp.flip(frame, axis=1)
+        bad = np.flip(bad, axis=1)
+        frame = np.flip(frame, axis=1)
 
     # Replace all bad data flags with -9999
     cleanframe = frame.copy()
@@ -316,13 +316,13 @@ def main():
        with open(args.output_file,'wb') as fout:
           with open(args.output_replaced,'wb') as foutreplace:
 
-            raw = sp.fromfile(fin, count=nframe, dtype=dtype)
+            raw = np.fromfile(fin, count=nframe, dtype=dtype)
             jobs = []
                
             while len(raw)>0:
 
                 # Read a frame of data 
-                raw = np.array(raw, dtype=sp.float32)
+                raw = np.array(raw, dtype=np.float32)
                 frame = raw.reshape((rows,columns))
 
                 if lines_analyzed%10==0:
@@ -336,19 +336,19 @@ def main():
                     # Write to file
                     result = ray.get(jobs)
                     for frame, noise, bad in result:
-                        np.asarray(frame, dtype=sp.float32).tofile(fout)
-                        np.asarray(bad, dtype=sp.uint8).tofile(foutreplace)
+                        np.asarray(frame, dtype=np.float32).tofile(fout)
+                        np.asarray(bad, dtype=np.uint8).tofile(foutreplace)
                         noises.append(noise)
                     jobs = []
             
                 # Read next chunk
-                raw = sp.fromfile(fin, count=nframe, dtype=dtype)
+                raw = np.fromfile(fin, count=nframe, dtype=dtype)
 
             # Do any final jobs
             result = ray.get(jobs)
             for frame, noise, bad in result:
-                sp.asarray(frame, dtype=sp.float32).tofile(fout)
-                np.asarray(bad, dtype=sp.uint8).tofile(foutreplace)
+                np.asarray(frame, dtype=np.float32).tofile(fout)
+                np.asarray(bad, dtype=np.uint8).tofile(foutreplace)
                 noises.append(noise)
 
     # Form output metadata strings
