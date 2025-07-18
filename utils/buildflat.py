@@ -49,6 +49,8 @@ def main():
         print(infile)
         inhdr  = find_header(infile)
         img = envi.open(inhdr).load()
+        # Make it writable
+        img = np.array(img, copy=True)
         if np.any(img<-9990):
            continue
         band = np.squeeze(img[:,:,50])

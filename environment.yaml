@@ -1,6 +1,5 @@
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - astropy=7.0.1
   - matplotlib=3.10.1
