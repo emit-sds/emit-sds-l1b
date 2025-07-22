@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [v1.4.4](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.3...v1.4.4)
+
+> 22 July 2025
+
+* add cal file and wavelengths by @pgbrodrick in https://github.com/emit-sds/emit-sds-l1b/pull/30
+
 #### [v1.4.3](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.2...v1.4.3)
 
 > 2 April 2025
