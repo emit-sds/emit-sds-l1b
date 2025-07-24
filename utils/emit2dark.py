@@ -43,11 +43,11 @@ def dark_from_file(filepath):
     infile = envi.open(find_header(filepath))
 
     if int(infile.metadata['data type']) == 2:
-        dtype = sp.int16
+        dtype = np.int16
     elif int(infile.metadata['data type']) == 12:
-        dtype = sp.uint16
+        dtype = np.uint16
     elif int(infile.metadata['data type']) == 4:
-        dtype = sp.float32
+        dtype = np.float32
     else:
         raise ValueError('Unsupported data type')
     if infile.metadata['interleave'] != 'bil':
@@ -70,7 +70,7 @@ def dark_from_file(filepath):
             # Read a frame of data
             if line%10==0:
                 logging.info('Averaging line '+str(line))
-            frame = sp.fromfile(fin, count=nframe, dtype=dtype)
+            frame = np.fromfile(fin, count=nframe, dtype=dtype)
             if len(frame)<nframe:
                 print('exiting early')
                 break
@@ -106,8 +106,8 @@ def main():
     dark_avg, dark_std = dark_from_file(args.input)
 
     with open(args.output_dark,'w') as fout:
-        sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
-        sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
+        np.asarray(dark_avg, dtype=np.float32).tofile(fout)
+        np.asarray(dark_std, dtype=np.float32).tofile(fout)
 
     with open(args.output_dark+'.hdr','w') as fout:
         fout.write(header_string % dark_avg.shape)
