@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [v1.4.5](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.5...v1.4.5)
+
+> 14 August 2025
+
+* Use conda-forge packages and clean up old references by @winstonolson in https://github.com/emit-sds/emit-sds-l1b/pull/29
+* Use numpy instead of deprecated scipy
+
 #### [v1.4.4](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.3...v1.4.4)
 
 > 22 July 2025
