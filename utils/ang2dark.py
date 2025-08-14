@@ -55,8 +55,8 @@ def main():
             # Read a frame of data
             if lines%1000==0:
                 logging.info('Calibrating line '+str(lines))
-            header = sp.fromfile(fin, count=columns*2, dtype=sp.ubyte)
-            frame = sp.fromfile(fin, count=nframe, dtype=sp.uint16)
+            header = np.fromfile(fin, count=columns*2, dtype=np.ubyte)
+            frame = np.fromfile(fin, count=nframe, dtype=np.uint16)
             frame = frame.reshape((rows, columns))
             
             # Finite state machine
@@ -72,12 +72,12 @@ def main():
                 # and standard error
                 elif ndark >= dark_max:
 
-                    dark_avg = sp.array(darkframes).mean(axis=0)
-                    dark_std = sp.array(darkframes).std(axis=0)/sp.sqrt(ndark)
+                    dark_avg = np.array(darkframes).mean(axis=0)
+                    dark_std = np.array(darkframes).std(axis=0)/np.sqrt(ndark)
 
                     with open(args.output_dark,'w') as fout:
-                        sp.asarray(dark_avg, dtype=sp.float32).tofile(fout)
-                        sp.asarray(dark_std, dtype=sp.float32).tofile(fout)
+                        np.asarray(dark_avg, dtype=np.float32).tofile(fout)
+                        np.asarray(dark_std, dtype=np.float32).tofile(fout)
                     with open(args.output_dark+'.hdr','w') as fout:
                         fout.write(header_string)
                     break

@@ -68,8 +68,8 @@ def main():
             # Read a frame of data
             if line%1000==0:
                 logging.info('Evaluating line '+str(lines))
-            header = sp.fromfile(fin, count=columns*2, dtype=sp.ubyte)
-            frame = sp.fromfile(fin, count=nframe, dtype=sp.uint16)
+            header = np.fromfile(fin, count=columns*2, dtype=np.ubyte)
+            frame = np.fromfile(fin, count=nframe, dtype=np.uint16)
             frame = np.array(frame, dtype=np.float32)
             if line >= start_line and line < end_line: 
                 frames.append(frame)

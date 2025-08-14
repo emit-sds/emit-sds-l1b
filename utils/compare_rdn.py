@@ -25,12 +25,12 @@ def main():
     args = parser.parse_args()
 
     with open(args.input_A,'rb') as finA:
-        A = sp.fromfile(finA, dtype=sp.float32)
+        A = np.fromfile(finA, dtype=np.float32)
 
     with open(args.input_B,'rb') as finB:
-        B = sp.fromfile(finB, dtype=sp.float32)
+        B = np.fromfile(finB, dtype=np.float32)
 
-    bad = sp.logical_or(A<1e-9,B<1e-9)
+    bad = np.logical_or(A<1e-9,B<1e-9)
     A[bad]=1e-9
     B[bad]=1e-9
     print('Mean absolute difference: %f' % ((abs(A-B)).mean()))
