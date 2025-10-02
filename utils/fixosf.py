@@ -17,7 +17,7 @@ from numba import jit
 from math import pow
 from fpa import FPA
 from scipy.interpolate import interp1d
-from isofit.core.common import conditional_gaussian, svd_inv 
+from isofit.core.common import svd_inv 
 import subprocess
 
 
