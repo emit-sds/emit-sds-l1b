@@ -81,6 +81,7 @@ def main():
            f"--mode {runconfig['instrument_mode']}",
            f"--level {runconfig['level']}",
            f"--log_file {log_path}",
+           f"--max_jobs {runconfig['max_jobs']}",
            runconfig["raw_img_path"],
            runconfig["dark_img_path"],
            l1b_config_path,

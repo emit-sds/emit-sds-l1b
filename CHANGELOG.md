@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
-#### [v1.4.5](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.5...v1.4.5)
+#### [v1.4.6](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.5...v1.4.6)
+
+> 7 Oct 2025
+
+* Use max_jobs value from run config by @adamchlus in https://github.com/emit-sds/emit-sds-l1b/pull/33
+
+#### [v1.4.5](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.4...v1.4.5)
 
 > 14 August 2025
 
