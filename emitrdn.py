@@ -20,7 +20,7 @@ sys.path.append(my_directory + '/utils/')
 
 from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
-from fixosf import fix_osf, fix_osf_gaussian
+from fixosf import fix_osf, fix_osf_gaussian, precalc_fix_osf_gaussian_variables
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
@@ -115,10 +115,16 @@ class Config:
         # file is defined, we are using method #2.  Read in the file.
         if hasattr(fpa,'osf_seam_interpolation_file'):
             d = loadmat(fpa.osf_seam_interpolation_file)
-            self.radiance_mean = np.squeeze(d['radiance_mean'])
-            self.radiance_covariance = d['radiance_covariance']
+            radiance_mean = np.squeeze(d['radiance_mean'])
+            radiance_covariance = d['radiance_covariance']
+            
+            self.precalc_osf = precalc_fix_osf_gaussian_variables(fpa, 
+                                               radiance_mean,
+                                               radiance_covariance,
+                                               )
+            self.run_gaussian_osf = True
         else:
-            self.radiance_mean = None
+            self.run_gaussian_osf = False
 
         # zero offset perturbation
         self.zero_offset = np.zeros((fpa.native_rows, fpa.native_columns))
@@ -213,7 +219,7 @@ def calibrate_raw(frame, fpa, config):
         # There are two ways to fix OSF seams.  The first one is the
         # traditional way, which is applied to unclipped, unflipped (long-to-short)
         # FPA data.
-        if config.radiance_mean is None:
+        if not config.run_gaussian_osf:
             frame = fix_osf(frame, fpa)
 
         # Catch NaNs
@@ -236,9 +242,8 @@ def calibrate_raw(frame, fpa, config):
 
     # If we are using the statistical prediction method for fixing the  OSF seam,
     # we apply that approach to clipped data
-    if config.radiance_mean is not None:
-        frame = fix_osf_gaussian(frame, fpa, config.radiance_mean,
-            config.radiance_covariance)
+    if config.run_gaussian_osf:
+        frame = fix_osf_gaussian(frame, config.precalc_osf)
 
     # Mirror image
     if hasattr(fpa, 'flip_horizontal') and fpa.flip_horizontal:
@@ -261,7 +266,7 @@ def main():
     parser.add_argument('--level', default='DEBUG',
             help='verbosity level: INFO, ERROR, or DEBUG')
     parser.add_argument('--log_file', type=str, default=None)
-    parser.add_argument('--max_jobs', type=int, default=40)
+    parser.add_argument('--max_jobs', type=int, default=64)
     parser.add_argument('input_file', default='')
     parser.add_argument('dark_file', default = None)
     parser.add_argument('config_file', default='')
