@@ -17,7 +17,7 @@ from numba import jit
 from math import pow
 from fpa import FPA
 from scipy.interpolate import interp1d
-from isofit.core.common import conditional_gaussian
+from isofit.core.common import svd_inv 
 import subprocess
 
 
@@ -30,30 +30,47 @@ def find_header(infile):
     raise FileNotFoundError('Did not find header file')
 
 
-def fix_osf_gaussian(frame, fpa, mu, C):
-    fixed = frame.copy()
+def precalc_fix_osf_gaussian_variables(fpa, mu, C):
 
-    if len(fpa.osf_seam_interpolation_edges)==0:
-        return fixed
+    n_rows = fpa.last_distributed_row - fpa.first_distributed_row + 1
 
     # Calculate indices for inferred portion and remainder 
-    window = []
+    mask = np.ones(n_rows, dtype=bool)
     for positions in fpa.osf_seam_interpolation_edges:
-        window.extend(np.arange(positions[0]+1,positions[1]))
-    remain = [q for q in np.arange(frame.shape[0]) if q not in window]
+        mask[positions[0]+1:positions[1]] = False
+    remain = np.where(mask)[0]
+    window = np.where(~mask)[0]
+
+    w = window[:, None]
+    r = remain[:, None]
+    C11 = C[r, r.T]
+    C21 = C[w, r.T]
+    Cinv = svd_inv(C11)
+    M = C21 @ Cinv
+
+    return {
+        "window": window,
+        "remain": remain,
+        "M": M,
+        "mu_window": mu[window],
+        "mu_remain": mu[remain]
+    }
+
+def fix_osf_gaussian(frame, precomp):
+    fixed = frame.copy()
+    window = precomp["window"]
+    remain = precomp["remain"]
+    M = precomp["M"]
+    mu_window = precomp["mu_window"]
+    mu_remain = precomp["mu_remain"]
 
     # Perform inference for each spectrum independently
     # mean mu and covariance C are for normalized radiances
-    for col in range(fixed.shape[1]):
-        rdn = frame[:,col]
-        z = np.linalg.norm(rdn)
-        normed = rdn / z
-        pred,_ = conditional_gaussian(mu, C, window, remain, 
-            normed[remain])
-        fixed[window,col] = (pred * z)
-
+    z = np.linalg.norm(frame, axis=0)
+    normed = frame / z
+    pred = mu_window[:, None] + M @ (normed[remain, :] - mu_remain[:, None])
+    fixed[window, :] = pred * z
     return fixed
-
 
 def fix_osf(frame, fpa):
     fixed = frame.copy()
