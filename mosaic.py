@@ -66,8 +66,9 @@ def main():
     rgb_adj = rgb.copy()
     clahe = cv.createCLAHE(clipLimit=clip, tileGridSize=tile)
     for b in range(rgb_adj.shape[-1]):
-        rgb_adj[:, :, b] = clahe.apply(rgb_adj[:, :, b])
-
+        rgb_adj[mask.sum(axis=1)==0,:, b] = clahe.apply(rgb_adj[mask.sum(axis=1)==0,:, b])
+        zero_but_data  = (rgb_adj[...,b] == 0) * ~mask
+        rgb_adj[zero_but_data,b] += 1
     ort_rgbfiles = []
     for rdn_file, glt_file in zip(args.rdn, args.glt):
         glt_dataset = envi.open(glt_file.replace('.img', '.hdr'))
