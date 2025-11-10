@@ -8,17 +8,19 @@ from osgeo import gdal
 import spectral
 from spectral.io import envi
 
-def process_glt(f, ulx, lrx):
-    ds = gdal.Open(f)
+def process_glt(glt_file, ulx, lrx):
+    ds = gdal.Open(glt_file)
     band1 = ds.GetRasterBand(1).ReadAsArray()
     gt = ds.GetGeoTransform()
+    gp = ds.GetProjection()
+
     width = ds.RasterXSize
     height = ds.RasterYSize
     uly = gt[3]
     lry = uly + gt[5] * height
     lon = np.linspace(ulx + gt[1] / 2, lrx - gt[1] / 2, width)
     lat = np.linspace(uly + gt[5] / 2, lry - gt[5] / 2, height)
-    return ds, gt, band1, lon, lat
+    return gt, gp, band1, lon, lat
 
 def single_image_ortho(img_dat, in_glt, glt_nodata_value=0):
     glt = in_glt.copy()
@@ -38,14 +40,14 @@ def array_to_gdal(rgb_ort, proj, geotrans, nodata = -9999):
     rgb_ort[rgb_ort == nodata] = 0
     driver = gdal.GetDriverByName('MEM')
     rows, cols, bands = rgb_ort.shape
-    gt_right = driver.Create('', cols, rows, bands, gdal.GDT_Byte)
-    gt_right.SetProjection(proj)
-    gt_right.SetGeoTransform(geotrans)
+    rgb_dset = driver.Create('', cols, rows, bands, gdal.GDT_Byte)
+    rgb_dset.SetProjection(proj)
+    rgb_dset.SetGeoTransform(geotrans)
     for i in range(bands):
-        band = gt_right.GetRasterBand(i + 1)
+        band = rgb_dset.GetRasterBand(i + 1)
         band.WriteArray(rgb_ort[:, :, i].astype(np.uint8))
         band.SetNoDataValue(0)
-    return gt_right
+    return rgb_dset
 
 def main():
     parser = argparse.ArgumentParser(description="Create RGB mosaic from L1B radiance")
@@ -106,7 +108,7 @@ def main():
         print(f'  Upper Left Longitude: {ulx}')
         print(f'  Lower Right Longitude: {lrx}')
 
-        glt_dataset, gt, band1, lon, lat = process_glt(glt_file, ulx, lrx)
+        geotrans, geoproj, band1, lon, lat = process_glt(glt_file, ulx, lrx)
         glt_dataset = envi.open(glt_file.replace('.img', '.hdr'))
         glt = glt_dataset.open_memmap(writeable=False, interleave='bip').copy()
         del glt_dataset
@@ -126,7 +128,7 @@ def main():
             rband = band1[:, rleft:]
             rtop, rbottom = np.argwhere(np.sum(rband == 0, axis=1) != rband.shape[1])[[0, -1]].flatten()
             glt_right = glt[rtop:rbottom + 1, rleft:rright + 1]
-            gt_right = list(gt)
+            gt_right = list(geotrans)
             gt_right[0] = -180 - (180 - lon[rleft]) if lon[rleft] > 180 else lon[rleft]
             gt_right[3] = lat[rtop]
 
@@ -134,27 +136,24 @@ def main():
             rgb_ort_right = single_image_ortho(rgb_adj[start:end], glt_right).astype(int)
 
             east_files.append(array_to_gdal(rgb_ort_left,
-                                          glt_dataset.GetProjection(),
-                                          gt))
+                                          geoproj,
+                                          geotrans))
 
             west_files.append(array_to_gdal(rgb_ort_right,
-                                          glt_dataset.GetProjection(),
+                                          geoproj,
                                           gt_right))
 
         else:
 
             rgb_ort = single_image_ortho(rgb_adj[start:end], glt).astype(int)
 
-            gt = list(glt_dataset.GetGeoTransform())
-
             if ulx > 180:
                 print(f'{os.path.basename(rdn_file)}  Lies east of east antimeridian, moving west\n')
-                gt = list(glt_dataset.GetGeoTransform())
-                gt[0] = -180 - (180 - gt[0])
+                geotrans[0] = -180 - (180 - geotrans[0])
 
             gdal_dset = array_to_gdal(rgb_ort,
-                            glt_dataset.GetProjection(),
-                            gt)
+                            geoproj,
+                            geotrans)
 
             if ulx > 180 or lrx <= 0:
                 print(f'{os.path.basename(rdn_file)}  Assigned to: WEST\n')
