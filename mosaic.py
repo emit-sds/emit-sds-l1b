@@ -75,7 +75,7 @@ def main():
         rgb.append(img.read_bands(idx))
 
     rgb = np.vstack(rgb)
-    mask = rgb[:, :, 0] == 0
+    mask = rgb[:, :, 0] == -9999
     rgb[mask] = np.nan
     rgb_mask = rgb.copy()
     rgb_mask[rgb_mask > 50] = np.nan
@@ -149,7 +149,7 @@ def main():
 
             if ulx > 180:
                 print(f'{os.path.basename(rdn_file)}  Lies east of east antimeridian, moving west\n')
-                geotrans[0] = -180 - (180 - geotrans[0])
+                geotrans[0] -= 360
 
             gdal_dset = array_to_gdal(rgb_ort,
                             geoproj,
