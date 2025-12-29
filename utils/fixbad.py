@@ -82,7 +82,9 @@ def closest(a,B):
 def fix_bad(frame, bad, fpa):
 
     valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
+    
     if valid_columns.size == 0:
+        print('No valid columns, skipping fix_bad')
         return frame
     
     rows, columns = frame.shape
@@ -108,6 +110,7 @@ def fix_bad(frame, bad, fpa):
             good_channels = np.where(good_channels)[0]
             
             if good_channels.size == 0:
+                print('No good channels remaining, skipping fix_bad')
                 continue
 
             # calcluate spectral angle over valid FPA elements
