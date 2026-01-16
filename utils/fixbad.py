@@ -79,7 +79,7 @@ def closest(a,B):
 
 
 @jit
-def fix_bad(frame, bad, fpa):
+def fix_bad(frame, bad, osf_mask, first_illuminated_row, last_illuminated_row):
 
     rows, columns = frame.shape
     fixed = frame.copy()
@@ -89,18 +89,16 @@ def fix_bad(frame, bad, fpa):
     # Now fix bad pixels in the map using spectral angle 
     # matching plus linear regression inference approach
     # Chapman et al., Remote Sensing 2019
+    
     for col in range(columns):
         if np.sum(bad[:,col])<0:
 
             tofix_channels = np.where(bad[:,col]!=0)[0]
 
             # Don't match on OSF or extrema
-            good_channels = (bad[:,col]==0)
-            for positions in fpa.osf_seam_positions:
-                osf_idx = get_osf_interp_idx(positions)
-                good_channels[osf_idx] = False
-            good_channels[:fpa.first_illuminated_row] = False
-            good_channels[(fpa.last_illuminated_row+1):] = False
+            good_channels = (bad[:, col] == 0) & osf_mask
+            good_channels[:first_illuminated_row] = False
+            good_channels[(last_illuminated_row+1):] = False
             good_channels = np.where(good_channels)[0]
 
             # calcluate spectral angle over valid FPA elements
