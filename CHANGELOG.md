@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [v1.4.8](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.7...v1.4.8)
+
+> 16 Jan 2026
+
+* RGB mosaic utility by @adamchlus in https://github.com/emit-sds/emit-sds-l1b/pull/37
+
 #### [v1.4.7](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.6...v1.4.7)
 
 > 5 Nov 2025
