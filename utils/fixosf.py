@@ -102,7 +102,13 @@ def get_osf_interp_idx(positions):
   else:
     return np.arange(positions[0]+1, positions[-1])
 
-
+def build_osf_mask(nrows, osf_seam_positions):
+    mask = np.ones(nrows, dtype=bool)
+    for positions in osf_seam_positions:
+        positions_arr = np.asarray(positions, dtype=np.int64)
+        idx = get_osf_interp_idx(positions_arr)
+        mask[idx] = False
+    return mask
 
 def main():
 
