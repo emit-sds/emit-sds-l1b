@@ -81,11 +81,17 @@ def closest(a,B):
 @jit
 def fix_bad(frame, bad, fpa):
 
+    valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
+    
+    if valid_columns.size == 0:
+        print('No valid columns, skipping fix_bad')
+        return frame
+    
     rows, columns = frame.shape
     fixed = frame.copy()
-    valid_columns = np.where(np.sum(bad,axis=0)==0)[0]
+    
     nfixed = 0
-
+    
     # Now fix bad pixels in the map using spectral angle 
     # matching plus linear regression inference approach
     # Chapman et al., Remote Sensing 2019
@@ -102,6 +108,10 @@ def fix_bad(frame, bad, fpa):
             good_channels[:fpa.first_illuminated_row] = False
             good_channels[(fpa.last_illuminated_row+1):] = False
             good_channels = np.where(good_channels)[0]
+            
+            if good_channels.size == 0:
+                print('No good channels remaining, skipping fix_bad')
+                continue
 
             # calcluate spectral angle over valid FPA elements
             best_sa = 99999
@@ -116,7 +126,6 @@ def fix_bad(frame, bad, fpa):
                fixed[badc,col] = slope * best_spectrum[badc] + offset
             nfixed = nfixed + 1
     return fixed
-
 
 def main():
 
