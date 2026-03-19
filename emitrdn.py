@@ -20,7 +20,7 @@ sys.path.append(my_directory + '/utils/')
 
 from fpa import FPA, frame_embed, frame_extract
 from fixbad import fix_bad
-from fixosf import fix_osf, fix_osf_gaussian, precalc_fix_osf_gaussian_variables
+from fixosf import fix_osf, fix_osf_gaussian, precalc_fix_osf_gaussian_variables, build_osf_mask
 from fixlinearity import fix_linearity
 from fixscatter import fix_scatter
 from fixghost import fix_ghost
@@ -30,7 +30,6 @@ from pedestal import fix_pedestal
 from darksubtract import subtract_dark
 from leftshift import left_shift_twice
 from emit2dark import bad_flag, dark_from_file
-
 
 header_template = """ENVI
 description = {{EMIT L1B calibrated spectral radiance (units: uW nm-1 cm-2 sr-1)}}
@@ -132,7 +131,6 @@ class Config:
             self.zero_offset = np.fromfile(fpa.zero_offset_file,
                 dtype=np.float32).reshape((1, fpa.native_rows, fpa.native_columns))
 
-
         # Load ghost configuration and construct the matrix
         with open(fpa.ghost_map_file,'r') as fin:
             ghost_config = json.load(fin)
@@ -157,6 +155,9 @@ class Config:
 
         linearity_coeffs = envi.open(self.linearity_map_file+'.hdr').load()
         self.linearity_coeffs = np.array(linearity_coeffs)
+        
+        if hasattr(fpa,'osf_seam_positions'):
+            self.osf_mask = build_osf_mask(fpa.native_rows, fpa.osf_seam_positions)
 
 @ray.remote
 def calibrate_raw(frame, fpa, config):
@@ -206,7 +207,8 @@ def calibrate_raw(frame, fpa, config):
         flagged = np.logical_or(saturated, np.logical_not(np.isfinite(frame)))
         frame[flagged] = 0
         bad[flagged] = -1
-        frame = fix_bad(frame, bad, fpa)
+        
+        frame = fix_bad(frame, bad, config.osf_mask, fpa.first_illuminated_row, fpa.last_illuminated_row)
 
         # Optical corrections
         frame = fix_scatter(frame, config.srf_correction, config.crf_correction)
