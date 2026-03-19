@@ -1,6 +1,13 @@
 ### Changelog
 
-All notable changes to this project will be documented in this file. Dates are displayed in UTC.
+All notable changes to this project will be documented in this file.
+
+#### [v1.4.9](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.8...v1.4.9)
+
+> 19 Mar 2026
+
+* Fix bad fix by @adamchlus in https://github.com/emit-sds/emit-sds-l1b/pull/38
+* Numba update by @adamchlus in https://github.com/emit-sds/emit-sds-l1b/pull/41
 
 #### [v1.4.8](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.7...v1.4.8)
 
