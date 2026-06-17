@@ -16,7 +16,7 @@
    "srf_correction_file": "../data/emit/EMIT_SpectralScatter_20220406",
    "crf_correction_file": "../data/emit/EMIT_SpatialScatter_20220406",
    "bad_element_file": "../data/emit/EMIT_BadElements_20220307",
-   "spectral_calibration_file": "../data/emit/EMIT_Wavelengths_20240227.txt",
+   "spectral_calibration_file": "../data/emit/EMIT_Wavelengths_20260616_20221201-20230501.txt",
    "ghost_map_file": "../data/emit/EMIT_GhostMap_20220424.json",
    "extract_subframe": true,
    "flip_horizontal": true,
@@ -44,6 +44,6 @@
    "native_columns":1280,
    "reference_cols":[[140,340],[940,1015],[1035,1140]],
    "pedestal_strategy":"both",
-   "timerange_start_utc": "2024-02-18T00:00:00",
-   "comments": "New wavelength solution after thermal cycle on 18 Feb 2024.  Radiometry for this time range updated Jan 2026."
+   "timerange_start_utc": "2022-12-01T00:00:00",
+   "comments": "Wavelength solution after extended down period, based on June 2026 wavelength solve.  Radiometry for this time range updated Jan 2026."
 }
