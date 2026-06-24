@@ -44,6 +44,6 @@
    "native_columns":1280,
    "reference_cols":[[140,340],[940,1015],[1035,1140]],
    "pedestal_strategy":"both",
-   "timerange_start_utc": "2022-08-13T00:00:00",
+   "timerange_start_utc": "2022-08-10T00:00:00",
    "comments": "Post-FPA position adjustments, with channel clipping. There was an FPA tilt update on 13 August 2022. Radiometry for this time range updated Jan 2026, wavelengths updated June 2026."
 }
