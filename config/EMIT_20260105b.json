@@ -15,7 +15,7 @@
    },
    "srf_correction_file": "../data/emit/EMIT_SpectralScatter_20220406",
    "crf_correction_file": "../data/emit/EMIT_SpatialScatter_20220406",
-   "bad_element_file": "../data/emit/EMIT_BadElements_20220307",
+   "bad_element_file": "../data/emit/EMIT_BadElements_20260729",
    "spectral_calibration_file": "../data/emit/EMIT_Wavelengths_20260616_20221201-20230501.txt",
    "ghost_map_file": "../data/emit/EMIT_GhostMap_20220424.json",
    "extract_subframe": true,
