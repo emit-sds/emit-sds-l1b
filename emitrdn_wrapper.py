@@ -49,7 +49,8 @@ def main():
         os.makedirs(output_dir)
 
     # Create path names
-    rdn_basename = os.path.basename(runconfig["raw_img_path"]).replace("l1a", "l1b").replace("raw", "rdn")
+    acquisition_id = os.path.basename(runconfig["raw_img_path"]).split("_")[0]
+    rdn_basename = "_".join([acquisition_id, "l1b", "rdn", f"v{runconfig['product_version']}.img"])
     log_path = f"{output_dir}/{rdn_basename.replace('.img', '_pge.log')}"
     rdn_img_path = f"{output_dir}/{rdn_basename}"
     bandmask_img_path = f"{output_dir}/{rdn_basename.replace('rdn', 'bandmask')}"

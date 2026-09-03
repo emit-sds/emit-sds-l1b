@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+#### [v2.0.0](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.9...v2.0.0)
+
+> 3 Sep 2026
+
+* V2 reprocessing by @winstonolson in https://github.com/emit-sds/emit-sds-l1b/pull/45
+* Wavelength update by @pgbrodrick in https://github.com/emit-sds/emit-sds-l1b/pull/44
+* Radiance improvements, including support for v2 reflectance by @davidraythompson in https://github.com/emit-sds/emit-sds-l1b/pull/40
+* fix wavelength file offset from um to nm conversion by @pgbrodrick in https://github.com/emit-sds/emit-sds-l1b/pull/46
+* Update to bad elements file, fixing column 1164 row 303 by @davidraythompson in https://github.com/emit-sds/emit-sds-l1b/pull/47
+* now int16 format by @davidraythompson in https://github.com/emit-sds/emit-sds-l1b/pull/48
+
 #### [v1.4.9](https://github.com/emit-sds/emit-sds-l1b/compare/v1.4.8...v1.4.9)
 
 > 19 Mar 2026
